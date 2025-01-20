@@ -142,6 +142,17 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    //Updates BPM in every processing block
+    if (auto* playHead = getPlayHead())
+    {
+        juce::AudioPlayHead::CurrentPositionInfo posInfo;
+        if (playHead->getCurrentPosition(posInfo))
+        {
+            currentBPM = posInfo.bpm;
+        }
+    }
+    
+    
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
     // guaranteed to be empty - they may contain garbage).
@@ -195,4 +206,9 @@ void QuackerVSTAudioProcessor::setStateInformation (const void* data, int sizeIn
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new QuackerVSTAudioProcessor();
+}
+
+double QuackerVSTAudioProcessor::getCurrentBPM() const
+{
+    return currentBPM;
 }

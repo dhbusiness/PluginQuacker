@@ -11,10 +11,12 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
+
 //==============================================================================
 /**
 */
-class QuackerVSTAudioProcessorEditor  : public juce::AudioProcessorEditor
+class QuackerVSTAudioProcessorEditor  : public juce::AudioProcessorEditor, public juce::Timer
+    //added juce::Timer inheritance
 {
 public:
     QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor&);
@@ -23,6 +25,7 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
+    void timerCallback() override; //Override this function from juce::Timer to modify in cpp
 
 private:
     // This reference is provided as a quick way for your editor to

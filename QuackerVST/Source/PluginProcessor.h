@@ -53,7 +53,13 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    double getCurrentBPM() const;
+
+    
 private:
+    
+    double currentBPM {120.0}; //Sets default BPM reading
+    
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessor)
 };

@@ -16,10 +16,18 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
+    startTimerHz(10); //Starting a timer which updates the GUI
+    
 }
 
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 {
+    stopTimer(); //Stopping the timer in deconstructor
+}
+
+void QuackerVSTAudioProcessorEditor::timerCallback()
+{
+    repaint();  // Repaint the editor periodically
 }
 
 //==============================================================================
@@ -30,7 +38,10 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (15.0f));
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+    
+    auto bpm = audioProcessor.getCurrentBPM();
+    g.drawFittedText ("BPM: " + juce::String(bpm), getLocalBounds(), juce::Justification::centred, 1);
+    
 }
 
 void QuackerVSTAudioProcessorEditor::resized()
