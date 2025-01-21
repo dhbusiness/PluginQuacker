@@ -40,7 +40,20 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (15.0f));
     
     auto bpm = audioProcessor.getCurrentBPM();
+    auto QuarterNoteMS = 60000/bpm;
+    auto WholeNoteMS = QuarterNoteMS * 4;
+    auto HalfNoteMS = WholeNoteMS * 0.5;
+    auto EightNoteMS = WholeNoteMS * 0.125;
+    auto SixteenthNotesMS = WholeNoteMS * 0.0625;
+    auto ThirtyTwoNotesMS = WholeNoteMS * 0.03125;
+    
     g.drawFittedText ("BPM: " + juce::String(bpm), getLocalBounds(), juce::Justification::centred, 1);
+    g.drawFittedText ("WholeNoteMS: " + juce::String(WholeNoteMS), getLocalBounds(), juce::Justification::centred - 10, 1);
+    g.drawFittedText ("HalfNoteMS: " + juce::String(HalfNoteMS), getLocalBounds(), juce::Justification::centred + 15, 1);
+    g.drawFittedText ("QuarterNoteMS: " + juce::String(QuarterNoteMS), getLocalBounds(), juce::Justification::centred + 20, 1);
+    g.drawFittedText ("EightNoteMS: " + juce::String(EightNoteMS), getLocalBounds(), juce::Justification::centred + 25, 1);
+    g.drawFittedText ("SixteenthNotesMS: " + juce::String(SixteenthNotesMS), getLocalBounds(), juce::Justification::centred + 30, 1);
+    g.drawFittedText ("ThirtyTwoNotesMS: " + juce::String(ThirtyTwoNotesMS), getLocalBounds(), juce::Justification::centred + 35, 1);
     
 }
 
