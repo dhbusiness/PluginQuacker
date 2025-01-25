@@ -31,6 +31,7 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     QuackerVSTAudioProcessor& audioProcessor;
+    juce::Slider gainSlider; //Added slider
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

@@ -55,10 +55,12 @@ public:
 
     double getCurrentBPM() const;
 
+    juce::AudioParameterFloat* gainParameter; // Param for holding amplitude
     
 private:
     
     double currentBPM {120.0}; //Sets default BPM reading
+    
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessor)

@@ -18,6 +18,14 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     setSize (400, 300);
     startTimerHz(10); //Starting a timer which updates the GUI
     
+    
+    //added slider settings
+    gainSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    gainSlider.setRange(0.0, 2.0, 0.01);
+    gainSlider.setValue(1.0);
+    gainSlider.onValueChange = [this] { audioProcessor.gainParameter->setValueNotifyingHost(gainSlider.getValue()); };
+    addAndMakeVisible(&gainSlider);
+    
 }
 
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
@@ -47,6 +55,12 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     auto SixteenthNotesMS = WholeNoteMS * 0.0625;
     auto ThirtyTwoNotesMS = WholeNoteMS * 0.03125;
     
+    float SelectedTimeMS = QuarterNoteMS;
+    float ResetTime = SelectedTimeMS / 2.0;
+    
+    
+    
+    
     g.drawFittedText ("BPM: " + juce::String(bpm), getLocalBounds(), juce::Justification::centred, 1);
     g.drawFittedText ("WholeNoteMS: " + juce::String(WholeNoteMS), getLocalBounds(), juce::Justification::centred - 10, 1);
     g.drawFittedText ("HalfNoteMS: " + juce::String(HalfNoteMS), getLocalBounds(), juce::Justification::centred + 15, 1);
@@ -61,4 +75,5 @@ void QuackerVSTAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
+    gainSlider.setBounds(10, 10, getWidth() - 20, 30);
 }

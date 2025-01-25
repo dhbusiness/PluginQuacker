@@ -19,9 +19,11 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
 #endif
-{
+gainParameter(new juce::AudioParameterFloat("gain", "Gain", 0.0f, 2.0f, 1.0f))
+{ //Added gain parameter
+    addParameter(gainParameter);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -141,6 +143,7 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
 
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
@@ -173,6 +176,11 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         auto* channelData = buffer.getWritePointer (channel);
 
         // ..do something to the data...
+        //Applies gain param to sample
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            channelData[sample] *= gainValue;
+        }
     }
 }
 
