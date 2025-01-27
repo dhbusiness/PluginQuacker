@@ -21,10 +21,22 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-gainParameter(new juce::AudioParameterFloat("gain", "Gain", 0.0f, 2.0f, 1.0f))
+gainParameter(new juce::AudioParameterFloat("gain", "Gain", 0.0f, 2.0f, 1.0f)),
+//ADSR Params added
+attackParam(new juce::AudioParameterFloat("attack", "Attack", 0.01f, 2.0f, 0.1f)),
+decayParam(new juce::AudioParameterFloat("decay", "Decay", 0.01f, 2.0f, 0.1f)),
+sustainParam(new juce::AudioParameterFloat("sustain", "Sustain", 0.0f, 1.0f, 0.5f)),
+releaseParam(new juce::AudioParameterFloat("release", "Release", 0.01f, 2.0f, 0.1f)),
+duckingEnabled(new juce::AudioParameterBool("duckingEnabled", "Ducking Enabled", true))
 { //Added gain parameter
     addParameter(gainParameter);
-}
+    //ADSR params init
+    addParameter(attackParam);
+    addParameter(decayParam);
+    addParameter(sustainParam);
+    addParameter(releaseParam);
+    addParameter(duckingEnabled)
+    ;}
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
 {
@@ -143,7 +155,7 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
+    //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
 
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
@@ -154,6 +166,21 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             currentBPM = posInfo.bpm;
         }
     }
+    
+    //Calculate samples per note intreval at 4/4
+    samplesPerQuarterNote = (60.0 / currentBPM) * getSampleRate();
+    samplesPerWholeNote = samplesPerQuarterNote * 4.0;
+    samplesPerHalfNote = samplesPerWholeNote * 0.5;
+    samplesPerEigthNote = samplesPerWholeNote * 0.125;
+    samplesPerSixteenthNote = samplesPerWholeNote * 0.0625;
+    samplesPerThirtyTwoNote = samplesPerWholeNote * 0.03125;
+    
+    //Update ADSR params
+    adsrParams.attack = attackParam->get();
+    adsrParams.decay = decayParam->get();
+    adsrParams.sustain = sustainParam->get();
+    adsrParams.release = releaseParam->get();
+    adsr.setParameters(adsrParams);
     
     
     // In case we have more outputs than inputs, this code clears any output
@@ -179,9 +206,23 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         //Applies gain param to sample
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            channelData[sample] *= gainValue;
+            if (duckingEnabled->get())
+            {
+                //Trigger ADSR enevelope at each quarter note and clear sample counter
+                if (sampleCount >= samplesPerQuarterNote)
+                {
+                    adsr.noteOn();
+                    sampleCount = 0.0;
+                }
+                //apply ADSR enevelope
+                channelData[sample] *= adsr.getNextSample();
+                
+            }
         }
     }
+    
+    // Increment sample count
+    sampleCount += buffer.getNumSamples();
 }
 
 //==============================================================================
