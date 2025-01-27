@@ -59,6 +59,19 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     duckingToggle.onClick = [this] { audioProcessor.duckingEnabled->setValueNotifyingHost(duckingToggle.getToggleState()); };
     addAndMakeVisible(duckingToggle);
 
+    // Configure note interval selector
+    noteIntervalBox.addItem("Whole Note", 1);
+    noteIntervalBox.addItem("Half Note", 2);
+    noteIntervalBox.addItem("Quarter Note", 3);
+    noteIntervalBox.addItem("Eighth Note", 4);
+    noteIntervalBox.addItem("Sixteenth Note", 5);
+    noteIntervalBox.addItem("Thirty-Two Note", 6); 
+    noteIntervalBox.setSelectedId(audioProcessor.noteIntervalParam->getIndex() + 1, juce::dontSendNotification);
+    noteIntervalBox.onChange = [this] {
+        audioProcessor.noteIntervalParam->setValueNotifyingHost(noteIntervalBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible(noteIntervalBox);	
+    
 }
 
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
@@ -80,17 +93,8 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (15.0f));
     
-    auto bpm = audioProcessor.getCurrentBPM();
-    auto QuarterNoteMS = 60000/bpm;
-    auto WholeNoteMS = QuarterNoteMS * 4;
-    auto HalfNoteMS = WholeNoteMS * 0.5;
-    auto EightNoteMS = WholeNoteMS * 0.125;
-    auto SixteenthNotesMS = WholeNoteMS * 0.0625;
-    auto ThirtyTwoNotesMS = WholeNoteMS * 0.03125;
-    
-    float SelectedTimeMS = QuarterNoteMS;
-    float ResetTime = SelectedTimeMS / 2.0;
-    
+    g.drawFittedText(juce::String(noteIntervalBox.getSelectedId()) , getLocalBounds(), juce::Justification::centred, 1);
+
     
     
     /*
@@ -116,4 +120,5 @@ void QuackerVSTAudioProcessorEditor::resized()
     sustainSlider.setBounds(bounds.removeFromLeft(80));
     releaseSlider.setBounds(bounds.removeFromLeft(80));
     duckingToggle.setBounds(bounds.removeFromTop(40));
+    noteIntervalBox.setBounds(bounds.removeFromTop(40).reduced(10));
 }

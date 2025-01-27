@@ -55,6 +55,8 @@ public:
 
     double getCurrentBPM() const;
 
+    juce::AudioParameterChoice* noteIntervalParam; //Note interval selector
+    
     juce::AudioParameterFloat* gainParameter; // Param for holding amplitude
     
     //Params for ADSR control added
@@ -66,8 +68,9 @@ public:
     
 private:
     
-
     
+    double intervalMultiplier = 1.0; //Variable for multiplying to get selected note interval, defaults to 1x
+    double selectedSamplePerNoteInterval = 0.0; //Holds the math for selected note interval
     double currentBPM {120.0}; //Sets default BPM reading
     double samplesPerQuarterNote = 0.0; //Samples per quarter note
     double samplesPerWholeNote = 0.0;
