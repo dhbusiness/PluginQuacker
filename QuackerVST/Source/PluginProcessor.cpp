@@ -21,24 +21,12 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-gainParameter(new juce::AudioParameterFloat("gain", "Gain", 0.0f, 2.0f, 1.0f)),
-//ADSR Params added
-attackParam(new juce::AudioParameterFloat("attack", "Attack", 0.01f, 2.0f, 0.1f)),
-decayParam(new juce::AudioParameterFloat("decay", "Decay", 0.01f, 2.0f, 0.1f)),
-sustainParam(new juce::AudioParameterFloat("sustain", "Sustain", 0.0f, 1.0f, 0.0f)),
-releaseParam(new juce::AudioParameterFloat("release", "Release", 0.01f, 2.0f, 0.1f)),
-duckingEnabled(new juce::AudioParameterBool("duckingEnabled", "Ducking Enabled", true)),
-noteIntervalParam(new juce::AudioParameterChoice("noteInterval", "Note Interval",
-                                                 { "Whole, Half, Quarter", "Eighth", "Sixteenth", "Thirty-Two"}, 2)) //Defaults to quarter because of the number at the end
-{ //Added gain parameter
-    addParameter(gainParameter);
-    //ADSR params init
-    addParameter(attackParam);
-    addParameter(decayParam);
-    addParameter(sustainParam);
-    addParameter(releaseParam);
-    addParameter(duckingEnabled);
-    addParameter(noteIntervalParam);
+lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),
+lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))
+
+{
+    addParameter(lfoRateParam);
+    addParameter(lfoDepthParam);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -119,6 +107,8 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     spec.sampleRate = sampleRate;
     spec.numChannels = getTotalNumOutputChannels();
     
+    lfo.setSampleRate(sampleRate); //SETS SAMPLE RATE FOR LFO TO USER SAMPLE RATE
+    
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
@@ -159,7 +149,12 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
-
+    
+    
+    lfo.setRate(lfoRateParam->get());
+    lfo.setDepth(lfoDepthParam->get());
+    
+    
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
     {
@@ -169,120 +164,26 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             currentBPM = posInfo.bpm;
         }
     }
-    
-    // Calculate samples per quarter note based on BPM
-    samplesPerQuarterNote = (60.0 / currentBPM) * getSampleRate();
 
-    // Adjust the interval multiplier for note durations relative to a quarter note
-    switch (noteIntervalParam->getIndex()) // Selects math for note interval
-    {
-        case 0: intervalMultiplier = 4.0; break;   // Whole note (4 quarter notes)
-        case 1: intervalMultiplier = 2.0; break;   // Half note (2 quarter notes)
-        case 2: intervalMultiplier = 1.0; break;   // Quarter note (1 quarter note)
-        case 3: intervalMultiplier = 0.5; break;   // Eighth note (0.5 quarter note)
-        case 4: intervalMultiplier = 0.25; break;  // Sixteenth note (0.25 quarter note)
-        case 5: intervalMultiplier = 0.125; break; // Thirty-second note (0.125 quarter note)
-    }
+    //CLEARS EMPTY CHANNELS
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
 
-    // Calculate selected samples per note interval
-    selectedSamplePerNoteInterval = samplesPerQuarterNote * intervalMultiplier;
     
-    /*
-    switch (noteIntervalParam->getIndex()) //Selects math for note interval
-        {
-            case 0: intervalMultiplier = 4.0; break; // Whole note
-            case 1: intervalMultiplier = 2.0; break; // Half note
-            case 2: intervalMultiplier = 1.0; break; // Quarter note
-            case 3: intervalMultiplier = 0.5; break; // Eighth note
-            case 4: intervalMultiplier = 0.25; break; // Sixteenth note
-            case 5: intervalMultiplier = 0.125; break; // Thirty-two note
-        }
-    
-    selectedSamplePerNoteInterval = samplesPerQuarterNote * intervalMultiplier; //Does the math for selected note interval
-    */
-    
-    
-    //Update ADSR params
-    /*
-    adsrParams.attack = attackParam->get();
-    adsrParams.decay = decayParam->get();
-    adsrParams.sustain = sustainParam->get();
-    adsrParams.release = releaseParam->get();
-    adsr.setParameters(adsrParams);
-     */
-    
-
-    DBG("BPM: " << currentBPM);
-    DBG("Quarter Note Samples: " << samplesPerQuarterNote);
-    DBG("Interval Multiplier: " << intervalMultiplier);
-    DBG("Selected Interval Samples: " << selectedSamplePerNoteInterval);
-    
-    // Update ADSR parameters
-    double totalADSRDuration = attackParam->get() + decayParam->get() + releaseParam->get();
-    if (totalADSRDuration > (selectedSamplePerNoteInterval / getSampleRate()))
-    {
-        double scaleFactor = (selectedSamplePerNoteInterval / getSampleRate()) / totalADSRDuration;
-        adsrParams.attack = attackParam->get() * scaleFactor;
-        adsrParams.decay = decayParam->get() * scaleFactor;
-        adsrParams.release = releaseParam->get() * scaleFactor;
-    }
-    else
-    {
-        adsrParams.attack = attackParam->get();
-        adsrParams.decay = decayParam->get();
-        adsrParams.release = releaseParam->get();
-    }
-    adsrParams.sustain = sustainParam->get();
-    adsr.setParameters(adsrParams);
-    
-    
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-   // for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-   //     buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
+ 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
-
+        
         // ..do something to the data...
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            if (duckingEnabled->get())
-            {
-                // Trigger ADSR at the start of the note interval
-                if (sampleCount >= selectedSamplePerNoteInterval)
-                {
-                    adsr.noteOn(); // Start the envelope
-                    sampleCount = 0.0; // Reset interval counter
-                }
-
-                // Release ADSR halfway through interval
-                if (sampleCount >= selectedSamplePerNoteInterval / 2)
-                {
-                    adsr.noteOff();
-                }
-
-                // Apply ADSR envelope
-                float envelopeValue = adsr.getNextSample();
-                channelData[sample] *= (1.0f - envelopeValue);
-            }
-        }
-    }
-    
-    // Increment sample count
-    sampleCount += buffer.getNumSamples();
+            float lfoValue = lfo.getNextSample();
+            channelData[sample] *= (1.0f - lfoValue);
+        };
+        
+    };
 }
 
 //==============================================================================

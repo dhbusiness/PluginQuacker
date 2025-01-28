@@ -52,37 +52,39 @@ public:
     //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
-
     double getCurrentBPM() const;
-
-    juce::AudioParameterChoice* noteIntervalParam; //Note interval selector
     
-    juce::AudioParameterFloat* gainParameter; // Param for holding amplitude
-    
-    //Params for ADSR control added
-    juce::AudioParameterFloat* attackParam;
-    juce::AudioParameterFloat* decayParam;
-    juce::AudioParameterFloat* sustainParam;
-    juce::AudioParameterFloat* releaseParam;
-    juce::AudioParameterBool* duckingEnabled;
+    juce::AudioParameterFloat* lfoRateParam;
+    juce::AudioParameterFloat* lfoDepthParam;
     
 private:
     
-    
-    double intervalMultiplier = 1.0; //Variable for multiplying to get selected note interval, defaults to 1x
-    double selectedSamplePerNoteInterval = 0.0; //Holds the math for selected note interval
-    double currentBPM {120.0}; //Sets default BPM reading
-    double samplesPerQuarterNote = 0.0; //Samples per quarter note
-    double samplesPerWholeNote = 0.0;
-    double samplesPerHalfNote = 0.0;
-    double samplesPerEigthNote = 0.0;
-    double samplesPerSixteenthNote = 0.0;
-    double samplesPerThirtyTwoNote = 0.0;
-    
-    double sampleCount = 0.0; //Track time elapsed in samples
-    
-    juce::ADSR adsr; //ADSR enevlope created
-    juce::ADSR::Parameters adsrParams;
+    class TremoloLFO
+    {
+    public:
+        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), sampleRate(44100.0) {}
+
+        void setRate(float newRate) { rate = newRate; }
+        void setDepth(float newDepth) { depth = newDepth; }
+        void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
+
+        float getNextSample()
+        {
+            phase += (rate / sampleRate);
+            if (phase >= 1.0) phase -= 1.0;
+            return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+        }
+
+    private:
+        double phase;
+        float rate, depth;
+        double sampleRate;
+    };
+
+    TremoloLFO lfo;
+
+    float currentBPM = 0.0;
+
     
     
     //==============================================================================
