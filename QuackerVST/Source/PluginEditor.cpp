@@ -44,7 +44,26 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
         audioProcessor.lfoWaveformParam->setValueNotifyingHost(lfoWaveformBox.getSelectedId() - 1);
     };
     addAndMakeVisible(lfoWaveformBox);
-
+    
+    //Adding LFO sync toggle
+    lfoSyncButton.setButtonText("Sync to BPM");
+    lfoSyncButton.setToggleState(audioProcessor.lfoSyncParam->get(), juce::dontSendNotification);
+    lfoSyncButton.onClick = [this] {
+        audioProcessor.lfoSyncParam->setValueNotifyingHost(lfoSyncButton.getToggleState());
+    };
+    addAndMakeVisible(lfoSyncButton);
+    
+    //Adding note division selection
+    lfoNoteDivisionBox.addItem("Whole", 1);
+    lfoNoteDivisionBox.addItem("Half", 2);
+    lfoNoteDivisionBox.addItem("Quarter", 3);
+    lfoNoteDivisionBox.addItem("Eighth", 4);
+    lfoNoteDivisionBox.addItem("Sixteenth", 5);
+    lfoNoteDivisionBox.setSelectedId(audioProcessor.lfoNoteDivisionParam->getIndex() + 1, juce::dontSendNotification);
+    lfoNoteDivisionBox.onChange = [this] {
+        audioProcessor.lfoNoteDivisionParam->setValueNotifyingHost(lfoNoteDivisionBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible(lfoNoteDivisionBox);
     
 }
 
@@ -84,11 +103,13 @@ void QuackerVSTAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    //gainSlider.setBounds(10, 10, getWidth() - 20, 30);
     auto bounds = getLocalBounds();
     
     lfoRateSlider.setBounds(10, 10, 150, 150);      //Placing LFO sliders on screen
     lfoDepthSlider.setBounds(170, 10, 150, 150);    //Placing LFO sliders on screen
+    
     lfoWaveformBox.setBounds(10, 200, 150, 30);
     
+    lfoSyncButton.setBounds(10, 250, 150, 30);
+    lfoNoteDivisionBox.setBounds(170, 250, 150, 30);
 }

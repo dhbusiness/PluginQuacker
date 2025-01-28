@@ -60,6 +60,9 @@ public:
     
     juce::AudioParameterChoice* lfoWaveformParam;
     
+    juce::AudioParameterBool* lfoSyncParam; // Toggle for syncing
+    juce::AudioParameterChoice* lfoNoteDivisionParam; // Note divisions
+    
 private:
     
     class TremoloLFO //Defining LFO class
