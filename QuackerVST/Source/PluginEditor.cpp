@@ -35,6 +35,15 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     };
     addAndMakeVisible(lfoDepthSlider);
     
+    //Adding and init LFO waveform choice
+    lfoWaveformBox.addItem("Sine", 1);
+    lfoWaveformBox.addItem("Square", 2);
+    lfoWaveformBox.addItem("Triangle", 3);
+    lfoWaveformBox.setSelectedId(audioProcessor.lfoWaveformParam->getIndex() + 1, juce::dontSendNotification);
+    lfoWaveformBox.onChange = [this] {
+        audioProcessor.lfoWaveformParam->setValueNotifyingHost(lfoWaveformBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible(lfoWaveformBox);
 
     
 }
@@ -80,5 +89,6 @@ void QuackerVSTAudioProcessorEditor::resized()
     
     lfoRateSlider.setBounds(10, 10, 150, 150);      //Placing LFO sliders on screen
     lfoDepthSlider.setBounds(170, 10, 150, 150);    //Placing LFO sliders on screen
-
+    lfoWaveformBox.setBounds(10, 200, 150, 30);
+    
 }

@@ -54,30 +54,52 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
     double getCurrentBPM() const;
     
+    
     juce::AudioParameterFloat* lfoRateParam;
     juce::AudioParameterFloat* lfoDepthParam;
+    
+    juce::AudioParameterChoice* lfoWaveformParam;
     
 private:
     
     class TremoloLFO //Defining LFO class
     {
     public:
-        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), sampleRate(44100.0) {} //Defining LFO params
+        
+        enum Waveform {Sine, Square, Triangle};
+        
+        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), waveform(Sine),sampleRate(44100.0) {} //Defining LFO params
 
         void setRate(float newRate) { rate = newRate; }                             //Creating methods to allows us to set params in the pluginProcessor.cpp
         void setDepth(float newDepth) { depth = newDepth; }                         //Creating methods to allows us to set params in the pluginProcessor.cpp
+        void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
         void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }    //Creating methods to allows us to set params in the pluginProcessor.cpp
 
         float getNextSample()                                                       //LFO function in here
         {
             phase += (rate / sampleRate);
             if (phase >= 1.0) phase -= 1.0;                                         //Inverts phase if it becomes 1 or greater
-            return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth; //Provides the LFO in Sine form
+            
+            switch (waveform)
+            {
+                case Sine:
+                    return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+                    
+                case Square:
+                    return (phase < 0.5f ? 1.0f : 0.0f) * depth;
+                    
+                case Triangle:
+                    return (std::abs(2.0f * phase - 1.0f)) * depth;
+                    
+                default:
+                    return 0.0f; // Fallback
+            }
         }
 
     private:
         double phase;                   //Variables for the LFO class
         float rate, depth;
+        Waveform waveform;
         double sampleRate;
     };
 

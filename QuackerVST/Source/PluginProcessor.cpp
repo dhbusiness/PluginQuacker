@@ -22,11 +22,16 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                        ),
 #endif
 lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),      //Adding LFO params to constructor
-lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))      //Adding LFO params to constructor
+lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f)),      //Adding LFO params to constructor
+lfoWaveformParam(new juce::AudioParameterChoice(
+    "lfoWaveform", "LFO Waveform",
+    juce::StringArray{ "Sine", "Square", "Triangle" }, 0 )// Default: Sine - Adding LFO waveform selection to constructor
+)
 
 {
     addParameter(lfoRateParam);         //Init LFO params
     addParameter(lfoDepthParam);        //Init LFO params
+    addParameter(lfoWaveformParam);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -154,6 +159,9 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     lfo.setRate(lfoRateParam->get());   //Pulling params for lfo rate and depth
     lfo.setDepth(lfoDepthParam->get()); //Pulling params for lfo rate and depth
     
+    // Map the parameter value to the corresponding waveform
+    TremoloLFO::Waveform selectedWaveform = static_cast<TremoloLFO::Waveform>(lfoWaveformParam->getIndex());
+    lfo.setWaveform(selectedWaveform);
     
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
