@@ -59,31 +59,31 @@ public:
     
 private:
     
-    class TremoloLFO
+    class TremoloLFO //Defining LFO class
     {
     public:
-        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), sampleRate(44100.0) {}
+        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), sampleRate(44100.0) {} //Defining LFO params
 
-        void setRate(float newRate) { rate = newRate; }
-        void setDepth(float newDepth) { depth = newDepth; }
-        void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
+        void setRate(float newRate) { rate = newRate; }                             //Creating methods to allows us to set params in the pluginProcessor.cpp
+        void setDepth(float newDepth) { depth = newDepth; }                         //Creating methods to allows us to set params in the pluginProcessor.cpp
+        void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }    //Creating methods to allows us to set params in the pluginProcessor.cpp
 
-        float getNextSample()
+        float getNextSample()                                                       //LFO function in here
         {
             phase += (rate / sampleRate);
-            if (phase >= 1.0) phase -= 1.0;
-            return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+            if (phase >= 1.0) phase -= 1.0;                                         //Inverts phase if it becomes 1 or greater
+            return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth; //Provides the LFO in Sine form
         }
 
     private:
-        double phase;
+        double phase;                   //Variables for the LFO class
         float rate, depth;
         double sampleRate;
     };
 
-    TremoloLFO lfo;
+    TremoloLFO lfo;                         //creating the lFO using the defined class above
 
-    float currentBPM = 0.0;
+    float currentBPM = 0.0;                 //Defining variable which will hold DAW bpm
 
     
     

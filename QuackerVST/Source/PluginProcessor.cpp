@@ -21,12 +21,12 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),
-lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))
+lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),      //Adding LFO params to constructor
+lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))      //Adding LFO params to constructor
 
 {
-    addParameter(lfoRateParam);
-    addParameter(lfoDepthParam);
+    addParameter(lfoRateParam);         //Init LFO params
+    addParameter(lfoDepthParam);        //Init LFO params
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -151,8 +151,8 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
     
     
-    lfo.setRate(lfoRateParam->get());
-    lfo.setDepth(lfoDepthParam->get());
+    lfo.setRate(lfoRateParam->get());   //Pulling params for lfo rate and depth
+    lfo.setDepth(lfoDepthParam->get()); //Pulling params for lfo rate and depth
     
     
     //Updates BPM in every processing block
@@ -179,8 +179,8 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float lfoValue = lfo.getNextSample();
-            channelData[sample] *= (1.0f - lfoValue);
+            float lfoValue = lfo.getNextSample();       //Pulling lfoData to be used
+            channelData[sample] *= (1.0f - lfoValue);   //Applying LFO against the amplitude of the audio signal
         };
         
     };

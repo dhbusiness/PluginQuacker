@@ -18,6 +18,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     setSize (800, 600);
     startTimerHz(10); //Starting a timer which updates the GUI
     
+    //Adding and init LFO rate and depth control params
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
     lfoRateSlider.setRange(0.01, 2.0, 0.01);
     lfoRateSlider.setValue(audioProcessor.lfoRateParam->get());
@@ -77,7 +78,7 @@ void QuackerVSTAudioProcessorEditor::resized()
     //gainSlider.setBounds(10, 10, getWidth() - 20, 30);
     auto bounds = getLocalBounds();
     
-    lfoRateSlider.setBounds(10, 10, 150, 150);
-    lfoDepthSlider.setBounds(170, 10, 150, 150);
+    lfoRateSlider.setBounds(10, 10, 150, 150);      //Placing LFO sliders on screen
+    lfoDepthSlider.setBounds(170, 10, 150, 150);    //Placing LFO sliders on screen
 
 }
