@@ -63,6 +63,8 @@ public:
     juce::AudioParameterBool* lfoSyncParam; // Toggle for syncing
     juce::AudioParameterChoice* lfoNoteDivisionParam; // Note divisions
     
+    juce::AudioParameterFloat* lfoPhaseOffsetParam; //Phase offset in degrees (Feel - Rushing/Dragging)
+    
 private:
     
     class TremoloLFO //Defining LFO class
@@ -71,28 +73,32 @@ private:
         
         enum Waveform {Sine, Square, Triangle};
         
-        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), waveform(Sine),sampleRate(44100.0) {} //Defining LFO params
+        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), waveform(Sine),sampleRate(44100.0), phaseOffset(0.0) {} //Defining LFO params - phaseOffset added for feel control
 
         void setRate(float newRate) { rate = newRate; }                             //Creating methods to allows us to set params in the pluginProcessor.cpp
         void setDepth(float newDepth) { depth = newDepth; }                         //Creating methods to allows us to set params in the pluginProcessor.cpp
         void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
         void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }    //Creating methods to allows us to set params in the pluginProcessor.cpp
+        void setPhaseOffset(float offsetDegrees) {phaseOffset = offsetDegrees * juce::MathConstants<double>::pi / 180.0;}
 
         float getNextSample()                                                       //LFO function in here
         {
             phase += (rate / sampleRate);
             if (phase >= 1.0) phase -= 1.0;                                         //Inverts phase if it becomes 1 or greater
             
-            switch (waveform)
+            double adjustedPhase = phase + phaseOffset / (2.0 * juce::MathConstants<double>::pi); //Calculation for phase offsetting
+            if (adjustedPhase >= 1.0) adjustedPhase -= 1.0;
+            
+            switch (waveform) //Added adjusted phase offset to wave calcs
             {
                 case Sine:
-                    return (std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+                    return (std::sin(adjustedPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
                     
                 case Square:
-                    return (phase < 0.5f ? 1.0f : 0.0f) * depth;
+                    return (adjustedPhase < 0.5f ? 1.0f : 0.0f) * depth;
                     
                 case Triangle:
-                    return (std::abs(2.0f * phase - 1.0f)) * depth;
+                    return (std::abs(2.0f * adjustedPhase - 1.0f)) * depth;
                     
                 default:
                     return 0.0f; // Fallback
@@ -104,6 +110,7 @@ private:
         float rate, depth;
         Waveform waveform;
         double sampleRate;
+        double phaseOffset; //Phase offset in radians (Feel control)
     };
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above

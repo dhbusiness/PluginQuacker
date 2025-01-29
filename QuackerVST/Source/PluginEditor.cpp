@@ -65,6 +65,16 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     };
     addAndMakeVisible(lfoNoteDivisionBox);
     
+    //Adding phase offset (Feel) controls
+    lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
+    lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
+    lfoPhaseOffsetSlider.setValue(audioProcessor.lfoPhaseOffsetParam->get());
+    lfoPhaseOffsetSlider.setTextValueSuffix(" °");
+    lfoPhaseOffsetSlider.onValueChange = [this] {
+        audioProcessor.lfoPhaseOffsetParam->setValueNotifyingHost(lfoPhaseOffsetSlider.getValue());
+    };
+    addAndMakeVisible(lfoPhaseOffsetSlider);
+    
 }
 
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
@@ -112,4 +122,6 @@ void QuackerVSTAudioProcessorEditor::resized()
     
     lfoSyncButton.setBounds(10, 250, 150, 30);
     lfoNoteDivisionBox.setBounds(170, 250, 150, 30);
+    
+    lfoPhaseOffsetSlider.setBounds(330, 10, 150, 150);
 }

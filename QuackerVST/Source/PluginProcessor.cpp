@@ -29,13 +29,15 @@ lfoWaveformParam(new juce::AudioParameterChoice(
 lfoSyncParam(new juce::AudioParameterBool("lfoSync", "LFO Sync", false)),
 lfoNoteDivisionParam(new juce::AudioParameterChoice(
     "lfoNoteDivision", "LFO Note Division",
-    juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" }, 2)) // Default: Quarter note
+    juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" }, 2)), // Default: Quarter note
+lfoPhaseOffsetParam(new juce::AudioParameterFloat("lfoPhaseOffset", "LFO Phase Offset", -180.0f, 180.0f, 0.0f)) // Range: -180° to 180°, default 0°
 {
     addParameter(lfoRateParam);         //Init LFO params
     addParameter(lfoDepthParam);        //Init LFO params
     addParameter(lfoWaveformParam);
     addParameter(lfoSyncParam);
     addParameter(lfoNoteDivisionParam);
+    addParameter(lfoPhaseOffsetParam);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -194,6 +196,7 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     }
 
     lfo.setDepth(lfoDepthParam->get());
+    lfo.setPhaseOffset(lfoPhaseOffsetParam->get()); // Apply phase offset
     //
     
     
