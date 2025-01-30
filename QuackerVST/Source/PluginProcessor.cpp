@@ -197,71 +197,66 @@ bool QuackerVSTAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 }
 #endif
 
-void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
+
+    // Get all parameters from APVTS at the start of the block
+    auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
+    auto* rateParam = apvts.getRawParameterValue("lfoRate");
+    auto* depthParam = apvts.getRawParameterValue("lfoDepth");
+    auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
+    auto* syncParam = apvts.getRawParameterValue("lfoSync");
+    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
+
+    // Set basic LFO parameters
+    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
+    lfo.setDepth(depthParam->load());
+    lfo.setPhaseOffset(phaseOffsetParam->load());
     
-    //Updates BPM in every processing block
+    // Handle sync and timing
     if (auto* playHead = getPlayHead())
     {
         juce::AudioPlayHead::CurrentPositionInfo posInfo;
         if (playHead->getCurrentPosition(posInfo))
         {
             currentBPM = posInfo.bpm;
+            
+            if (syncParam->load() > 0.5f)
+            {
+                // Convert division index to actual division value
+                const double divisions[] = { 4.0, 2.0, 1.0, 0.5, 0.25 }; // whole, half, quarter, eighth, sixteenth
+                double division = divisions[static_cast<int>(divisionParam->load())];
+                
+                // Set sync mode and provide beat position
+                lfo.setSyncMode(true, division);
+                lfo.setBeatPosition(posInfo.ppqPosition);
+            }
+            else
+            {
+                lfo.setSyncMode(false);
+                lfo.setRate(rateParam->load());
+            }
         }
     }
-    
-    // Get parameters from APVTS
-    auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
-    auto* rateParam = apvts.getRawParameterValue("lfoRate");
-    auto* depthParam = apvts.getRawParameterValue("lfoDepth");
-    auto* syncParam = apvts.getRawParameterValue("lfoSync");
-    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
-    auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
 
-    // Set LFO parameters
-    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
-    
-    if (syncParam->load() > 0.5f) // If sync is enabled
-    {
-        // Note division to rate mapping
-        const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
-        double multiplier = multipliers[static_cast<int>(divisionParam->load())];
-        lfo.setRate(currentBPM / (60.0 * multiplier));
-    }
-    else
-    {
-        lfo.setRate(rateParam->load());
-    }
-
-    lfo.setDepth(depthParam->load());
-    lfo.setPhaseOffset(phaseOffsetParam->load());
-    //
-    
-    
-
-    //CLEARS EMPTY CHANNELS
+    // Clear any extra output channels
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 
-    
- 
+    // Process audio
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        
-        // ..do something to the data...
+        auto* channelData = buffer.getWritePointer(channel);
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float lfoValue = lfo.getNextSample();       //Pulling lfoData to be used
-            channelData[sample] *= (1.0f - lfoValue);   //Applying LFO against the amplitude of the audio signal
-        };
-        
-    };
+            float lfoValue = lfo.getNextSample();
+            channelData[sample] *= (1.0f - lfoValue);
+        }
+    }
 }
 
 //==============================================================================

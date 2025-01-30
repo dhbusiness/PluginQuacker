@@ -65,63 +65,108 @@ private:
     public:
         enum Waveform {Sine, Square, Triangle};
         
-        TremoloLFO() : phase(0.0), rate(1.0), depth(0.5), waveform(Sine), sampleRate(44100.0), phaseOffset(0.0) {}
+        TremoloLFO()
+            : phase(0.0)
+            , rate(1.0)
+            , depth(0.5)
+            , waveform(Sine)
+            , sampleRate(44100.0)
+            , phaseOffset(0.0)
+            , currentRate(1.0)
+            , rateSmoothing(0.997)
+            , beatPosition(0.0)
+            , lastBeatPosition(0.0)
+        {}
 
-        void setRate(float newRate) { rate = newRate; }
+        void setRate(float newRate)
+        {
+            rate = newRate;
+        }
+
         void setDepth(float newDepth) { depth = newDepth; }
         void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
-        void setSampleRate(double newSampleRate) { sampleRate = newSampleRate; }
+        void setSampleRate(double newSampleRate)
+        {
+            sampleRate = newSampleRate;
+            rateSmoothing = pow(0.5, 1.0 / (sampleRate * 0.005));
+        }
         
-        // Updated phase offset to work in degrees (-180 to +180)
         void setPhaseOffset(float offsetDegrees)
         {
-            // Convert degrees to normalized phase (0 to 1)
             phaseOffset = offsetDegrees / 360.0f;
+        }
+
+        void setBeatPosition(double newBeatPosition)
+        {
+            lastBeatPosition = beatPosition;
+            beatPosition = newBeatPosition;
         }
 
         float getNextSample()
         {
-            // Calculate phase increment
-            double phaseIncrement = rate / sampleRate;
-            
-            // Update phase
-            phase += phaseIncrement;
-            
-            // Wrap phase between 0 and 1
-            while (phase >= 1.0) phase -= 1.0;
-            
-            // Calculate the offset phase for output
+            // Smooth the rate for free-running mode
+            if (!syncedToHost)
+            {
+                currentRate = currentRate * rateSmoothing + rate * (1.0f - rateSmoothing);
+                phase += currentRate / sampleRate;
+                
+                // Wrap phase
+                while (phase >= 1.0) phase -= 1.0;
+                while (phase < 0.0) phase += 1.0;
+            }
+            else
+            {
+                // In sync mode, calculate phase directly from beat position
+                double beatsPerCycle = 4.0 / noteDivision; // 4 for whole note, 2 for half, 1 for quarter, etc.
+                phase = std::fmod(beatPosition / beatsPerCycle, 1.0);
+            }
+
+            // Apply phase offset
             double outputPhase = phase + phaseOffset;
             while (outputPhase >= 1.0) outputPhase -= 1.0;
             while (outputPhase < 0.0) outputPhase += 1.0;
-            
-            // Generate output based on current waveform
+
+            // Generate waveform
+            double output = 0.0;
             switch (waveform)
             {
                 case Sine:
-                    // Sine goes from -1 to 1, we scale and shift to 0 to 1
-                    return (std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+                    output = std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
+                    break;
                     
                 case Square:
-                    // Square wave should alternate between full volume and reduced volume
-                    return (outputPhase < 0.5f ? 1.0f : 0.0f) * depth + (1.0f - depth);
+                    output = outputPhase < 0.5 ? 1.0 : 0.0;
+                    break;
                     
                 case Triangle:
-                    // Triangle wave from 0 to 1
-                    return (std::abs(2.0f * outputPhase - 1.0f)) * depth + (1.0f - depth);
-                    
-                default:
-                    return 0.0f;
+                    output = 1.0 - std::abs(2.0 * outputPhase - 1.0);
+                    break;
             }
+
+            return output * depth + (1.0f - depth);
+        }
+
+        void setSyncMode(bool shouldSync, double division = 1.0)
+        {
+            syncedToHost = shouldSync;
+            noteDivision = division;
         }
 
     private:
-        double phase = 0.0;
-        float rate = 1.0;
-        float depth = 0.5;
-        Waveform waveform = Sine;
-        double sampleRate = 44100.0;
-        double phaseOffset = 0.0;
+        double phase;
+        float rate;
+        float depth;
+        Waveform waveform;
+        double sampleRate;
+        double phaseOffset;
+        float currentRate;
+        float rateSmoothing;
+        
+        // Beat sync related
+        bool syncedToHost = false;
+        double beatPosition;
+        double lastBeatPosition;
+        double noteDivision = 1.0;
     };
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above
