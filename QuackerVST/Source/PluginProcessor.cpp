@@ -21,23 +21,12 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),      //Adding LFO params to constructor
-lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f)),      //Adding LFO params to constructor
-lfoWaveformParam(new juce::AudioParameterChoice(
-    "lfoWaveform", "LFO Waveform",
-    juce::StringArray{ "Sine", "Square", "Triangle" }, 0 )),// Default: Sine - Adding LFO waveform selection to constructor
-lfoSyncParam(new juce::AudioParameterBool("lfoSync", "LFO Sync", false)),
-lfoNoteDivisionParam(new juce::AudioParameterChoice(
-    "lfoNoteDivision", "LFO Note Division",
-    juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" }, 2)), // Default: Quarter note
-lfoPhaseOffsetParam(new juce::AudioParameterFloat("lfoPhaseOffset", "LFO Phase Offset", -180.0f, 180.0f, 0.0f)) // Range: -180° to 180°, default 0°
+lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),
+lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))
+
 {
-    addParameter(lfoRateParam);         //Init LFO params
-    addParameter(lfoDepthParam);        //Init LFO params
-    addParameter(lfoWaveformParam);
-    addParameter(lfoSyncParam);
-    addParameter(lfoNoteDivisionParam);
-    addParameter(lfoPhaseOffsetParam);
+    addParameter(lfoRateParam);
+    addParameter(lfoDepthParam);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -162,9 +151,9 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
     
     
-    // Map the parameter value to the corresponding waveform
-    TremoloLFO::Waveform selectedWaveform = static_cast<TremoloLFO::Waveform>(lfoWaveformParam->getIndex());
-    lfo.setWaveform(selectedWaveform);
+    lfo.setRate(lfoRateParam->get());
+    lfo.setDepth(lfoDepthParam->get());
+    
     
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
@@ -175,31 +164,6 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             currentBPM = posInfo.bpm;
         }
     }
-    // LFO Beat sync processing and LFO param setting
-    if (lfoSyncParam->get())
-    {
-        // Note division to rate mapping
-        static const std::map<int, double> divisionToMultiplier = {
-            { 0, 4.0 },  // Whole note
-            { 1, 2.0 },  // Half note
-            { 2, 1.0 },  // Quarter note
-            { 3, 0.5 },  // Eighth note
-            { 4, 0.25 }  // Sixteenth note
-        };
-
-        double multiplier = divisionToMultiplier.at(lfoNoteDivisionParam->getIndex());
-        lfo.setRate(currentBPM / (60.0 * multiplier));
-    }
-    else
-    {
-        lfo.setRate(lfoRateParam->get());
-    }
-
-    lfo.setDepth(lfoDepthParam->get());
-    lfo.setPhaseOffset(lfoPhaseOffsetParam->get()); // Apply phase offset
-    //
-    
-    
 
     //CLEARS EMPTY CHANNELS
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
@@ -215,8 +179,8 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float lfoValue = lfo.getNextSample();       //Pulling lfoData to be used
-            channelData[sample] *= (1.0f - lfoValue);   //Applying LFO against the amplitude of the audio signal
+            float lfoValue = lfo.getNextSample();
+            channelData[sample] *= (1.0f - lfoValue);
         };
         
     };
