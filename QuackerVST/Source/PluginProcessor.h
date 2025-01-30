@@ -54,16 +54,9 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
     double getCurrentBPM() const;
     
-    
-    juce::AudioParameterFloat* lfoRateParam;
-    juce::AudioParameterFloat* lfoDepthParam;
-    
-    juce::AudioParameterChoice* lfoWaveformParam;
-    
-    juce::AudioParameterBool* lfoSyncParam; // Toggle for syncing
-    juce::AudioParameterChoice* lfoNoteDivisionParam; // Note divisions
-    
-    juce::AudioParameterFloat* lfoPhaseOffsetParam; //Phase offset in degrees (Feel - Rushing/Dragging)
+
+    juce::AudioProcessorValueTreeState apvts;
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     
 private:
     
@@ -88,28 +81,34 @@ private:
 
         float getNextSample()
         {
-            // Increment the main phase
-            phase += (rate / sampleRate);
-            if (phase >= 1.0) phase -= 1.0;
-
-            // Apply phase offset
-            double shiftedPhase = phase + phaseOffset;
+            // Calculate phase increment
+            double phaseIncrement = rate / sampleRate;
             
-            // Wrap the phase to keep it between 0 and 1
-            while (shiftedPhase >= 1.0) shiftedPhase -= 1.0;
-            while (shiftedPhase < 0.0) shiftedPhase += 1.0;
+            // Update phase
+            phase += phaseIncrement;
             
-            // Calculate the output based on the shifted phase
+            // Wrap phase between 0 and 1
+            while (phase >= 1.0) phase -= 1.0;
+            
+            // Calculate the offset phase for output
+            double outputPhase = phase + phaseOffset;
+            while (outputPhase >= 1.0) outputPhase -= 1.0;
+            while (outputPhase < 0.0) outputPhase += 1.0;
+            
+            // Generate output based on current waveform
             switch (waveform)
             {
                 case Sine:
-                    return (std::sin(shiftedPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
+                    // Sine goes from -1 to 1, we scale and shift to 0 to 1
+                    return (std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f) * depth;
                     
                 case Square:
-                    return (shiftedPhase < 0.5f ? 1.0f : 0.0f) * depth;
+                    // Square wave should alternate between full volume and reduced volume
+                    return (outputPhase < 0.5f ? 1.0f : 0.0f) * depth + (1.0f - depth);
                     
                 case Triangle:
-                    return (std::abs(2.0f * shiftedPhase - 1.0f)) * depth;
+                    // Triangle wave from 0 to 1
+                    return (std::abs(2.0f * outputPhase - 1.0f)) * depth + (1.0f - depth);
                     
                 default:
                     return 0.0f;
@@ -117,11 +116,12 @@ private:
         }
 
     private:
-        double phase;
-        float rate, depth;
-        Waveform waveform;
-        double sampleRate;
-        double phaseOffset; // Now stored as normalized phase (0 to 1)
+        double phase = 0.0;
+        float rate = 1.0;
+        float depth = 0.5;
+        Waveform waveform = Sine;
+        double sampleRate = 44100.0;
+        double phaseOffset = 0.0;
     };
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above

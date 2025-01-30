@@ -62,19 +62,10 @@ public:
             float y = bounds.getCentreY();
             float value = 0.0f;
 
-            switch (currentWaveform)
-            {
-                case 0: // Sine
-                    value = std::sin(phase * juce::MathConstants<float>::twoPi);
-                    break;
-                case 1: // Square
-                    value = (phase < 0.5f) ? 1.0f : -1.0f;
-                    break;
-                case 2: // Triangle
-                    value = 4.0f * (phase < 0.5f ? phase : (1.0f - phase)) - 1.0f;
-                    break;
-            }
 
+            // In the waveform drawing loop:
+            value = calculateWaveformValue(phase, currentWaveform);
+            // Scale the value by depth and center it
             y -= value * depth * bounds.getHeight() * 0.4f;
 
             if (!pathStarted)
@@ -123,16 +114,16 @@ public:
         if (tempoSynced)
         {
             // Calculate phase increment based on BPM and note division
-            const double secondsPerBeat = 60.0 / bpm;
-            const double multipliers[] = { 4.0, 2.0, 1.0, 0.5, 0.25 }; // whole, half, quarter, eighth, sixteenth
-            double cycleLength = secondsPerBeat * multipliers[noteDivision];
-            double phaseIncrement = (1.0 / 60.0) / cycleLength; // 60 is our timer frequency
+            const double quarterNoteRate = bpm / 60.0; // Quarter notes per second
+            const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
+            double frequencyHz = quarterNoteRate * multipliers[noteDivision];
+            double phaseIncrement = frequencyHz / 60.0; // 60 is our timer frequency
             currentPhase += phaseIncrement;
         }
         else
         {
             // Free-running mode
-            currentPhase += rate / 60.0; // 60 is our timer frequency
+            currentPhase += rate / 60.0;
         }
 
         while (currentPhase >= 1.0)
@@ -170,6 +161,27 @@ public:
     }
 
 private:
+    
+    float calculateWaveformValue(float phase, int waveform)
+    {
+        switch (waveform)
+        {
+            case 0: // Sine
+                return std::sin(phase * juce::MathConstants<float>::twoPi);
+                
+            case 1: // Square
+                // Square wave should go from -1 to 1 for visualization
+                return (phase < 0.5f) ? 1.0f : -1.0f;
+                
+            case 2: // Triangle
+                // Triangle wave from -1 to 1
+                return 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
+                
+            default:
+                return 0.0f;
+        }
+    }
+    
     int currentWaveform = 0;
     float depth = 1.0f;
     float phaseOffset = 0.0f;

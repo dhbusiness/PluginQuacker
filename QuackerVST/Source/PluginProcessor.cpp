@@ -21,24 +21,67 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),      //Adding LFO params to constructor
-lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f)),      //Adding LFO params to constructor
-lfoWaveformParam(new juce::AudioParameterChoice(
-    "lfoWaveform", "LFO Waveform",
-    juce::StringArray{ "Sine", "Square", "Triangle" }, 0 )),// Default: Sine - Adding LFO waveform selection to constructor
-lfoSyncParam(new juce::AudioParameterBool("lfoSync", "LFO Sync", false)),
-lfoNoteDivisionParam(new juce::AudioParameterChoice(
-    "lfoNoteDivision", "LFO Note Division",
-    juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" }, 2)), // Default: Quarter note
-lfoPhaseOffsetParam(new juce::AudioParameterFloat("lfoPhaseOffset", "LFO Phase Offset", -180.0f, 180.0f, 0.0f)) // Range: -180° to 180°, default 0°
+apvts(*this, nullptr, "Parameters", createParameters())
 {
-    addParameter(lfoRateParam);         //Init LFO params
-    addParameter(lfoDepthParam);        //Init LFO params
-    addParameter(lfoWaveformParam);
-    addParameter(lfoSyncParam);
-    addParameter(lfoNoteDivisionParam);
-    addParameter(lfoPhaseOffsetParam);
 }
+
+juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    // LFO Rate
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoRate",           // parameterID
+        "LFO Rate",         // parameter name
+        0.01f,              // minimum value
+        2.0f,               // maximum value
+        1.0f               // default value
+    ));
+
+    // LFO Depth
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoDepth",
+        "LFO Depth",
+        0.0f,
+        1.0f,
+        0.5f
+    ));
+
+    // LFO Waveform
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "lfoWaveform",
+        "LFO Waveform",
+        juce::StringArray{ "Sine", "Square", "Triangle" },
+        0  // default to Sine
+    ));
+
+    // LFO Sync
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "lfoSync",
+        "LFO Sync",
+        false
+    ));
+
+    // Note Division
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "lfoNoteDivision",
+        "LFO Note Division",
+        juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" },
+        2  // default to Quarter note
+    ));
+
+    // Phase Offset
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoPhaseOffset",
+        "LFO Phase Offset",
+        -180.0f,
+        180.0f,
+        0.0f
+    ));
+
+    return { params.begin(), params.end() };
+}
+
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
 {
@@ -161,11 +204,6 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
     
-    
-    // Map the parameter value to the corresponding waveform
-    TremoloLFO::Waveform selectedWaveform = static_cast<TremoloLFO::Waveform>(lfoWaveformParam->getIndex());
-    lfo.setWaveform(selectedWaveform);
-    
     //Updates BPM in every processing block
     if (auto* playHead = getPlayHead())
     {
@@ -175,28 +213,32 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             currentBPM = posInfo.bpm;
         }
     }
-    // LFO Beat sync processing and LFO param setting
-    if (lfoSyncParam->get())
+    
+    // Get parameters from APVTS
+    auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
+    auto* rateParam = apvts.getRawParameterValue("lfoRate");
+    auto* depthParam = apvts.getRawParameterValue("lfoDepth");
+    auto* syncParam = apvts.getRawParameterValue("lfoSync");
+    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
+    auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
+
+    // Set LFO parameters
+    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
+    
+    if (syncParam->load() > 0.5f) // If sync is enabled
     {
         // Note division to rate mapping
-        static const std::map<int, double> divisionToMultiplier = {
-            { 0, 4.0 },  // Whole note
-            { 1, 2.0 },  // Half note
-            { 2, 1.0 },  // Quarter note
-            { 3, 0.5 },  // Eighth note
-            { 4, 0.25 }  // Sixteenth note
-        };
-
-        double multiplier = divisionToMultiplier.at(lfoNoteDivisionParam->getIndex());
+        const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
+        double multiplier = multipliers[static_cast<int>(divisionParam->load())];
         lfo.setRate(currentBPM / (60.0 * multiplier));
     }
     else
     {
-        lfo.setRate(lfoRateParam->get());
+        lfo.setRate(rateParam->load());
     }
 
-    lfo.setDepth(lfoDepthParam->get());
-    lfo.setPhaseOffset(lfoPhaseOffsetParam->get()); // Apply phase offset
+    lfo.setDepth(depthParam->load());
+    lfo.setPhaseOffset(phaseOffsetParam->load());
     //
     
     
@@ -236,15 +278,23 @@ juce::AudioProcessorEditor* QuackerVSTAudioProcessor::createEditor()
 //==============================================================================
 void QuackerVSTAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
 }
 
 void QuackerVSTAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+    if (xmlState.get() != nullptr)
+        if (xmlState->hasTagName(apvts.state.getType()))
+            apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
 //==============================================================================

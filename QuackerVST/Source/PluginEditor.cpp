@@ -20,62 +20,48 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     startTimerHz(100); //Starting a timer which updates the GUI
     
     //Adding and init LFO rate and depth control params
+    // Setup controls
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
     lfoRateSlider.setRange(0.01, 2.0, 0.01);
-    lfoRateSlider.setValue(audioProcessor.lfoRateParam->get());
-    lfoRateSlider.onValueChange = [this] {
-        audioProcessor.lfoRateParam->setValueNotifyingHost(lfoRateSlider.getValue());
-    };
     addAndMakeVisible(lfoRateSlider);
 
     lfoDepthSlider.setSliderStyle(juce::Slider::Rotary);
     lfoDepthSlider.setRange(0.0, 1.0, 0.01);
-    lfoDepthSlider.setValue(audioProcessor.lfoDepthParam->get());
-    lfoDepthSlider.onValueChange = [this] {
-        audioProcessor.lfoDepthParam->setValueNotifyingHost(lfoDepthSlider.getValue());
-    };
     addAndMakeVisible(lfoDepthSlider);
-    
-    //Adding and init LFO waveform choice
+
     lfoWaveformBox.addItem("Sine", 1);
     lfoWaveformBox.addItem("Square", 2);
     lfoWaveformBox.addItem("Triangle", 3);
-    lfoWaveformBox.setSelectedId(audioProcessor.lfoWaveformParam->getIndex() + 1, juce::dontSendNotification);
-    lfoWaveformBox.onChange = [this] {
-        audioProcessor.lfoWaveformParam->setValueNotifyingHost(lfoWaveformBox.getSelectedId() - 1);
-    };
     addAndMakeVisible(lfoWaveformBox);
-    
-    //Adding LFO sync toggle
+
     lfoSyncButton.setButtonText("Sync to BPM");
-    lfoSyncButton.setToggleState(audioProcessor.lfoSyncParam->get(), juce::dontSendNotification);
-    lfoSyncButton.onClick = [this] {
-        audioProcessor.lfoSyncParam->setValueNotifyingHost(lfoSyncButton.getToggleState());
-    };
     addAndMakeVisible(lfoSyncButton);
-    
-    //Adding note division selection
+
     lfoNoteDivisionBox.addItem("Whole", 1);
     lfoNoteDivisionBox.addItem("Half", 2);
     lfoNoteDivisionBox.addItem("Quarter", 3);
     lfoNoteDivisionBox.addItem("Eighth", 4);
     lfoNoteDivisionBox.addItem("Sixteenth", 5);
-    lfoNoteDivisionBox.setSelectedId(audioProcessor.lfoNoteDivisionParam->getIndex() + 1, juce::dontSendNotification);
-    lfoNoteDivisionBox.onChange = [this] {
-        audioProcessor.lfoNoteDivisionParam->setValueNotifyingHost(lfoNoteDivisionBox.getSelectedId() - 1);
-    };
     addAndMakeVisible(lfoNoteDivisionBox);
-    
-    //Adding phase offset (Feel) controls
+
     lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
     lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
-    lfoPhaseOffsetSlider.setValue(audioProcessor.lfoPhaseOffsetParam->get());
     lfoPhaseOffsetSlider.setTextValueSuffix(" °");
-    lfoPhaseOffsetSlider.onValueChange = [this] {
-        audioProcessor.lfoPhaseOffsetParam->setValueNotifyingHost(lfoPhaseOffsetSlider.getValue());
-    };
     addAndMakeVisible(lfoPhaseOffsetSlider);
     
+    // Create attachments
+    lfoRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "lfoRate", lfoRateSlider);
+    lfoDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "lfoDepth", lfoDepthSlider);
+    lfoWaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "lfoWaveform", lfoWaveformBox);
+    lfoSyncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        audioProcessor.apvts, "lfoSync", lfoSyncButton);
+    lfoNoteDivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "lfoNoteDivision", lfoNoteDivisionBox);
+    lfoPhaseOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "lfoPhaseOffset", lfoPhaseOffsetSlider);
     
     //
     addAndMakeVisible(lfoVisualizer);
@@ -91,25 +77,34 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 void QuackerVSTAudioProcessorEditor::timerCallback()
 {
     // Update visualizer with current parameter values
-    lfoVisualizer.setWaveform(audioProcessor.lfoWaveformParam->getIndex());
-    lfoVisualizer.setDepth(audioProcessor.lfoDepthParam->get());
-    lfoVisualizer.setPhaseOffset(audioProcessor.lfoPhaseOffsetParam->get());
+    // Get parameters from APVTS
+    auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
+    auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
+    auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
+    auto syncParam = audioProcessor.apvts.getRawParameterValue("lfoSync");
+    auto rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
+    auto divisionParam = audioProcessor.apvts.getRawParameterValue("lfoNoteDivision");
+
+    // Update visualizer with current parameter values
+    lfoVisualizer.setWaveform(static_cast<int>(waveformParam->load()));
+    lfoVisualizer.setDepth(depthParam->load());
+    lfoVisualizer.setPhaseOffset(phaseOffsetParam->load());
     
     // Update rate and sync settings
-    if (audioProcessor.lfoSyncParam->get())
+    if (syncParam->load() > 0.5f)
     {
         lfoVisualizer.setTempoSync(true,
                                   audioProcessor.getCurrentBPM(),
-                                  audioProcessor.lfoNoteDivisionParam->getIndex());
+                                  static_cast<int>(divisionParam->load()));
     }
     else
     {
-        lfoVisualizer.setRate(audioProcessor.lfoRateParam->get());
+        lfoVisualizer.setRate(rateParam->load());
     }
     
-    repaint();  // Repaint the editor periodically
-}
-
+    repaint();
+    }
+    
 //==============================================================================
 void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
 {
