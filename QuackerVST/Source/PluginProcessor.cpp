@@ -226,8 +226,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             
             if (syncParam->load() > 0.5f)
             {
-                // Convert division index to actual division value
-                const double divisions[] = { 4.0, 2.0, 1.0, 0.5, 0.25 }; // whole, half, quarter, eighth, sixteenth
+                // Reversed the division values - now 1/16 will be fastest
+                const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
                 double division = divisions[static_cast<int>(divisionParam->load())];
                 
                 // Set sync mode and provide beat position
