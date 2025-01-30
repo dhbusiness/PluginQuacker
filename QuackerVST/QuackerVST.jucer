@@ -8,6 +8,7 @@
             file="Source/PluginProcessor.cpp"/>
       <FILE id="Dkwx6u" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
+      <FILE id="qkZSSN" name="LFOVisualizer.h" compile="0" resource="0" file="Source/LFOVisualizer.h"/>
       <FILE id="nJO9T7" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>

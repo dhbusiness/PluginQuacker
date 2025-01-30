@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "LFOVisualizer.h"
 
 //==============================================================================
 QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor& p)
@@ -16,7 +17,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (800, 600);
-    startTimerHz(10); //Starting a timer which updates the GUI
+    startTimerHz(100); //Starting a timer which updates the GUI
     
     //Adding and init LFO rate and depth control params
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
@@ -44,6 +45,40 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
         audioProcessor.lfoWaveformParam->setValueNotifyingHost(lfoWaveformBox.getSelectedId() - 1);
     };
     addAndMakeVisible(lfoWaveformBox);
+    
+    //Adding LFO sync toggle
+    lfoSyncButton.setButtonText("Sync to BPM");
+    lfoSyncButton.setToggleState(audioProcessor.lfoSyncParam->get(), juce::dontSendNotification);
+    lfoSyncButton.onClick = [this] {
+        audioProcessor.lfoSyncParam->setValueNotifyingHost(lfoSyncButton.getToggleState());
+    };
+    addAndMakeVisible(lfoSyncButton);
+    
+    //Adding note division selection
+    lfoNoteDivisionBox.addItem("Whole", 1);
+    lfoNoteDivisionBox.addItem("Half", 2);
+    lfoNoteDivisionBox.addItem("Quarter", 3);
+    lfoNoteDivisionBox.addItem("Eighth", 4);
+    lfoNoteDivisionBox.addItem("Sixteenth", 5);
+    lfoNoteDivisionBox.setSelectedId(audioProcessor.lfoNoteDivisionParam->getIndex() + 1, juce::dontSendNotification);
+    lfoNoteDivisionBox.onChange = [this] {
+        audioProcessor.lfoNoteDivisionParam->setValueNotifyingHost(lfoNoteDivisionBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible(lfoNoteDivisionBox);
+    
+    //Adding phase offset (Feel) controls
+    lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
+    lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
+    lfoPhaseOffsetSlider.setValue(audioProcessor.lfoPhaseOffsetParam->get());
+    lfoPhaseOffsetSlider.setTextValueSuffix(" °");
+    lfoPhaseOffsetSlider.onValueChange = [this] {
+        audioProcessor.lfoPhaseOffsetParam->setValueNotifyingHost(lfoPhaseOffsetSlider.getValue());
+    };
+    addAndMakeVisible(lfoPhaseOffsetSlider);
+    
+    
+    //
+    addAndMakeVisible(lfoVisualizer);
 
     
 }
@@ -55,6 +90,23 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
 {
+    // Update visualizer with current parameter values
+    lfoVisualizer.setWaveform(audioProcessor.lfoWaveformParam->getIndex());
+    lfoVisualizer.setDepth(audioProcessor.lfoDepthParam->get());
+    lfoVisualizer.setPhaseOffset(audioProcessor.lfoPhaseOffsetParam->get());
+    
+    // Update rate and sync settings
+    if (audioProcessor.lfoSyncParam->get())
+    {
+        lfoVisualizer.setTempoSync(true,
+                                  audioProcessor.getCurrentBPM(),
+                                  audioProcessor.lfoNoteDivisionParam->getIndex());
+    }
+    else
+    {
+        lfoVisualizer.setRate(audioProcessor.lfoRateParam->get());
+    }
+    
     repaint();  // Repaint the editor periodically
 }
 
@@ -84,11 +136,20 @@ void QuackerVSTAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    //gainSlider.setBounds(10, 10, getWidth() - 20, 30);
     auto bounds = getLocalBounds();
     
-    lfoRateSlider.setBounds(10, 10, 150, 150);      //Placing LFO sliders on screen
-    lfoDepthSlider.setBounds(170, 10, 150, 150);    //Placing LFO sliders on screen
-    lfoWaveformBox.setBounds(10, 200, 150, 30);
+    // Reserve top section for visualizer
+    auto visualizerBounds = bounds.removeFromTop(200);
+    visualizerBounds.reduce(10, 10); // Add some padding
+    lfoVisualizer.setBounds(visualizerBounds);
+    
+    // Existing controls
+    lfoRateSlider.setBounds(10, visualizerBounds.getBottom() + 10, 150, 150);
+    lfoDepthSlider.setBounds(170, visualizerBounds.getBottom() + 10, 150, 150);
+    lfoWaveformBox.setBounds(10, lfoRateSlider.getBottom() + 10, 150, 30);
+    lfoSyncButton.setBounds(10, lfoWaveformBox.getBottom() + 10, 150, 30);
+    lfoNoteDivisionBox.setBounds(170, lfoWaveformBox.getBottom() + 10, 150, 30);
+    lfoPhaseOffsetSlider.setBounds(330, visualizerBounds.getBottom() + 10, 150, 150);
+
     
 }

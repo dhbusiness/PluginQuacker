@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "LFOVisualizer.h"
 
 
 //==============================================================================
@@ -31,8 +32,16 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     QuackerVSTAudioProcessor& audioProcessor;
-    //juce::Slider gainSlider; //Added slider for gain
+    
+    LFOVisualizer lfoVisualizer;
+    
     juce::Slider lfoRateSlider, lfoDepthSlider; //Defining sliders for LFO control
     juce::ComboBox lfoWaveformBox;
+    
+    juce::ToggleButton lfoSyncButton;
+    juce::ComboBox lfoNoteDivisionBox;
+    
+    juce::Slider lfoPhaseOffsetSlider;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };
