@@ -32,6 +32,7 @@ private:
     // access the processor object that created it.
     QuackerVSTAudioProcessor& audioProcessor;
     //juce::Slider gainSlider; //Added slider for gain
-    juce::Slider lfoRateSlider, lfoDepthSlider;
+    juce::Slider lfoRateSlider, lfoDepthSlider; //Defining sliders for LFO control
+    juce::ComboBox lfoWaveformBox;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

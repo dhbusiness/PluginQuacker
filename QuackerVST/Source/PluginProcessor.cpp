@@ -21,12 +21,17 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
                      #endif
                        ),
 #endif
-lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),
-lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f))
+lfoRateParam(new juce::AudioParameterFloat("lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f)),      //Adding LFO params to constructor
+lfoDepthParam(new juce::AudioParameterFloat("lfoDepth", "LFO Depth", 0.0f, 1.f, 0.5f)),      //Adding LFO params to constructor
+lfoWaveformParam(new juce::AudioParameterChoice(
+    "lfoWaveform", "LFO Waveform",
+    juce::StringArray{ "Sine", "Square", "Triangle" }, 0 )// Default: Sine - Adding LFO waveform selection to constructor
+)
 
 {
-    addParameter(lfoRateParam);
-    addParameter(lfoDepthParam);
+    addParameter(lfoRateParam);         //Init LFO params
+    addParameter(lfoDepthParam);        //Init LFO params
+    addParameter(lfoWaveformParam);
 }
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
@@ -148,42 +153,24 @@ void QuackerVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    //auto gainValue = gainParameter->get(); //Added getting value from user input, this will be changed
-    
     
     lfo.setRate(lfoRateParam->get());
     lfo.setDepth(lfoDepthParam->get());
+    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(lfoWaveformParam->getIndex()));
     
-    
-    //Updates BPM in every processing block
-    if (auto* playHead = getPlayHead())
-    {
-        juce::AudioPlayHead::CurrentPositionInfo posInfo;
-        if (playHead->getCurrentPosition(posInfo))
-        {
-            currentBPM = posInfo.bpm;
-        }
-    }
-
-    //CLEARS EMPTY CHANNELS
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 
-    
- 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        
-        // ..do something to the data...
+        auto* channelData = buffer.getWritePointer(channel);
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
             float lfoValue = lfo.getNextSample();
             channelData[sample] *= (1.0f - lfoValue);
-        };
-        
-    };
+        }
+    }
 }
 
 //==============================================================================

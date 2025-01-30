@@ -18,6 +18,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     setSize (800, 600);
     startTimerHz(10); //Starting a timer which updates the GUI
     
+    //Adding and init LFO rate and depth control params
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
     lfoRateSlider.setRange(0.01, 2.0, 0.01);
     lfoRateSlider.setValue(audioProcessor.lfoRateParam->get());
@@ -34,6 +35,15 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     };
     addAndMakeVisible(lfoDepthSlider);
     
+    //Adding and init LFO waveform choice
+    lfoWaveformBox.addItem("Sine", 1);
+    lfoWaveformBox.addItem("Square", 2);
+    lfoWaveformBox.addItem("Triangle", 3);
+    lfoWaveformBox.setSelectedId(audioProcessor.lfoWaveformParam->getIndex() + 1, juce::dontSendNotification);
+    lfoWaveformBox.onChange = [this] {
+        audioProcessor.lfoWaveformParam->setValueNotifyingHost(lfoWaveformBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible(lfoWaveformBox);
 
     
 }
@@ -77,7 +87,8 @@ void QuackerVSTAudioProcessorEditor::resized()
     //gainSlider.setBounds(10, 10, getWidth() - 20, 30);
     auto bounds = getLocalBounds();
     
-    lfoRateSlider.setBounds(10, 10, 150, 150);
-    lfoDepthSlider.setBounds(170, 10, 150, 150);
-
+    lfoRateSlider.setBounds(10, 10, 150, 150);      //Placing LFO sliders on screen
+    lfoDepthSlider.setBounds(170, 10, 150, 150);    //Placing LFO sliders on screen
+    lfoWaveformBox.setBounds(10, 200, 150, 30);
+    
 }
