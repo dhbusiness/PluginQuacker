@@ -16,7 +16,7 @@ class LFOVisualizer : public juce::Component, public juce::Timer
 public:
     LFOVisualizer() : currentPhase(0.0)
     {
-        startTimerHz(60); // Increase refresh rate for smoother animation
+        startTimerHz(100); // Increase refresh rate for smoother animation
     }
 
     ~LFOVisualizer() override

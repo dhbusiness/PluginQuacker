@@ -78,6 +78,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         180.0f,
         0.0f
     ));
+    
+    // Mix Control
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "mix",
+        "Mix",
+        0.0f,
+        1.0f,
+        1.0f  // default to 100% wet
+    ));
+
 
     return { params.begin(), params.end() };
 }
@@ -210,6 +220,9 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
     auto* syncParam = apvts.getRawParameterValue("lfoSync");
     auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
+    
+    auto* mixParam = apvts.getRawParameterValue("mix");
+    float mix = mixParam->load();
 
     // Set basic LFO parameters
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
@@ -253,8 +266,15 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
+            // Store the dry signal
+            float drySample = channelData[sample];
+            
+            // Create the wet signal
             float lfoValue = lfo.getNextSample();
-            channelData[sample] *= (1.0f - lfoValue);
+            float wetSample = drySample * (1.0f - lfoValue);
+            
+            // Mix dry and wet signals
+            channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
         }
     }
 }

@@ -49,6 +49,13 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoPhaseOffsetSlider.setTextValueSuffix(" °");
     addAndMakeVisible(lfoPhaseOffsetSlider);
     
+    mixSlider.setSliderStyle(juce::Slider::Rotary);
+    mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
+    mixSlider.setRange(0.0f, 1.0f, 0.01f);
+    addAndMakeVisible(mixSlider);
+
+
+    
     // Create attachments
     lfoRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "lfoRate", lfoRateSlider);
@@ -62,6 +69,8 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
         audioProcessor.apvts, "lfoNoteDivision", lfoNoteDivisionBox);
     lfoPhaseOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "lfoPhaseOffset", lfoPhaseOffsetSlider);
+    mixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "mix", mixSlider);
     
     //
     addAndMakeVisible(lfoVisualizer);
@@ -135,16 +144,20 @@ void QuackerVSTAudioProcessorEditor::resized()
     
     // Reserve top section for visualizer
     auto visualizerBounds = bounds.removeFromTop(200);
-    visualizerBounds.reduce(10, 10); // Add some padding
+    visualizerBounds.reduce(10, 10);
     lfoVisualizer.setBounds(visualizerBounds);
     
-    // Existing controls
+    // Position existing controls
     lfoRateSlider.setBounds(10, visualizerBounds.getBottom() + 10, 150, 150);
     lfoDepthSlider.setBounds(170, visualizerBounds.getBottom() + 10, 150, 150);
+    lfoPhaseOffsetSlider.setBounds(330, visualizerBounds.getBottom() + 10, 150, 150);
+    
+    // Add mix control
+    mixSlider.setBounds(490, visualizerBounds.getBottom() + 10, 150, 150);
+    
+    // Bottom row controls
     lfoWaveformBox.setBounds(10, lfoRateSlider.getBottom() + 10, 150, 30);
     lfoSyncButton.setBounds(10, lfoWaveformBox.getBottom() + 10, 150, 30);
     lfoNoteDivisionBox.setBounds(170, lfoWaveformBox.getBottom() + 10, 150, 30);
-    lfoPhaseOffsetSlider.setBounds(330, visualizerBounds.getBottom() + 10, 150, 150);
-
     
 }
