@@ -51,7 +51,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         "lfoWaveform",
         "LFO Waveform",
-        juce::StringArray{ "Sine", "Square", "Triangle" },
+        juce::StringArray{
+            "Sine",
+            "Square",
+            "Triangle",
+            "Sawtooth Up",
+            "Sawtooth Down",
+            "Soft Square",
+            "Fender Style",
+            "Wurlitzer Style"
+        },
         0  // default to Sine
     ));
 

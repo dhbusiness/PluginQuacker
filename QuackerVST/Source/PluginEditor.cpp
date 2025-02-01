@@ -32,6 +32,11 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoWaveformBox.addItem("Sine", 1);
     lfoWaveformBox.addItem("Square", 2);
     lfoWaveformBox.addItem("Triangle", 3);
+    lfoWaveformBox.addItem("Sawtooth Up",4);
+    lfoWaveformBox.addItem("Sawtooth Down", 5);
+    lfoWaveformBox.addItem("Soft Square", 6);
+    lfoWaveformBox.addItem("Fender Style", 7);
+    lfoWaveformBox.addItem("Wurlitzer Style", 8);
     addAndMakeVisible(lfoWaveformBox);
 
     lfoSyncButton.setButtonText("Sync to BPM");

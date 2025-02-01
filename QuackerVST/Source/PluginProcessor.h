@@ -63,7 +63,16 @@ private:
     class TremoloLFO
     {
     public:
-        enum Waveform {Sine, Square, Triangle};
+        enum Waveform {
+            Sine,
+            Square,
+            Triangle,
+            SawtoothUp,
+            SawtoothDown,
+            SoftSquare,
+            FenderStyle,    // New
+            WurlitzerStyle  // New
+        };
         
         TremoloLFO()
             : phase(0.0)
@@ -141,11 +150,65 @@ private:
                 case Triangle:
                     output = 1.0 - std::abs(2.0 * outputPhase - 1.0);
                     break;
+
+                case SawtoothUp:
+                    output = 1.0 - outputPhase;
+                    break;
+
+                case SawtoothDown:
+                    output = 1.0 - outputPhase;
+                    break;
+
+                case SoftSquare:
+                    {
+                        // Create a softer square wave using sigmoid function
+                        const double sharpness = 10.0; // Adjust this to control the softness
+                        double centered = outputPhase * 2.0 - 1.0;
+                        output = 1.0 / (1.0 + std::exp(-sharpness * centered));
+                    }
+                    break;
+                    
+                case FenderStyle:
+                {
+                    // Fender-style tremolo: Asymmetric sine wave with subtle harmonics
+                    double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                    
+                    // Calculate the base waveform with proper scaling
+                    double raw = std::sin(angle) +                     // Fundamental
+                                 0.1 * std::sin(2.0 * angle) +         // 2nd harmonic
+                                 0.05 * std::sin(3.0 * angle);         // 3rd harmonic
+                    
+                    // Normalize to 0-1 range with headroom
+                    output = (raw * 0.4) + 0.5;  // Scale by 0.4 to ensure we stay within bounds
+                    
+                    // Add subtle asymmetry without causing dropouts
+                    output = std::pow(output, 1.08);
+                    
+                    // Ensure output stays within bounds
+                    output = juce::jlimit(0.0, 1.0, output);
+                }
+                break;
+
+                case WurlitzerStyle:
+                    {
+                        // Wurlitzer-style: Blend of triangle and sine with peak emphasis
+                        double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                        double sineComponent = std::sin(angle);
+                        double triangleComponent = 2.0 * std::abs(2.0 * (outputPhase - 0.5)) - 1.0;
+                        
+                        // Blend the components (60% sine, 40% triangle)
+                        output = (0.6 * sineComponent + 0.4 * triangleComponent) * 0.5 + 0.5;
+                        
+                        // Add slight emphasis to peaks
+                        output = std::pow(output, 0.9);
+                    }
+                    break;
+            
             }
 
             return output * depth + (1.0f - depth);
         }
-
+        
         void setSyncMode(bool shouldSync, double division = 1.0)
         {
             syncedToHost = shouldSync;

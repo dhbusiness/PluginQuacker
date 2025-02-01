@@ -170,12 +170,42 @@ private:
                 return std::sin(phase * juce::MathConstants<float>::twoPi);
                 
             case 1: // Square
-                // Square wave should go from -1 to 1 for visualization
                 return (phase < 0.5f) ? 1.0f : -1.0f;
                 
             case 2: // Triangle
-                // Triangle wave from -1 to 1
                 return 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
+                
+            case 3: // Sawtooth
+                return 2.0f * phase - 1.0f;
+                
+            case 4: // Ramp Down
+                return 1.0f - (2.0f * phase);
+                
+            case 5: // Soft Square
+                {
+                    const float sharpness = 10.0f;
+                    float centered = phase * 2.0f - 1.0f;
+                    return 2.0f * (1.0f / (1.0f + std::exp(-sharpness * centered))) - 1.0f;
+                }
+                
+            case 6: // FenderStyle
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float raw = std::sin(angle) +
+                            0.1f * std::sin(2.0 * angle) +
+                            0.05f * std::sin(3.0 * angle);
+                
+                float value = (raw * 0.4f) + 0.5f;
+                value = std::pow(value, 1.08f);
+                return (value * 2.0f) - 1.0f; // Convert to -1 to 1 for visualizer
+            }
+            case 7: // WurlitzerStyle
+                {
+                    double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                    float sineComponent = std::sin(angle);
+                    float triangleComponent = 2.0f * std::abs(2.0f * (phase - 0.5f)) - 1.0f;
+                    return 0.6f * sineComponent + 0.4f * triangleComponent;
+                }
                 
             default:
                 return 0.0f;
