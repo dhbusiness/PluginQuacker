@@ -22,10 +22,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     //Adding and init LFO rate and depth control params
     // Setup controls
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
+    lfoRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     lfoRateSlider.setRange(0.01, 2.0, 0.01);
     addAndMakeVisible(lfoRateSlider);
 
     lfoDepthSlider.setSliderStyle(juce::Slider::Rotary);
+    lfoDepthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     lfoDepthSlider.setRange(0.0, 1.0, 0.01);
     addAndMakeVisible(lfoDepthSlider);
 
@@ -50,6 +52,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     addAndMakeVisible(lfoNoteDivisionBox);
 
     lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
+    lfoPhaseOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
     lfoPhaseOffsetSlider.setTextValueSuffix(" °");
     addAndMakeVisible(lfoPhaseOffsetSlider);
@@ -222,8 +225,6 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
 
 void QuackerVSTAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
     auto bounds = getLocalBounds();
     
     // Reserve top section for visualizer
@@ -231,17 +232,29 @@ void QuackerVSTAudioProcessorEditor::resized()
     visualizerBounds.reduce(10, 10);
     lfoVisualizer.setBounds(visualizerBounds);
     
-    // Position existing controls
-    lfoRateSlider.setBounds(10, visualizerBounds.getBottom() + 10, 150, 150);
-    lfoDepthSlider.setBounds(170, visualizerBounds.getBottom() + 10, 150, 150);
-    lfoPhaseOffsetSlider.setBounds(330, visualizerBounds.getBottom() + 10, 150, 150);
+    // Calculate sizes for uniform dials
+    const int dialSize = 150;  // Using the size of the mix dial
+    const int textBoxHeight = 20;
+    const int spacing = 20;
     
-    // Add mix control
-    mixSlider.setBounds(490, visualizerBounds.getBottom() + 10, 150, 150);
+    // Calculate total width needed
+    const int totalWidth = (dialSize * 4) + (spacing * 3);
+    // Calculate starting X to center the dials
+    const int startX = (getWidth() - totalWidth) / 2;
+    const int startY = visualizerBounds.getBottom() + spacing;
+
+    // Position dials with equal size and spacing
+    lfoRateSlider.setBounds(startX, startY, dialSize, dialSize);
+    lfoDepthSlider.setBounds(startX + dialSize + spacing, startY, dialSize, dialSize);
+    lfoPhaseOffsetSlider.setBounds(startX + (dialSize + spacing) * 2, startY, dialSize, dialSize);
+    mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
     
-    // Bottom row controls
-    lfoWaveformBox.setBounds(10, lfoRateSlider.getBottom() + 10, 150, 30);
-    lfoSyncButton.setBounds(10, lfoWaveformBox.getBottom() + 10, 150, 30);
-    lfoNoteDivisionBox.setBounds(170, lfoWaveformBox.getBottom() + 10, 150, 30);
+    // Position comboboxes and buttons below dials
+    const int controlY = startY + dialSize + spacing;
+    const int comboBoxWidth = dialSize;
+    const int comboBoxHeight = 30;
     
+    lfoWaveformBox.setBounds(startX, controlY, comboBoxWidth, comboBoxHeight);
+    lfoSyncButton.setBounds(startX + dialSize + spacing, controlY, comboBoxWidth, comboBoxHeight);
+    lfoNoteDivisionBox.setBounds(startX + (dialSize + spacing) * 2, controlY, comboBoxWidth, comboBoxHeight);
 }

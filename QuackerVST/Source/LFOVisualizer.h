@@ -38,7 +38,7 @@ public:
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
         
         // Draw moving waveform
-        g.setColour(juce::Colour(232, 193, 185));  // Light rose gold for waveform
+        g.setColour(juce::Colour(25, 224, 139));  // Light rose gold for waveform
         juce::Path waveformPath;
         bool pathStarted = false;
 
