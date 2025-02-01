@@ -12,6 +12,7 @@
 #include "PluginProcessor.h"
 #include "LFOVisualizer.h"
 #include "CustomDialLookAndFeel.h"
+#include "CustomToggle.h"
 
 
 //==============================================================================
@@ -56,6 +57,7 @@ private:
     
     //Look and feel
     CustomDial customDialLookAndFeel;
+    CustomToggle customToggleLookAndFeel;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

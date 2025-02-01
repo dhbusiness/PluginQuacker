@@ -6,6 +6,7 @@
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
       <FILE id="do7XGJ" name="CustomDialLookAndFeel.cpp" compile="1" resource="0"
             file="Source/CustomDialLookAndFeel.cpp"/>
+      <FILE id="dQzv2h" name="CustomToggle.h" compile="0" resource="0" file="Source/CustomToggle.h"/>
       <FILE id="Bz9Z5k" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="P4kBhr" name="CustomDialLookAndFeel.h" compile="0" resource="0"

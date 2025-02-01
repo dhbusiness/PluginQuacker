@@ -88,6 +88,8 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoDepthSlider.setLookAndFeel(&customDialLookAndFeel);
     lfoPhaseOffsetSlider.setLookAndFeel(&customDialLookAndFeel);
     mixSlider.setLookAndFeel(&customDialLookAndFeel);
+    
+    lfoSyncButton.setLookAndFeel(&customToggleLookAndFeel);
 
     
 }
@@ -100,6 +102,8 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     lfoDepthSlider.setLookAndFeel(nullptr);
     lfoPhaseOffsetSlider.setLookAndFeel(nullptr);
     mixSlider.setLookAndFeel(nullptr);
+    
+    lfoSyncButton.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -234,6 +238,8 @@ void QuackerVSTAudioProcessorEditor::resized()
     
     // Calculate sizes for uniform dials
     const int dialSize = 150;  // Using the size of the mix dial
+    const int switchWidth = 80;  // Increased width
+    const int switchHeight = 60;  // Increased height
     const int textBoxHeight = 20;
     const int spacing = 20;
     
@@ -255,6 +261,9 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int comboBoxHeight = 30;
     
     lfoWaveformBox.setBounds(startX, controlY, comboBoxWidth, comboBoxHeight);
-    lfoSyncButton.setBounds(startX + dialSize + spacing, controlY, comboBoxWidth, comboBoxHeight);
+    lfoSyncButton.setBounds(startX + dialSize + spacing,
+                           controlY,
+                           switchWidth,
+                           switchHeight);
     lfoNoteDivisionBox.setBounds(startX + (dialSize + spacing) * 2, controlY, comboBoxWidth, comboBoxHeight);
 }
