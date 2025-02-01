@@ -79,6 +79,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     
     //
     addAndMakeVisible(lfoVisualizer);
+    
+    //LookandFeel
+    lfoRateSlider.setLookAndFeel(&customDialLookAndFeel);
+    lfoDepthSlider.setLookAndFeel(&customDialLookAndFeel);
+    lfoPhaseOffsetSlider.setLookAndFeel(&customDialLookAndFeel);
+    mixSlider.setLookAndFeel(&customDialLookAndFeel);
 
     
 }
@@ -86,6 +92,11 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 {
     stopTimer(); //Stopping the timer in deconstructor
+    // Clean up the look and feel
+    lfoRateSlider.setLookAndFeel(nullptr);
+    lfoDepthSlider.setLookAndFeel(nullptr);
+    lfoPhaseOffsetSlider.setLookAndFeel(nullptr);
+    mixSlider.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()

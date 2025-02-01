@@ -4,8 +4,12 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="rSG9EE" name="QuackerVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
+      <FILE id="do7XGJ" name="CustomDialLookAndFeel.cpp" compile="1" resource="0"
+            file="Source/CustomDialLookAndFeel.cpp"/>
       <FILE id="Bz9Z5k" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
+      <FILE id="P4kBhr" name="CustomDialLookAndFeel.h" compile="0" resource="0"
+            file="Source/CustomDialLookAndFeel.h"/>
       <FILE id="Dkwx6u" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
       <FILE id="qkZSSN" name="LFOVisualizer.h" compile="0" resource="0" file="Source/LFOVisualizer.h"/>
