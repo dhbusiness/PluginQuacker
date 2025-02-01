@@ -38,7 +38,7 @@ public:
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
         
         // Draw moving waveform
-        g.setColour(juce::Colours::cyan);
+        g.setColour(juce::Colour(232, 193, 185));  // Light rose gold for waveform
         juce::Path waveformPath;
         bool pathStarted = false;
 
@@ -52,7 +52,7 @@ public:
             // Calculate phase for this point, incorporating the moving phase offset
             float phase = (static_cast<float>(i) / static_cast<float>(numPoints - 1) + currentPhase);
                         
-            // Apply phase offset (converting from degrees to normalized phase)
+            // Apply phase offset
             phase += phaseOffset / 360.0f;
 
             // Wrap phase to keep it between 0 and 1
@@ -60,11 +60,8 @@ public:
             while (phase < 0.0f) phase += 1.0f;
 
             float y = bounds.getCentreY();
-            float value = 0.0f;
-
-
-            // In the waveform drawing loop:
-            value = calculateWaveformValue(phase, currentWaveform);
+            float value = calculateWaveformValue(phase, currentWaveform);
+            
             // Scale the value by depth and center it
             y -= value * depth * bounds.getHeight() * 0.4f;
 
@@ -81,13 +78,13 @@ public:
 
         g.strokePath(waveformPath, juce::PathStrokeType(2.0f));
 
-        // Draw playhead (vertical line showing current position)
+        // Draw playhead
         g.setColour(juce::Colours::yellow.withAlpha(0.5f));
         float playheadX = currentPhase * bounds.getWidth();
         g.drawVerticalLine(static_cast<int>(playheadX), bounds.getY(), bounds.getBottom());
 
-        // Draw border
-        g.setColour(juce::Colours::white);
+        // Draw border in dark rose gold
+        g.setColour(juce::Colour(120, 80, 75));  // Dark rose gold
         g.drawRect(bounds, 1.0f);
 
         // Draw rate indicator
@@ -96,7 +93,6 @@ public:
         juce::String rateText;
         if (tempoSynced)
         {
-            // Convert note division to text
             const char* divisions[] = { "1/1", "1/2", "1/4", "1/8", "1/16" };
             rateText = juce::String(bpm, 1) + " BPM - " + juce::String(divisions[noteDivision]);
         }

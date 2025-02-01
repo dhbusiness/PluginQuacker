@@ -133,23 +133,91 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
 //==============================================================================
 void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    auto bounds = getLocalBounds().toFloat();
+    
+    // Base layer - deep plum core
+    juce::ColourGradient baseGradient(
+        juce::Colour(61, 21, 46),  // Darker plum center
+        bounds.getCentreX(), bounds.getCentreY(),
+        juce::Colour(89, 34, 68),  // Natural plum edge
+        0, 0,
+        true);  // Radial gradient
+    
+    // Add subtle color variations for depth
+    baseGradient.addColour(0.3, juce::Colour(72, 28, 55));
+    baseGradient.addColour(0.7, juce::Colour(95, 41, 73));
+    
+    g.setGradientFill(baseGradient);
+    g.fillAll();
 
-    g.setColour (juce::Colours::white);
-    g.setFont (juce::FontOptions (15.0f));
+    // Second layer - peachy highlights
+    juce::ColourGradient peachGradient(
+        juce::Colour(255, 201, 190).withAlpha(0.2f),  // Peachy pink
+        bounds.getRight(), 0,
+        juce::Colour(236, 174, 172).withAlpha(0.0f),  // Transparent peach
+        bounds.getCentreX(), bounds.getCentreY(),
+        false);  // Linear gradient
+        
+    g.setGradientFill(peachGradient);
+    g.fillAll();
+
+    // Bloom effect - top left
+    juce::ColourGradient bloomGradient(
+        juce::Colour(198, 109, 139).withAlpha(0.15f),  // Light plum
+        bounds.getX(), bounds.getY(),
+        juce::Colour(198, 109, 139).withAlpha(0.0f),
+        bounds.getX() + 300, bounds.getY() + 300,
+        true);  // Radial
+        
+    g.setGradientFill(bloomGradient);
+    g.fillAll();
+
+    // Add subtle velvety texture
+    for (int i = 0; i < 200; ++i) {
+        float x = juce::Random::getSystemRandom().nextFloat() * bounds.getWidth();
+        float y = juce::Random::getSystemRandom().nextFloat() * bounds.getHeight();
+        float size = juce::Random::getSystemRandom().nextFloat() * 2.0f + 0.5f;
+        
+        g.setColour(juce::Colour(255, 255, 255).withAlpha(0.01f));
+        g.fillEllipse(x, y, size, size);
+    }
+
+    // Add darker dusting effect
+    for (int i = 0; i < 150; ++i) {
+        float x = juce::Random::getSystemRandom().nextFloat() * bounds.getWidth();
+        float y = juce::Random::getSystemRandom().nextFloat() * bounds.getHeight();
+        float size = juce::Random::getSystemRandom().nextFloat() * 1.5f + 0.5f;
+        
+        g.setColour(juce::Colour(0, 0, 0).withAlpha(0.02f));
+        g.fillEllipse(x, y, size, size);
+    }
+
+    // Add highlights
+    juce::Path highlightPath;
+    float highlightWidth = bounds.getWidth() / 8;
+    float highlightHeight = bounds.getHeight() / 3;
+    highlightPath.addEllipse(50, 50, highlightWidth, highlightHeight);
     
-    
-    /*
-    g.drawFittedText ("BPM: " + juce::String(bpm), getLocalBounds(), juce::Justification::centred, 1);
-    g.drawFittedText ("WholeNoteMS: " + juce::String(WholeNoteMS), getLocalBounds(), juce::Justification::centred - 10, 1);
-    g.drawFittedText ("HalfNoteMS: " + juce::String(HalfNoteMS), getLocalBounds(), juce::Justification::centred + 15, 1);
-    g.drawFittedText ("QuarterNoteMS: " + juce::String(QuarterNoteMS), getLocalBounds(), juce::Justification::centred + 20, 1);
-    g.drawFittedText ("EightNoteMS: " + juce::String(EightNoteMS), getLocalBounds(), juce::Justification::centred + 25, 1);
-    g.drawFittedText ("SixteenthNotesMS: " + juce::String(SixteenthNotesMS), getLocalBounds(), juce::Justification::centred + 30, 1);
-    g.drawFittedText ("ThirtyTwoNotesMS: " + juce::String(ThirtyTwoNotesMS), getLocalBounds(), juce::Justification::centred + 35, 1);
-     */
-    
+    juce::ColourGradient highlightGradient(
+        juce::Colour(255, 255, 255).withAlpha(0.05f),
+        50, 50,
+        juce::Colour(255, 255, 255).withAlpha(0.0f),
+        50 + highlightWidth, 50 + highlightHeight,
+        true);
+        
+    g.setGradientFill(highlightGradient);
+    g.fillPath(highlightPath);
+
+    // Add a subtle waxy sheen
+    juce::ColourGradient sheenGradient(
+        juce::Colour(255, 255, 255).withAlpha(0.03f),
+        bounds.getCentreX() - 100, bounds.getCentreY() - 100,
+        juce::Colour(255, 255, 255).withAlpha(0.0f),
+        bounds.getCentreX() + 100, bounds.getCentreY() + 100,
+        true);
+        
+    g.setGradientFill(sheenGradient);
+    g.fillAll();
 }
 
 void QuackerVSTAudioProcessorEditor::resized()
