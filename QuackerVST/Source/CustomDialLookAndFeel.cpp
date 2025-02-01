@@ -51,16 +51,16 @@ void CustomDial::drawRotarySlider(juce::Graphics& g, int x, int y, int width, in
     g.setGradientFill(mainGradient);
     g.fillEllipse(centerX - radius, centerY - radius, diameter, diameter);
 
-    // Draw dots with adjusted spacing and more vibrant red
-    const int numDots = 28;
+    // Draw dots with rich teal color
+    const int numDots = 16;
     const float dotSize = 2.0f;
     const float startAngle = 0.75f * juce::MathConstants<float>::pi;
     const float arcSize = 1.5f * juce::MathConstants<float>::pi;
     const float dotSpacing = arcSize / (numDots - 1);
     
-    // More vibrant red colors
-    juce::Colour vibrantRed = juce::Colour(255, 60, 60);
-    juce::Colour vibrantGlow = juce::Colour(255, 80, 80);
+    // Pure teal base with luminescent glow
+    juce::Colour tealColor = juce::Colour::fromString("#19E08B");     // Pure, rich teal
+    juce::Colour tealGlow = tealColor.brighter(0.3f);    // Brighter only for glow
     
     for (int i = 0; i < numDots; ++i)
     {
@@ -73,27 +73,45 @@ void CustomDial::drawRotarySlider(juce::Graphics& g, int x, int y, int width, in
         
         if (dotPosition <= sliderPos)
         {
-            // More intense glow effect
-            g.setColour(vibrantGlow.withAlpha(0.15f));
+            // Enhanced luminescent glow effect
+            // Outer glow - larger and softer
+            g.setColour(tealGlow.withAlpha(0.1f));
+            g.fillEllipse(dotX - dotSize * 2.2f, dotY - dotSize * 2.2f,
+                         dotSize * 4.4f, dotSize * 4.4f);
+            
+            // Middle glow - more intense
+            g.setColour(tealGlow.withAlpha(0.2f));
             g.fillEllipse(dotX - dotSize * 1.8f, dotY - dotSize * 1.8f,
                          dotSize * 3.6f, dotSize * 3.6f);
                          
-            g.setColour(vibrantGlow.withAlpha(0.25f));
+            // Inner glow - brightest
+            g.setColour(tealGlow.withAlpha(0.3f));
             g.fillEllipse(dotX - dotSize * 1.4f, dotY - dotSize * 1.4f,
                          dotSize * 2.8f, dotSize * 2.8f);
                          
-            g.setColour(vibrantRed);
+            // Main dot
+            g.setColour(tealColor);
+            g.fillEllipse(dotX - dotSize * 0.5f, dotY - dotSize * 0.5f,
+                         dotSize, dotSize);
+                         
+            // Bright center highlight
+            g.setColour(juce::Colours::white.withAlpha(0.9f));
+            g.fillEllipse(dotX - dotSize * 0.2f, dotY - dotSize * 0.2f,
+                         dotSize * 0.4f, dotSize * 0.4f);
         }
         else
         {
             // Inactive dots
-            g.setColour(juce::Colours::white.withAlpha(0.4f));
+            g.setColour(juce::Colours::white.withAlpha(0.5f));
+            g.fillEllipse(dotX - dotSize * 0.5f, dotY - dotSize * 0.5f,
+                         dotSize, dotSize);
+            
+            // Subtle highlight for inactive dots
+            g.setColour(juce::Colours::white.withAlpha(0.3f));
+            g.fillEllipse(dotX - dotSize * 0.2f, dotY - dotSize * 0.2f,
+                         dotSize * 0.4f, dotSize * 0.4f);
         }
-        
-        g.fillEllipse(dotX - dotSize * 0.5f, dotY - dotSize * 0.5f,
-                      dotSize, dotSize);
     }
-    
     // Enhanced pointer
     float sliderAngle = rotaryStartAngle + (sliderPos * (rotaryEndAngle - rotaryStartAngle));
     
