@@ -62,6 +62,17 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     mixSlider.setRange(0.0f, 1.0f, 0.01f);
     addAndMakeVisible(mixSlider);
 
+    //Bypass
+    bypassButton.setLookAndFeel(&customToggleLookAndFeel);
+    addAndMakeVisible(bypassButton);
+    
+    // Set button texts (will appear above switches)
+    lfoSyncButton.setButtonText("SYNC");
+    bypassButton.setButtonText("BYPASS");
+    
+    // Create bypass attachment (you'll need to add a bypass parameter to your APVTS first)
+    bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        audioProcessor.apvts, "bypass", bypassButton);
 
     
     // Create attachments
@@ -104,6 +115,8 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     mixSlider.setLookAndFeel(nullptr);
     
     lfoSyncButton.setLookAndFeel(nullptr);
+    
+    bypassButton.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -261,9 +274,15 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int comboBoxHeight = 30;
     
     lfoWaveformBox.setBounds(startX, controlY, comboBoxWidth, comboBoxHeight);
-    lfoSyncButton.setBounds(startX + dialSize + spacing,
-                           controlY,
-                           switchWidth,
-                           switchHeight);
     lfoNoteDivisionBox.setBounds(startX + (dialSize + spacing) * 2, controlY, comboBoxWidth, comboBoxHeight);
+    
+    
+    // Position switches at the bottom
+    const int switchesY = getHeight() - switchHeight - 40;  // 40px from bottom
+    const int totalSwitchWidth = (switchWidth * 2) + spacing;
+    const int switchesStartX = (getWidth() - totalSwitchWidth) / 2;
+
+    // Position both switches with labels
+    lfoSyncButton.setBounds(switchesStartX, switchesY, switchWidth, switchHeight);
+    bypassButton.setBounds(switchesStartX + switchWidth + spacing, switchesY, switchWidth, switchHeight);
 }

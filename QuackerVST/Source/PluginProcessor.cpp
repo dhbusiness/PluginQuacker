@@ -97,6 +97,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         1.0f  // default to 100% wet
     ));
 
+    
+    // Add bypass parameter
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "bypass",
+        "Bypass",
+        false
+    ));
+
 
     return { params.begin(), params.end() };
 }

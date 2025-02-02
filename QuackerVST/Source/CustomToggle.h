@@ -21,10 +21,21 @@ public:
     {
         auto bounds = button.getLocalBounds().toFloat();
         
+        // Reserve space for label at top
+        float labelHeight = 15.0f;
+        auto switchBounds = bounds.withTrimmedTop(labelHeight);
+        
+        // Draw label
+        g.setColour(juce::Colour(232, 193, 185));  // Light rose gold to match dial
+        g.setFont(13.0f);
+        g.drawText(button.getButtonText(), bounds.removeFromTop(labelHeight),
+                   juce::Justification::centred, false);
+        
         // Make switch smaller relative to its bounds
         float diameter = 30.0f;  // Reduced from 40.0f
         float innerDiameter = diameter * 0.85f;
         
+        /*
         // Center the switch in the larger bounds
         juce::Rectangle<float> switchBounds(
             bounds.getCentreX() - diameter * 0.5f,
@@ -32,7 +43,8 @@ public:
             diameter,
             diameter
         );
-
+         */
+        
         // Outer ring shadow
         g.setColour(juce::Colours::black.withAlpha(0.4f));
         g.fillEllipse(switchBounds.translated(1.0f, 1.0f));
