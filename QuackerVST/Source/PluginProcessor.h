@@ -85,19 +85,31 @@ private:
             , rateSmoothing(0.997)
             , beatPosition(0.0)
             , lastBeatPosition(0.0)
-        {}
+        {
+            // Initialize smoothed values
+            smoothedDepth.reset(44100, 0.05); // 50ms smoothing
+            smoothedRate.reset(44100, 0.05);
+        }
 
         void setRate(float newRate)
         {
             rate = newRate;
+            smoothedRate.setTargetValue(newRate);
         }
 
-        void setDepth(float newDepth) { depth = newDepth; }
+        void setDepth(float newDepth)
+        {
+            depth = newDepth;
+            smoothedDepth.setTargetValue(newDepth);
+        }
         void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
         void setSampleRate(double newSampleRate)
         {
             sampleRate = newSampleRate;
             rateSmoothing = pow(0.5, 1.0 / (sampleRate * 0.005));
+            // Update smoothed values sample rate
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.05);
         }
         
         void setPhaseOffset(float offsetDegrees)
@@ -116,7 +128,7 @@ private:
             // Smooth the rate for free-running mode
             if (!syncedToHost)
             {
-                currentRate = currentRate * rateSmoothing + rate * (1.0f - rateSmoothing);
+                currentRate = smoothedRate.getNextValue();
                 phase += currentRate / sampleRate;
                 
                 // Wrap phase
@@ -206,7 +218,7 @@ private:
             
             }
 
-            return output * depth + (1.0f - depth);
+            return output * smoothedDepth.getNextValue() + (1.0f - smoothedDepth.getNextValue());
         }
         
         void setSyncMode(bool shouldSync, double division = 1.0)
@@ -224,6 +236,9 @@ private:
         double phaseOffset;
         float currentRate;
         float rateSmoothing;
+        
+        juce::SmoothedValue<float> smoothedDepth;
+        juce::SmoothedValue<float> smoothedRate;
         
         // Beat sync related
         bool syncedToHost = false;

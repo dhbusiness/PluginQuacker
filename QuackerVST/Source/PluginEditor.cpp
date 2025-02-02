@@ -50,6 +50,18 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoNoteDivisionBox.addItem("Eighth", 4);
     lfoNoteDivisionBox.addItem("Sixteenth", 5);
     addAndMakeVisible(lfoNoteDivisionBox);
+    
+    // Style the ComboBoxes
+    juce::Colour textColor = juce::Colour(232, 193, 185);  // Light rose gold
+    auto setupComboBox = [textColor](juce::ComboBox& box) {
+        box.setColour(juce::ComboBox::textColourId, textColor);
+        box.setColour(juce::ComboBox::backgroundColourId, juce::Colours::black);
+        box.setColour(juce::ComboBox::outlineColourId, juce::Colour(171, 136, 132));  // Darker rose gold
+        box.setColour(juce::ComboBox::arrowColourId, textColor);
+    };
+
+    setupComboBox(lfoWaveformBox);
+    setupComboBox(lfoNoteDivisionBox);
 
     lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
     lfoPhaseOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
@@ -70,7 +82,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     mixSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
 
     // Set text colors to match our theme
-    juce::Colour textColor = juce::Colour(232, 193, 185);  // Light rose gold
+
     lfoRateSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
     lfoDepthSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
     lfoPhaseOffsetSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
@@ -261,19 +273,25 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     const int spacing = 20;
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
-    const int startY = 210 + spacing;
+    
+    // Calculate Y position to be right below the dials
+    const int labelY = 210 + dialSize + 5;  // 210 is visualizer height + spacing, +5 for small gap
 
+    // Draw labels directly under their respective dials
     g.drawText("RATE",
-               juce::Rectangle<int>(startX, startY - 25, dialSize, 20),
+               juce::Rectangle<int>(startX, labelY, dialSize, 20),
                juce::Justification::centred);
+               
     g.drawText("DEPTH",
-               juce::Rectangle<int>(startX + dialSize + spacing, startY - 25, dialSize, 20),
+               juce::Rectangle<int>(startX + dialSize + spacing, labelY, dialSize, 20),
                juce::Justification::centred);
+               
     g.drawText("PHASE",
-               juce::Rectangle<int>(startX + (dialSize + spacing) * 2, startY - 25, dialSize, 20),
+               juce::Rectangle<int>(startX + (dialSize + spacing) * 2, labelY, dialSize, 20),
                juce::Justification::centred);
+               
     g.drawText("MIX",
-               juce::Rectangle<int>(startX + (dialSize + spacing) * 3, startY - 25, dialSize, 20),
+               juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20),
                juce::Justification::centred);
     
 }
@@ -302,6 +320,16 @@ void QuackerVSTAudioProcessorEditor::resized()
     lfoDepthSlider.setBounds(startX + dialSize + spacing, startY, dialSize, dialSize);
     lfoPhaseOffsetSlider.setBounds(startX + (dialSize + spacing) * 2, startY, dialSize, dialSize);
     mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
+
+    const int comboBoxWidth = 120;
+    const int comboBoxHeight = 25;
+    const int comboY = startY + dialSize + spacing + 25;  // Added 25 to account for label height
+    
+    // Position waveform box under Rate dial
+    lfoWaveformBox.setBounds(startX, comboY, comboBoxWidth, comboBoxHeight);
+    
+    // Position note division box under Depth dial
+    lfoNoteDivisionBox.setBounds(startX + dialSize + spacing, comboY, comboBoxWidth, comboBoxHeight);
 
     // Position switches at the bottom
     const int switchWidth = 80;
