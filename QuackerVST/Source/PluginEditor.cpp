@@ -61,6 +61,20 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     mixSlider.setRange(0.0f, 1.0f, 0.01f);
     addAndMakeVisible(mixSlider);
+    
+    // Labels and information stylising
+    // Remove textbox borders
+    lfoRateSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    lfoDepthSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    lfoPhaseOffsetSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    mixSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+
+    // Set text colors to match our theme
+    juce::Colour textColor = juce::Colour(232, 193, 185);  // Light rose gold
+    lfoRateSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    lfoDepthSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    lfoPhaseOffsetSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    mixSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
 
     //Bypass
     bypassButton.setLookAndFeel(&customToggleLookAndFeel);
@@ -238,6 +252,30 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
         
     g.setGradientFill(sheenGradient);
     g.fillAll();
+    
+    // Draw dial labels
+    g.setColour(juce::Colour(232, 193, 185));  // Light rose gold
+    g.setFont(16.0f);
+
+    const int dialSize = 150;
+    const int spacing = 20;
+    const int totalWidth = (dialSize * 4) + (spacing * 3);
+    const int startX = (getWidth() - totalWidth) / 2;
+    const int startY = 210 + spacing;
+
+    g.drawText("RATE",
+               juce::Rectangle<int>(startX, startY - 25, dialSize, 20),
+               juce::Justification::centred);
+    g.drawText("DEPTH",
+               juce::Rectangle<int>(startX + dialSize + spacing, startY - 25, dialSize, 20),
+               juce::Justification::centred);
+    g.drawText("PHASE",
+               juce::Rectangle<int>(startX + (dialSize + spacing) * 2, startY - 25, dialSize, 20),
+               juce::Justification::centred);
+    g.drawText("MIX",
+               juce::Rectangle<int>(startX + (dialSize + spacing) * 3, startY - 25, dialSize, 20),
+               juce::Justification::centred);
+    
 }
 
 void QuackerVSTAudioProcessorEditor::resized()
@@ -250,39 +288,28 @@ void QuackerVSTAudioProcessorEditor::resized()
     lfoVisualizer.setBounds(visualizerBounds);
     
     // Calculate sizes for uniform dials
-    const int dialSize = 150;  // Using the size of the mix dial
-    const int switchWidth = 80;  // Increased width
-    const int switchHeight = 60;  // Increased height
-    const int textBoxHeight = 20;
+    const int dialSize = 150;
+    const int labelHeight = 20;
     const int spacing = 20;
     
     // Calculate total width needed
     const int totalWidth = (dialSize * 4) + (spacing * 3);
-    // Calculate starting X to center the dials
     const int startX = (getWidth() - totalWidth) / 2;
     const int startY = visualizerBounds.getBottom() + spacing;
 
-    // Position dials with equal size and spacing
+    // Position dials
     lfoRateSlider.setBounds(startX, startY, dialSize, dialSize);
     lfoDepthSlider.setBounds(startX + dialSize + spacing, startY, dialSize, dialSize);
     lfoPhaseOffsetSlider.setBounds(startX + (dialSize + spacing) * 2, startY, dialSize, dialSize);
     mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
-    
-    // Position comboboxes and buttons below dials
-    const int controlY = startY + dialSize + spacing;
-    const int comboBoxWidth = dialSize;
-    const int comboBoxHeight = 30;
-    
-    lfoWaveformBox.setBounds(startX, controlY, comboBoxWidth, comboBoxHeight);
-    lfoNoteDivisionBox.setBounds(startX + (dialSize + spacing) * 2, controlY, comboBoxWidth, comboBoxHeight);
-    
-    
+
     // Position switches at the bottom
-    const int switchesY = getHeight() - switchHeight - 40;  // 40px from bottom
+    const int switchWidth = 80;
+    const int switchHeight = 60;
+    const int switchesY = getHeight() - switchHeight - 40;
     const int totalSwitchWidth = (switchWidth * 2) + spacing;
     const int switchesStartX = (getWidth() - totalSwitchWidth) / 2;
 
-    // Position both switches with labels
     lfoSyncButton.setBounds(switchesStartX, switchesY, switchWidth, switchHeight);
     bypassButton.setBounds(switchesStartX + switchWidth + spacing, switchesY, switchWidth, switchHeight);
 }
