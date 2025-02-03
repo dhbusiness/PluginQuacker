@@ -52,7 +52,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoWaveformBox.addItem("Wurlitzer Style", 8);
     addAndMakeVisible(lfoWaveformBox);
 
-    lfoSyncButton.setButtonText("Sync to BPM");
+    //lfoSyncButton.setButtonText("Sync to BPM");
     addAndMakeVisible(lfoSyncButton);
 
     lfoNoteDivisionBox.addItem("Whole", 1);
@@ -388,13 +388,17 @@ void QuackerVSTAudioProcessorEditor::resized()
     // Position note division box under Depth dial
     lfoNoteDivisionBox.setBounds(startX + dialSize + spacing, comboY, comboBoxWidth, comboBoxHeight);
 
-    // Position switches at the bottom
-    const int switchWidth = 80;
-    const int switchHeight = 60;
-    const int switchesY = getHeight() - switchHeight - 40;
-    const int totalSwitchWidth = (switchWidth * 2) + spacing;
-    const int switchesStartX = (getWidth() - totalSwitchWidth) / 2;
+    // Make buttons larger and more prominent
+    const int buttonWidth = 100;
+    const int buttonHeight = 40;
+    const int buttonSpacing = 20;
+    
+    // Calculate button positions
+    const int buttonsY = comboY + comboBoxHeight + spacing; // Position below combo boxes
+    const int totalButtonsWidth = (buttonWidth * 2) + buttonSpacing;
+    const int buttonsStartX = (getWidth() - totalButtonsWidth) / 2;  // Center the buttons
 
-    lfoSyncButton.setBounds(switchesStartX, switchesY, switchWidth, switchHeight);
-    bypassButton.setBounds(switchesStartX + switchWidth + spacing, switchesY, switchWidth, switchHeight);
+    // Position the buttons
+    lfoSyncButton.setBounds(buttonsStartX, buttonsY, buttonWidth, buttonHeight);
+    bypassButton.setBounds(buttonsStartX + buttonWidth + buttonSpacing, buttonsY, buttonWidth, buttonHeight);
 }
