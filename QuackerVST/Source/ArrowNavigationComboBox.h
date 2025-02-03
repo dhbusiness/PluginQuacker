@@ -15,22 +15,81 @@
 class ArrowNavigationComboBox : public juce::Component
 {
 public:
+    class CustomArrowButton : public juce::Button
+    {
+    public:
+        CustomArrowButton(bool isLeftArrow)
+            : juce::Button(isLeftArrow ? "leftArrow" : "rightArrow"),
+              pointingLeft(isLeftArrow)
+        {
+            setColour(buttonNormalColour, juce::Colour(232, 193, 185).withAlpha(0.6f));    // Rose gold
+            setColour(buttonHighlightColour, juce::Colour(19, 224, 139));                  // Teal
+        }
+
+    protected:
+        void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+        {
+            auto bounds = getLocalBounds().toFloat().reduced(6);  // Increased reduction for smaller size
+            
+            // Create triangle path
+            juce::Path arrow;
+            if (pointingLeft)
+            {
+                arrow.addTriangle(bounds.getRight(), bounds.getY(),
+                                bounds.getX(), bounds.getCentreY(),
+                                bounds.getRight(), bounds.getBottom());
+            }
+            else
+            {
+                arrow.addTriangle(bounds.getX(), bounds.getY(),
+                                bounds.getRight(), bounds.getCentreY(),
+                                bounds.getX(), bounds.getBottom());
+            }
+
+            // Draw filled triangle with glow effect when highlighted
+            if (shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown)
+            {
+                // Glow effect
+                g.setColour(findColour(buttonHighlightColour).withAlpha(0.2f));
+                g.strokePath(arrow, juce::PathStrokeType(2.0f));
+                
+                // Main arrow
+                g.setColour(findColour(buttonHighlightColour));
+            }
+            else
+            {
+                g.setColour(findColour(buttonNormalColour));
+            }
+            
+            // Fill the triangle
+            g.fillPath(arrow);
+        }
+
+    private:
+        bool pointingLeft;
+        
+        enum ColourIds
+        {
+            buttonNormalColour = 0x1001,
+            buttonHighlightColour = 0x1002
+        };
+    };
     ArrowNavigationComboBox()
     {
+        leftArrow.reset(new CustomArrowButton(true));
+        rightArrow.reset(new CustomArrowButton(false));
+        
         addAndMakeVisible(comboBox);
-        addAndMakeVisible(leftButton);
-        addAndMakeVisible(rightButton);
+        addAndMakeVisible(leftArrow.get());
+        addAndMakeVisible(rightArrow.get());
 
-        leftButton.setButtonText("<");
-        rightButton.setButtonText(">");
-
-        leftButton.onClick = [this]() {
+        leftArrow->onClick = [this]() {
             int currentIndex = comboBox.getSelectedItemIndex();
             if (currentIndex > 0)
                 comboBox.setSelectedItemIndex(currentIndex - 1);
         };
 
-        rightButton.onClick = [this]() {
+        rightArrow->onClick = [this]() {
             int currentIndex = comboBox.getSelectedItemIndex();
             if (currentIndex < comboBox.getNumItems() - 1)
                 comboBox.setSelectedItemIndex(currentIndex + 1);
@@ -42,14 +101,15 @@ public:
     void resized() override
     {
         auto bounds = getLocalBounds();
-        const int buttonWidth = 20;
+        const int arrowWidth = 25;  // Slightly wider for better visibility
 
-        leftButton.setBounds(bounds.removeFromLeft(buttonWidth));
-        rightButton.setBounds(bounds.removeFromRight(buttonWidth));
+        leftArrow->setBounds(bounds.removeFromLeft(arrowWidth));
+        rightArrow->setBounds(bounds.removeFromRight(arrowWidth));
         comboBox.setBounds(bounds);
     }
 
 private:
     juce::ComboBox comboBox;
-    juce::TextButton leftButton, rightButton;
+    std::unique_ptr<CustomArrowButton> leftArrow;
+    std::unique_ptr<CustomArrowButton> rightArrow;
 };
