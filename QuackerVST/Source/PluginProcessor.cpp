@@ -257,10 +257,26 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
     }
 
+    // Get bypass parameter
+    auto* bypassParam = apvts.getRawParameterValue("bypass");
+    bool isBypassed = bypassParam->load();
+
+    // If bypassed, just return the dry signal
+    if (isBypassed)
+    {
+        // Update states but don't process audio
+        audioInputDetected = hasSignal;
+        currentlyPlaying = isPlaying;
+        lfo.resetPhase(); // Reset LFO when bypassed
+        return;
+    }
+    
     // Update the member variable here
     audioInputDetected = hasSignal;
     bool isActive = isPlaying && hasSignal;
     lfo.updateActiveState(isActive, isPlaying); // Pass both states
+    
+
     
     // Get parameters from APVTS
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
@@ -295,7 +311,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
 
 
-    // Process audio
+    // Process audio only if not bypassed
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -304,7 +320,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         {
             float drySample = channelData[sample];
             
-            // Process if playing AND (has signal OR waiting for reset)
+            // Process if playing AND (has signal OR waiting for reset) AND not bypassed
             if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
             {
                 float lfoValue = lfo.getNextSample();
@@ -319,6 +335,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
     }
 }
+
 //==============================================================================
 bool QuackerVSTAudioProcessor::hasEditor() const
 {

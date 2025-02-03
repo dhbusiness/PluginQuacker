@@ -198,38 +198,48 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
 {
-    // Update visualizer with current parameter values
-    // Get parameters from APVTS
-    
-    bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
-    lfoVisualizer.setActive(isActive, audioProcessor.isLfoWaitingForReset());
-    
-    auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
-    auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
-    auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
-    auto syncParam = audioProcessor.apvts.getRawParameterValue("lfoSync");
-    auto rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
-    auto divisionParam = audioProcessor.apvts.getRawParameterValue("lfoNoteDivision");
+    // Get bypass state
+    auto* bypassParam = audioProcessor.apvts.getRawParameterValue("bypass");
+    bool isBypassed = bypassParam->load();
 
-    // Update visualizer with current parameter values
-    lfoVisualizer.setWaveform(static_cast<int>(waveformParam->load()));
-    lfoVisualizer.setDepth(depthParam->load());
-    lfoVisualizer.setPhaseOffset(phaseOffsetParam->load());
-    
-    // Update rate and sync settings
-    if (syncParam->load() > 0.5f)
+    // Only update visualizer if not bypassed
+    if (!isBypassed)
     {
-        lfoVisualizer.setTempoSync(true,
-                                  audioProcessor.getCurrentBPM(),
-                                  static_cast<int>(divisionParam->load()));
+        bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
+        lfoVisualizer.setActive(isActive, audioProcessor.isLfoWaitingForReset());
+        
+        auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
+        auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
+        auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
+        auto syncParam = audioProcessor.apvts.getRawParameterValue("lfoSync");
+        auto rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
+        auto divisionParam = audioProcessor.apvts.getRawParameterValue("lfoNoteDivision");
+
+        // Update visualizer with current parameter values
+        lfoVisualizer.setWaveform(static_cast<int>(waveformParam->load()));
+        lfoVisualizer.setDepth(depthParam->load());
+        lfoVisualizer.setPhaseOffset(phaseOffsetParam->load());
+        
+        // Update rate and sync settings
+        if (syncParam->load() > 0.5f)
+        {
+            lfoVisualizer.setTempoSync(true,
+                                     audioProcessor.getCurrentBPM(),
+                                     static_cast<int>(divisionParam->load()));
+        }
+        else
+        {
+            lfoVisualizer.setRate(rateParam->load());
+        }
     }
     else
     {
-        lfoVisualizer.setRate(rateParam->load());
+        // When bypassed, stop the LFO visualization
+        lfoVisualizer.setActive(false, false);
     }
     
     repaint();
-    }
+}
     
 //==============================================================================
 void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int height)
