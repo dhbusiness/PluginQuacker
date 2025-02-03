@@ -51,6 +51,17 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoWaveformBox.addItem("Fender Style", 7);
     lfoWaveformBox.addItem("Wurlitzer Style", 8);
     addAndMakeVisible(lfoWaveformBox);
+    
+    waveformSelector.getComboBox().addItem("Sine", 1);
+    waveformSelector.getComboBox().addItem("Square", 2);
+    waveformSelector.getComboBox().addItem("Triangle", 3);
+    waveformSelector.getComboBox().addItem("Sawtooth Up",4);
+    waveformSelector.getComboBox().addItem("Sawtooth Down", 5);
+    waveformSelector.getComboBox().addItem("Soft Square", 6);
+    waveformSelector.getComboBox().addItem("Fender Style", 7);
+    waveformSelector.getComboBox().addItem("Wurlitzer Style", 8);
+    addAndMakeVisible(waveformSelector);
+
 
     //lfoSyncButton.setButtonText("Sync to BPM");
     addAndMakeVisible(lfoSyncButton);
@@ -61,6 +72,13 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoNoteDivisionBox.addItem("Eighth", 4);
     lfoNoteDivisionBox.addItem("Sixteenth", 5);
     addAndMakeVisible(lfoNoteDivisionBox);
+    
+    divisionSelector.getComboBox().addItem("Whole", 1);
+    divisionSelector.getComboBox().addItem("Half", 2);
+    divisionSelector.getComboBox().addItem("Quarter", 3);
+    divisionSelector.getComboBox().addItem("Eighth", 4);
+    divisionSelector.getComboBox().addItem("Sixteenth", 5);
+    addAndMakeVisible(divisionSelector);
     
     // Style the ComboBoxes
     juce::Colour textColor = juce::Colour(232, 193, 185);  // Light rose gold
@@ -128,6 +146,11 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     mixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "mix", mixSlider);
     
+    
+    lfoWaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "lfoWaveform", waveformSelector.getComboBox());
+    lfoNoteDivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "lfoNoteDivision", divisionSelector.getComboBox());
     //
     addAndMakeVisible(lfoVisualizer);
     
@@ -138,6 +161,15 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     mixSlider.setLookAndFeel(&customDialLookAndFeel);
     
     lfoSyncButton.setLookAndFeel(&customToggleLookAndFeel);
+    
+    lfoWaveformBox.setLookAndFeel(&customComboBoxLookAndFeel);
+    lfoNoteDivisionBox.setLookAndFeel(&customComboBoxLookAndFeel);
+    
+    waveformSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
+    divisionSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
+    // Add mouse listeners for the arrows
+    lfoWaveformBox.addMouseListener(this, false);
+    lfoNoteDivisionBox.addMouseListener(this, false);
 
     
 }
@@ -154,6 +186,9 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     lfoSyncButton.setLookAndFeel(nullptr);
     
     bypassButton.setLookAndFeel(nullptr);
+    
+    lfoWaveformBox.setLookAndFeel(nullptr);
+    lfoNoteDivisionBox.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -353,6 +388,30 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
                juce::Justification::centred);
 }
 
+void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
+{
+    if (auto* box = dynamic_cast<juce::ComboBox*>(event.eventComponent))
+    {
+        auto bounds = box->getLocalBounds();
+        auto arrowWidth = bounds.getHeight();
+        
+        // Check if click is in left arrow area
+        if (event.x < arrowWidth)
+        {
+            int currentIndex = box->getSelectedItemIndex();
+            if (currentIndex > 0)
+                box->setSelectedItemIndex(currentIndex - 1);
+        }
+        // Check if click is in right arrow area
+        else if (event.x > bounds.getWidth() - arrowWidth)
+        {
+            int currentIndex = box->getSelectedItemIndex();
+            if (currentIndex < box->getNumItems() - 1)
+                box->setSelectedItemIndex(currentIndex + 1);
+        }
+    }
+}
+
 void QuackerVSTAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
@@ -382,11 +441,8 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int comboBoxHeight = 25;
     const int comboY = startY + dialSize + spacing + 25;  // Added 25 to account for label height
     
-    // Position waveform box under Rate dial
-    lfoWaveformBox.setBounds(startX, comboY, comboBoxWidth, comboBoxHeight);
-    
-    // Position note division box under Depth dial
-    lfoNoteDivisionBox.setBounds(startX + dialSize + spacing, comboY, comboBoxWidth, comboBoxHeight);
+    waveformSelector.setBounds(startX, comboY, comboBoxWidth + 40, comboBoxHeight);  // Extra width for arrows
+    divisionSelector.setBounds(startX + dialSize + spacing, comboY, comboBoxWidth + 40, comboBoxHeight);
 
     // Make buttons larger and more prominent
     const int buttonWidth = 100;

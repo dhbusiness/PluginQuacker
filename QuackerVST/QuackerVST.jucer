@@ -10,6 +10,10 @@
       <FILE id="Z38sEe" name="PerlinNoise.cpp" compile="1" resource="0" file="Source/PerlinNoise.cpp"/>
       <FILE id="Bz9Z5k" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
+      <FILE id="UUneN4" name="ArrowNavigationComboBox.h" compile="0" resource="0"
+            file="Source/ArrowNavigationComboBox.h"/>
+      <FILE id="YXny8O" name="CustomComboBox.h" compile="0" resource="0"
+            file="Source/CustomComboBox.h"/>
       <FILE id="KMgUcO" name="PerlinNoise.h" compile="0" resource="0" file="Source/PerlinNoise.h"/>
       <FILE id="P4kBhr" name="CustomDialLookAndFeel.h" compile="0" resource="0"
             file="Source/CustomDialLookAndFeel.h"/>

@@ -14,6 +14,8 @@
 #include "CustomDialLookAndFeel.h"
 #include "CustomToggle.h"
 #include "PerlinNoise.h"
+#include "CustomComboBox.h"
+#include "ArrowNavigationComboBox.h"
 
 
 //==============================================================================
@@ -30,6 +32,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     void timerCallback() override; //Override this function from juce::Timer to modify in cpp
+    void mouseDown(const juce::MouseEvent& event) override;
 
 private:
     // This reference is provided as a quick way for your editor to
@@ -59,6 +62,9 @@ private:
     //Look and feel
     CustomDial customDialLookAndFeel;
     CustomToggle customToggleLookAndFeel;
+    CustomComboBox customComboBoxLookAndFeel;
+    ArrowNavigationComboBox waveformSelector;
+    ArrowNavigationComboBox divisionSelector;
     
     //Bypass
     juce::ToggleButton bypassButton;
