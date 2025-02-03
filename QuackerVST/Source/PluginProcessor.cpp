@@ -232,19 +232,14 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // Get playhead info
     bool isPlaying = false;
-    juce::AudioPlayHead::CurrentPositionInfo posInfo; // Move this outside
+    juce::AudioPlayHead::CurrentPositionInfo posInfo;
     if (auto* playHead = getPlayHead())
     {
         if (playHead->getCurrentPosition(posInfo))
         {
             isPlaying = posInfo.isPlaying;
             currentBPM = posInfo.bpm;
-            currentlyPlaying = isPlaying; // Update the member variable
-            
-            if (!isPlaying)
-            {
-                lfo.resetPhase();
-            }
+            currentlyPlaying = isPlaying;
         }
     }
 
@@ -264,6 +259,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // Update the member variable here
     audioInputDetected = hasSignal;
+    bool isActive = isPlaying && hasSignal;
+    lfo.updateActiveState(isActive, isPlaying); // Pass both states
     
     // Get parameters from APVTS
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
@@ -307,8 +304,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         {
             float drySample = channelData[sample];
             
-            // Only process if playing and has signal
-            if (isPlaying && hasSignal)
+            // Process if playing AND (has signal OR waiting for reset)
+            if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
             {
                 float lfoValue = lfo.getNextSample();
                 float modulationAmount = 0.5f + (lfoValue - 0.5f);

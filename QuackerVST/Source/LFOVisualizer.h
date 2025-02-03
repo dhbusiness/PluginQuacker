@@ -143,38 +143,51 @@ public:
     void resized() override {}
 
 
-    void setActive(bool shouldBeActive)
+    void setActive(bool shouldBeActive, bool isWaitingForReset)
     {
-        if (!shouldBeActive && active)
+        if (!shouldBeActive && !isWaitingForReset)
         {
-            // Reset phase when becoming inactive
+            // Only reset phase if we're not waiting to complete a cycle
             currentPhase = 0.0;
         }
         active = shouldBeActive;
+        waitingForReset = isWaitingForReset;
+    }
+    
+    void setWaitingForReset(bool waiting)
+    {
+        waitingForReset = waiting;
     }
     
     void timerCallback() override
     {
-        if (active)
+        if (active || waitingForReset)
         {
             if (tempoSynced)
             {
-                // Calculate phase increment based on BPM and note division
                 const double quarterNoteRate = bpm / 60.0;
                 const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
                 double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0;
                 double phaseIncrement = frequencyHz / 100.0;
                 currentPhase += phaseIncrement;
             }
-            else // This else was misplaced
+            else
             {
                 currentPhase += rate / 100.0;
             }
 
-            while (currentPhase >= 1.0)
-                currentPhase -= 1.0;
+            // Only reset if explicitly waiting for reset and at reset point
+            if (waitingForReset && (currentPhase >= 0.99 || currentPhase < 0.01))
+            {
+                waitingForReset = false;
+                currentPhase = 0.0;
+            }
+            else
+            {
+                while (currentPhase >= 1.0)
+                    currentPhase -= 1.0;
+            }
         }
-        // Always repaint to show current state
         repaint();
     }
 
@@ -270,5 +283,7 @@ private:
     
     bool active = false;
 
+    bool waitingForReset = false;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };
