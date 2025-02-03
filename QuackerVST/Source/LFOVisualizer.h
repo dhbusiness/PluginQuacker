@@ -10,6 +10,7 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "PerlinNoise.h"
 
 class LFOVisualizer : public juce::Component, public juce::Timer
 {
@@ -27,18 +28,62 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
-        
-        // Fill background
+        auto originalBounds = bounds; // Store original bounds for border
+
+        // Fill background with subtle scan lines that move
         g.setColour(juce::Colours::black);
         g.fillRect(bounds);
 
-        // Draw grid
-        g.setColour(juce::Colours::darkgrey);
+        // Draw rate indicator
+        g.setColour(juce::Colour(19, 224, 139).withAlpha(0.8f));
+        g.setFont(12.0f);
+        juce::String rateText;
+        if (tempoSynced)
+        {
+            const char* divisions[] = { "1/1", "1/2", "1/4", "1/8", "1/16" };
+            rateText = juce::String(bpm, 1) + " BPM - " + juce::String(divisions[noteDivision]);
+        }
+        else
+        {
+            rateText = juce::String(rate, 2) + " Hz";
+        }
+        
+        // Remove top area for rate display from working bounds
+        auto textBounds = bounds.removeFromTop(20);
+        g.drawText(rateText, textBounds, juce::Justification::centred);
+        
+        // Subtle moving scan lines
+        g.setColour(juce::Colours::white.withAlpha(0.03f));
+        float scanLineSpacing = 4.0f;
+        float scanLineOffset = currentPhase * bounds.getHeight() * 2.0f;
+        for (float y = -scanLineSpacing; y < bounds.getHeight(); y += scanLineSpacing)
+        {
+            float actualY = std::fmod(y + scanLineOffset, bounds.getHeight());
+            g.drawHorizontalLine(static_cast<int>(actualY), 0.0f, bounds.getWidth());
+        }
+
+        // Subtle grid
+        g.setColour(juce::Colours::darkgrey.withAlpha(0.2f));
+        float gridSize = bounds.getHeight() / 8.0f;
+        
+        // Vertical grid lines
+        for (float x = 0; x < bounds.getWidth(); x += gridSize)
+        {
+            g.drawVerticalLine(static_cast<int>(x), 0.0f, bounds.getHeight());
+        }
+        
+        // Horizontal grid lines
+        for (float y = 0; y < bounds.getHeight(); y += gridSize)
+        {
+            g.drawHorizontalLine(static_cast<int>(y), 0.0f, bounds.getWidth());
+        }
+
+        // Center line
+        g.setColour(juce::Colours::darkgrey.withAlpha(0.4f));
         float midY = bounds.getCentreY();
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
         
-        // Draw moving waveform
-        g.setColour(juce::Colour(25, 224, 139));  // Light rose gold for waveform
+        // Draw waveform with dynamic thickness
         juce::Path waveformPath;
         bool pathStarted = false;
 
@@ -48,22 +93,18 @@ public:
         for (int i = 0; i < numPoints; ++i)
         {
             float x = (static_cast<float>(i) / static_cast<float>(numPoints - 1)) * bounds.getWidth();
-            
-            // Calculate phase for this point, incorporating the moving phase offset
             float phase = (static_cast<float>(i) / static_cast<float>(numPoints - 1) + currentPhase);
-                        
-            // Apply phase offset
             phase += phaseOffset / 360.0f;
 
-            // Wrap phase to keep it between 0 and 1
             while (phase >= 1.0f) phase -= 1.0f;
             while (phase < 0.0f) phase += 1.0f;
 
             float y = bounds.getCentreY();
             float value = calculateWaveformValue(phase, currentWaveform);
             
-            // Scale the value by depth and center it
-            y -= value * depth * bounds.getHeight() * 0.4f;
+            // Add subtle vertical variation
+            float variation = std::sin(phase * 50.0f + currentPhase * 10.0f) * 0.5f;
+            y -= (value * depth * bounds.getHeight() * 0.4f) + variation;
 
             if (!pathStarted)
             {
@@ -76,31 +117,27 @@ public:
             }
         }
 
-        g.strokePath(waveformPath, juce::PathStrokeType(2.0f));
+        const juce::Colour waveformColor(19, 224, 139);
+        
+        // Enhanced glow effect with varying intensity
+        float glowIntensity = 0.3f + std::sin(currentPhase * 5.0f) * 0.1f;
+        
+        // Outer glow
+        g.setColour(waveformColor.withAlpha(glowIntensity * 0.3f));
+        g.strokePath(waveformPath, juce::PathStrokeType(4.0f));
+        
+        // Middle glow
+        g.setColour(waveformColor.withAlpha(glowIntensity * 0.5f));
+        g.strokePath(waveformPath, juce::PathStrokeType(2.5f));
+        
+        // Main line with slightly varying thickness
+        float mainLineThickness = 2.0f + std::sin(currentPhase * 3.0f) * 0.2f;
+        g.setColour(waveformColor);
+        g.strokePath(waveformPath, juce::PathStrokeType(mainLineThickness));
 
-        // Draw playhead
-        g.setColour(juce::Colours::yellow.withAlpha(0.5f));
-        float playheadX = currentPhase * bounds.getWidth();
-        g.drawVerticalLine(static_cast<int>(playheadX), bounds.getY(), bounds.getBottom());
-
-        // Draw border in dark rose gold
-        g.setColour(juce::Colour(120, 80, 75));  // Dark rose gold
-        g.drawRect(bounds, 1.0f);
-
-        // Draw rate indicator
-        g.setColour(juce::Colours::white);
-        g.setFont(12.0f);
-        juce::String rateText;
-        if (tempoSynced)
-        {
-            const char* divisions[] = { "1/1", "1/2", "1/4", "1/8", "1/16" };
-            rateText = juce::String(bpm, 1) + " BPM - " + juce::String(divisions[noteDivision]);
-        }
-        else
-        {
-            rateText = juce::String(rate, 2) + " Hz";
-        }
-        g.drawText(rateText, bounds.removeFromTop(20), juce::Justification::centred);
+        // Draw border LAST, using the ORIGINAL bounds
+        g.setColour(juce::Colour(120, 80, 75));
+        g.drawRect(originalBounds, 1.0f); // Use originalBounds instead of bounds
     }
 
     void resized() override {}
