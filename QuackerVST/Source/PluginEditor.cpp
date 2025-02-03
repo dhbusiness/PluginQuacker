@@ -10,6 +10,9 @@
 #include "PluginEditor.h"
 #include "LFOVisualizer.h"
 
+juce::Image QuackerVSTAudioProcessorEditor::backgroundImage;
+bool QuackerVSTAudioProcessorEditor::backgroundGenerated = false;
+
 //==============================================================================
 QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
@@ -17,6 +20,14 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (800, 600);
+
+    // Generate background only if it hasn't been generated yet
+    if (!backgroundGenerated)
+    {
+        generateBackgroundPattern(800, 600);
+        backgroundGenerated = true;
+    }
+    
     startTimerHz(100); //Starting a timer which updates the GUI
     
     //Adding and init LFO rate and depth control params
@@ -177,95 +188,145 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
     }
     
 //==============================================================================
-void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
+void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int height)
 {
-    auto bounds = getLocalBounds().toFloat();
+    backgroundImage = juce::Image(juce::Image::ARGB, width, height, true);
+    juce::Graphics g(backgroundImage);
     
-    // Base layer - deep plum core
+    auto bounds = juce::Rectangle<float>(0, 0, width, height);
+    
+    // Enhanced color palette
+    juce::Colour darkPlum(61, 21, 46);
+    juce::Colour midPlum(72, 28, 55);
+    juce::Colour lightPlum(89, 34, 68);
+    juce::Colour peachPink = juce::Colour(255, 201, 190).withMultipliedBrightness(0.6f);
+    juce::Colour roseGold = juce::Colour(232, 193, 185).withMultipliedBrightness(0.6f);
+    juce::Colour warmPlum = juce::Colour(198, 109, 139).withMultipliedBrightness(0.7f);
+
+    // Base gradient background
     juce::ColourGradient baseGradient(
-        juce::Colour(61, 21, 46),  // Darker plum center
+        darkPlum,
         bounds.getCentreX(), bounds.getCentreY(),
-        juce::Colour(89, 34, 68),  // Natural plum edge
+        midPlum,
         0, 0,
         true);  // Radial gradient
     
-    // Add subtle color variations for depth
-    baseGradient.addColour(0.3, juce::Colour(72, 28, 55));
-    baseGradient.addColour(0.7, juce::Colour(95, 41, 73));
+    baseGradient.addColour(0.3, midPlum);
+    baseGradient.addColour(0.7, lightPlum);
     
     g.setGradientFill(baseGradient);
     g.fillAll();
 
-    // Second layer - peachy highlights
-    juce::ColourGradient peachGradient(
-        juce::Colour(255, 201, 190).withAlpha(0.2f),  // Peachy pink
-        bounds.getRight(), 0,
-        juce::Colour(236, 174, 172).withAlpha(0.0f),  // Transparent peach
-        bounds.getCentreX(), bounds.getCentreY(),
-        false);  // Linear gradient
-        
-    g.setGradientFill(peachGradient);
-    g.fillAll();
+    const float scale = 0.007f;
+    const float fixedSeed = 42.0f;
+    
+    // In the LayerConfig struct, add an amplitude field:
+    struct LayerConfig {
+        float scale;
+        float alpha;
+        float amplitude;  // Add this field
+        juce::Colour color;
+        float offset;
+    };
 
-    // Bloom effect - top left
-    juce::ColourGradient bloomGradient(
-        juce::Colour(198, 109, 139).withAlpha(0.15f),  // Light plum
-        bounds.getX(), bounds.getY(),
-        juce::Colour(198, 109, 139).withAlpha(0.0f),
-        bounds.getX() + 300, bounds.getY() + 300,
-        true);  // Radial
+    // Then modify the layers array to include larger amplitudes and adjusted scales:
+    std::array<LayerConfig, 5> layers = {{
+        { 0.003f, 0.1f, 8.0f, warmPlum, 0.0f },          // Reduced amplitude and alpha
+        { 0.005f, 0.08f, 6.0f, roseGold, 50.0f },        // Reduced amplitude and alpha
+        { 0.008f, 0.06f, 5.0f, peachPink, 100.0f },      // Reduced amplitude and alpha
+        { 0.002f, 0.1f, 10.0f, lightPlum, 150.0f },      // Reduced amplitude and alpha
+        { 0.004f, 0.05f, 6.0f, warmPlum, 200.0f }        // Reduced amplitude and alpha
+    }};
+
+    // Generate each texture layer
+    for (const auto& layer : layers)
+    {
+        juce::Path swirlyPath;
         
+        for (float y = 0; y < bounds.getHeight(); y += 4.0f) // Increased density
+        {
+            swirlyPath.startNewSubPath(0, y);
+            
+            for (float x = 0; x < bounds.getWidth(); x += 4.0f)
+            {
+                // Multiple noise functions for more organic feel
+                float noise1 = PerlinNoise::noise(x * layer.scale, y * layer.scale, fixedSeed + layer.offset);
+                float noise2 = PerlinNoise::noise(x * layer.scale * 1.7f, y * layer.scale * 1.7f, fixedSeed + layer.offset + 10.0f);
+                float noise3 = PerlinNoise::noise(y * layer.scale * 0.5f, x * layer.scale * 0.5f, fixedSeed + layer.offset + 20.0f);
+                
+                float combinedNoise = (noise1 + noise2 * 0.5f + noise3 * 0.25f) * juce::MathConstants<float>::pi * 4;
+                
+                float offsetX = std::sin(combinedNoise) * layer.amplitude;
+                float offsetY = std::cos(combinedNoise) * layer.amplitude;
+                
+                swirlyPath.lineTo(x + offsetX, y + offsetY);
+            }
+        }
+        
+        g.setColour(layer.color.withAlpha(layer.alpha));
+        g.strokePath(swirlyPath, juce::PathStrokeType(1.5f));  // Changed from 1.0f
+    }
+
+    // Add subtle highlight dots for texture
+    for (int i = 0; i < 400; ++i) // Increased number of highlights
+    {
+        float angle = (float)i * 0.157f; // Golden ratio angle
+        float radius = std::sqrt((float)i) * 20.0f;
+        float x = bounds.getCentreX() + std::cos(angle) * radius;
+        float y = bounds.getCentreY() + std::sin(angle) * radius;
+        
+        if (x >= 0 && x < width && y >= 0 && y < height)
+        {
+            float size = (std::cos(i * 0.1f) + 1.0f) * 0.75f + 0.5f;
+            
+            // Alternate between warm and cool highlights
+            if (i % 2 == 0)
+                g.setColour(peachPink.withAlpha(0.01f));
+            else
+                g.setColour(warmPlum.withAlpha(0.01f));
+                
+            g.fillEllipse(x, y, size, size);
+        }
+    }
+
+    // Add a subtle velvety texture overlay
+    for (float y = 0; y < bounds.getHeight(); y += 2.0f)
+    {
+        for (float x = 0; x < bounds.getWidth(); x += 2.0f)
+        {
+            float noise = PerlinNoise::noise(x * 0.05f, y * 0.05f, fixedSeed + 1000.0f);
+            if (noise > 0.75f)
+            {
+                g.setColour(roseGold.withAlpha(0.005f));
+                g.fillRect(x, y, 2.0f, 2.0f);
+            }
+        }
+    }
+    
+    // Final subtle bloom effect
+    juce::ColourGradient bloomGradient(
+        peachPink.withAlpha(0.02f),
+        bounds.getCentreX(), bounds.getCentreY(),
+        juce::Colours::transparentBlack,
+        0, 0,
+        true);
+    
     g.setGradientFill(bloomGradient);
     g.fillAll();
+}
 
-    // Add subtle velvety texture
-    for (int i = 0; i < 200; ++i) {
-        float x = juce::Random::getSystemRandom().nextFloat() * bounds.getWidth();
-        float y = juce::Random::getSystemRandom().nextFloat() * bounds.getHeight();
-        float size = juce::Random::getSystemRandom().nextFloat() * 2.0f + 0.5f;
-        
-        g.setColour(juce::Colour(255, 255, 255).withAlpha(0.01f));
-        g.fillEllipse(x, y, size, size);
-    }
-
-    // Add darker dusting effect
-    for (int i = 0; i < 150; ++i) {
-        float x = juce::Random::getSystemRandom().nextFloat() * bounds.getWidth();
-        float y = juce::Random::getSystemRandom().nextFloat() * bounds.getHeight();
-        float size = juce::Random::getSystemRandom().nextFloat() * 1.5f + 0.5f;
-        
-        g.setColour(juce::Colour(0, 0, 0).withAlpha(0.02f));
-        g.fillEllipse(x, y, size, size);
-    }
-
-    // Add highlights
-    juce::Path highlightPath;
-    float highlightWidth = bounds.getWidth() / 8;
-    float highlightHeight = bounds.getHeight() / 3;
-    highlightPath.addEllipse(50, 50, highlightWidth, highlightHeight);
+void QuackerVSTAudioProcessorEditor::paint(juce::Graphics& g)
+{
+    // Draw cached background
+    g.drawImageAt(backgroundImage, 0, 0);
     
-    juce::ColourGradient highlightGradient(
-        juce::Colour(255, 255, 255).withAlpha(0.05f),
-        50, 50,
-        juce::Colour(255, 255, 255).withAlpha(0.0f),
-        50 + highlightWidth, 50 + highlightHeight,
-        true);
-        
-    g.setGradientFill(highlightGradient);
-    g.fillPath(highlightPath);
+    // Draw controls on top
+    drawControls(g);
+}
 
-    // Add a subtle waxy sheen
-    juce::ColourGradient sheenGradient(
-        juce::Colour(255, 255, 255).withAlpha(0.03f),
-        bounds.getCentreX() - 100, bounds.getCentreY() - 100,
-        juce::Colour(255, 255, 255).withAlpha(0.0f),
-        bounds.getCentreX() + 100, bounds.getCentreY() + 100,
-        true);
-        
-    g.setGradientFill(sheenGradient);
-    g.fillAll();
-    
-    // Draw dial labels
+void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
+{
+    // Your existing control drawing code here
     g.setColour(juce::Colour(232, 193, 185));  // Light rose gold
     g.setFont(16.0f);
 
@@ -273,11 +334,8 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     const int spacing = 20;
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
-    
-    // Calculate Y position to be right below the dials
-    const int labelY = 210 + dialSize + 5;  // 210 is visualizer height + spacing, +5 for small gap
+    const int labelY = 210 + dialSize + 5;
 
-    // Draw labels directly under their respective dials
     g.drawText("RATE",
                juce::Rectangle<int>(startX, labelY, dialSize, 20),
                juce::Justification::centred);
@@ -293,7 +351,6 @@ void QuackerVSTAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText("MIX",
                juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20),
                juce::Justification::centred);
-    
 }
 
 void QuackerVSTAudioProcessorEditor::resized()

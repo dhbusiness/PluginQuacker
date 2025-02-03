@@ -13,6 +13,7 @@
 #include "LFOVisualizer.h"
 #include "CustomDialLookAndFeel.h"
 #include "CustomToggle.h"
+#include "PerlinNoise.h"
 
 
 //==============================================================================
@@ -62,6 +63,12 @@ private:
     //Bypass
     juce::ToggleButton bypassButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
+    
+    float backgroundPhase = 0.0f;
+    void drawControls(juce::Graphics& g);
+    static juce::Image backgroundImage;  // Make it static
+    static bool backgroundGenerated;     // Track if we've generated it
+    static void generateBackgroundPattern(int width, int height); // Static generator
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

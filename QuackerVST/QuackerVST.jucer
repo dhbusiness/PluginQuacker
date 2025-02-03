@@ -7,8 +7,10 @@
       <FILE id="do7XGJ" name="CustomDialLookAndFeel.cpp" compile="1" resource="0"
             file="Source/CustomDialLookAndFeel.cpp"/>
       <FILE id="dQzv2h" name="CustomToggle.h" compile="0" resource="0" file="Source/CustomToggle.h"/>
+      <FILE id="Z38sEe" name="PerlinNoise.cpp" compile="1" resource="0" file="Source/PerlinNoise.cpp"/>
       <FILE id="Bz9Z5k" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
+      <FILE id="KMgUcO" name="PerlinNoise.h" compile="0" resource="0" file="Source/PerlinNoise.h"/>
       <FILE id="P4kBhr" name="CustomDialLookAndFeel.h" compile="0" resource="0"
             file="Source/CustomDialLookAndFeel.h"/>
       <FILE id="Dkwx6u" name="PluginProcessor.h" compile="0" resource="0"
