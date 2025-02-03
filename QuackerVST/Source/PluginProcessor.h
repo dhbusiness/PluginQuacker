@@ -58,6 +58,9 @@ public:
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     
+    bool isPlaying() const { return currentlyPlaying; }
+    bool hasAudioInput() const { return audioInputDetected; }
+    
 private:
     
     class TremoloLFO
@@ -123,6 +126,14 @@ private:
             beatPosition = newBeatPosition;
         }
 
+        void resetPhase()
+        {
+            phase = 0.0;
+            currentRate = rate;
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.05);
+        }
+        
         float getNextSample()
         {
             // Smooth the rate for free-running mode
@@ -250,6 +261,12 @@ private:
     TremoloLFO lfo;                         //creating the lFO using the defined class above
 
     float currentBPM = 0.0;                 //Defining variable which will hold DAW bpm
+    
+    bool currentlyPlaying = false;
+    bool audioInputDetected = false;
+
+    
+    
 
     
     

@@ -200,6 +200,10 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
 {
     // Update visualizer with current parameter values
     // Get parameters from APVTS
+    
+    bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
+    lfoVisualizer.setActive(isActive);
+    
     auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
     auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
     auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");

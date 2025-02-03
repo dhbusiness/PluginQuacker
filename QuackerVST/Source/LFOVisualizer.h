@@ -143,29 +143,41 @@ public:
     void resized() override {}
 
 
+    void setActive(bool shouldBeActive)
+    {
+        if (!shouldBeActive && active)
+        {
+            // Reset phase when becoming inactive
+            currentPhase = 0.0;
+        }
+        active = shouldBeActive;
+    }
     
     void timerCallback() override
     {
-        if (tempoSynced)
+        if (active)
         {
-            // Calculate phase increment based on BPM and note division
-            const double quarterNoteRate = bpm / 60.0; // Quarter notes per second
-            const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
-            double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0; // Added *2.0 to match audio processor
-            double phaseIncrement = frequencyHz / 100.0; // 100Hz is our timer frequency
-            currentPhase += phaseIncrement;
-        }
-        else
-        {
-            // Free-running mode
-            currentPhase += rate / 100.0;
-        }
+            if (tempoSynced)
+            {
+                // Calculate phase increment based on BPM and note division
+                const double quarterNoteRate = bpm / 60.0;
+                const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
+                double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0;
+                double phaseIncrement = frequencyHz / 100.0;
+                currentPhase += phaseIncrement;
+            }
+            else // This else was misplaced
+            {
+                currentPhase += rate / 100.0;
+            }
 
-        while (currentPhase >= 1.0)
-            currentPhase -= 1.0;
-
+            while (currentPhase >= 1.0)
+                currentPhase -= 1.0;
+        }
+        // Always repaint to show current state
         repaint();
     }
+
 
     void setWaveform(int waveformType)
     {
@@ -255,6 +267,8 @@ private:
     bool tempoSynced = false;
     double bpm = 120.0;
     int noteDivision = 2; // quarter note by default
+    
+    bool active = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };

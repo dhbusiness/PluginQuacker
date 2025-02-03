@@ -230,51 +230,73 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // Get all parameters from APVTS at the start of the block
+    // Get playhead info
+    bool isPlaying = false;
+    juce::AudioPlayHead::CurrentPositionInfo posInfo; // Move this outside
+    if (auto* playHead = getPlayHead())
+    {
+        if (playHead->getCurrentPosition(posInfo))
+        {
+            isPlaying = posInfo.isPlaying;
+            currentBPM = posInfo.bpm;
+            currentlyPlaying = isPlaying; // Update the member variable
+            
+            if (!isPlaying)
+            {
+                lfo.resetPhase();
+            }
+        }
+    }
+
+    // Check for audio signal
+    bool hasSignal = false;
+    for (int channel = 0; channel < totalNumInputChannels && !hasSignal; ++channel)
+    {
+        auto* channelData = buffer.getReadPointer(channel);
+        for (int sample = 0; sample < buffer.getNumSamples() && !hasSignal; ++sample)
+        {
+            if (std::abs(channelData[sample]) > 0.0001f)
+            {
+                hasSignal = true;
+            }
+        }
+    }
+
+    // Update the member variable here
+    audioInputDetected = hasSignal;
+    
+    // Get parameters from APVTS
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
     auto* rateParam = apvts.getRawParameterValue("lfoRate");
     auto* depthParam = apvts.getRawParameterValue("lfoDepth");
     auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
     auto* syncParam = apvts.getRawParameterValue("lfoSync");
     auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
-    
     auto* mixParam = apvts.getRawParameterValue("mix");
     float mix = mixParam->load();
 
-    // Set basic LFO parameters
+    // Set LFO parameters
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
-    
+
     // Handle sync and timing
-    if (auto* playHead = getPlayHead())
+    if (syncParam->load() > 0.5f)
     {
-        juce::AudioPlayHead::CurrentPositionInfo posInfo;
-        if (playHead->getCurrentPosition(posInfo))
+        const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
+        double division = divisions[static_cast<int>(divisionParam->load())];
+        lfo.setSyncMode(true, division);
+        if (isPlaying)
         {
-            currentBPM = posInfo.bpm;
-            
-            if (syncParam->load() > 0.5f)
-            {
-                // Reversed the division values - now 1/16 will be fastest
-                const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
-                double division = divisions[static_cast<int>(divisionParam->load())];
-                
-                // Set sync mode and provide beat position
-                lfo.setSyncMode(true, division);
-                lfo.setBeatPosition(posInfo.ppqPosition);
-            }
-            else
-            {
-                lfo.setSyncMode(false);
-                lfo.setRate(rateParam->load());
-            }
+            lfo.setBeatPosition(posInfo.ppqPosition);
         }
     }
+    else
+    {
+        lfo.setSyncMode(false);
+        lfo.setRate(rateParam->load());
+    }
 
-    // Clear any extra output channels
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear(i, 0, buffer.getNumSamples());
 
     // Process audio
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -283,23 +305,23 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            // Store the dry signal
             float drySample = channelData[sample];
             
-            // Get LFO value (0 to 1) and center it around 0.5
-            float lfoValue = lfo.getNextSample();
-            // Scale LFO to prevent clipping - now oscillates between 0 and 1 instead of 0 and 2
-            float modulationAmount = 0.5f + (lfoValue - 0.5f);
-            
-            // Apply modulation
-            float wetSample = drySample * modulationAmount;
-            
-            // Mix dry and wet signals
-            channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
+            // Only process if playing and has signal
+            if (isPlaying && hasSignal)
+            {
+                float lfoValue = lfo.getNextSample();
+                float modulationAmount = 0.5f + (lfoValue - 0.5f);
+                float wetSample = drySample * modulationAmount;
+                channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
+            }
+            else
+            {
+                channelData[sample] = drySample;
+            }
         }
     }
 }
-
 //==============================================================================
 bool QuackerVSTAudioProcessor::hasEditor() const
 {
