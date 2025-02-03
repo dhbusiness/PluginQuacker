@@ -431,7 +431,7 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int labelHeight = 20;
     const int spacing = 20;
     
-    // Calculate total width needed
+    // Calculate total width needed for dials
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
     const int startY = visualizerBounds.getBottom() + spacing;
@@ -442,24 +442,25 @@ void QuackerVSTAudioProcessorEditor::resized()
     lfoPhaseOffsetSlider.setBounds(startX + (dialSize + spacing) * 2, startY, dialSize, dialSize);
     mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
 
-    const int comboBoxWidth = 120;
+    // ComboBox dimensions
+    const int comboBoxWidth = 140;
     const int comboBoxHeight = 25;
-    const int comboY = startY + dialSize + spacing + 25;  // Added 25 to account for label height
-    
-    waveformSelector.setBounds(startX, comboY, comboBoxWidth + 40, comboBoxHeight);  // Extra width for arrows
-    divisionSelector.setBounds(startX + dialSize + spacing, comboY, comboBoxWidth + 40, comboBoxHeight);
+    const int comboY = startY + dialSize + spacing + 25;
 
-    // Make buttons larger and more prominent
+    // Center the combo boxes under their respective dials
+    const int rateDialCenterX = startX + (dialSize / 2);
+    const int mixDialCenterX = startX + (dialSize + spacing) * 3 + (dialSize / 2);
+    
+    // Position combo boxes centered under their dials
+    divisionSelector.setBounds(rateDialCenterX - (comboBoxWidth / 2), comboY, comboBoxWidth, comboBoxHeight);
+    waveformSelector.setBounds(mixDialCenterX - (comboBoxWidth / 2), comboY, comboBoxWidth, comboBoxHeight);
+
+    // Position buttons below their respective combo boxes
     const int buttonWidth = 100;
     const int buttonHeight = 40;
-    const int buttonSpacing = 20;
-    
-    // Calculate button positions
-    const int buttonsY = comboY + comboBoxHeight + spacing; // Position below combo boxes
-    const int totalButtonsWidth = (buttonWidth * 2) + buttonSpacing;
-    const int buttonsStartX = (getWidth() - totalButtonsWidth) / 2;  // Center the buttons
+    const int buttonsY = comboY + comboBoxHeight + spacing;
 
-    // Position the buttons
-    lfoSyncButton.setBounds(buttonsStartX, buttonsY, buttonWidth, buttonHeight);
-    bypassButton.setBounds(buttonsStartX + buttonWidth + buttonSpacing, buttonsY, buttonWidth, buttonHeight);
+    // Center the buttons under their corresponding combo boxes
+    lfoSyncButton.setBounds(rateDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
+    bypassButton.setBounds(mixDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
 }
