@@ -16,10 +16,10 @@ class CustomComboBox : public juce::LookAndFeel_V4
 public:
     CustomComboBox()
     {
-        // Set custom colors
         setColour(juce::ComboBox::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
-        setColour(juce::ComboBox::textColourId, juce::Colour(232, 193, 185));  // Rose gold
-        setColour(juce::ComboBox::arrowColourId, juce::Colour(19, 224, 139));  // Teal
+        setColour(juce::ComboBox::textColourId, juce::Colour(232, 193, 185));
+        // Set arrow color to transparent to hide the default arrow
+        setColour(juce::ComboBox::arrowColourId, juce::Colours::transparentBlack);
     }
 
     void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
@@ -36,24 +36,20 @@ public:
         // Draw border
         g.setColour(juce::Colour(171, 136, 132).withAlpha(0.5f));
         g.drawRoundedRectangle(bounds.reduced(0.5f), cornerSize, 1.0f);
-
-        // Draw right arrow (only one arrow now)
-        auto rightArrowBounds = bounds.removeFromRight(height).reduced(8);
-        juce::Path rightArrow;
-        rightArrow.startNewSubPath(rightArrowBounds.getCentreX() - 4, rightArrowBounds.getCentreY() - 4);
-        rightArrow.lineTo(rightArrowBounds.getCentreX() + 4, rightArrowBounds.getCentreY());
-        rightArrow.lineTo(rightArrowBounds.getCentreX() - 4, rightArrowBounds.getCentreY() + 4);
-        g.setColour(juce::Colour(19, 224, 139).withAlpha(0.8f));
-        g.strokePath(rightArrow, juce::PathStrokeType(1.0f));
     }
 
-    // Override text positioning
+    // Override text positioning to be perfectly centered
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
     {
-        label.setBounds(0, 0, box.getWidth() - box.getHeight(), box.getHeight());
+        // Remove any margin that might affect centering
+        label.setBounds(1, 1, box.getWidth() - 2, box.getHeight() - 2);
         label.setJustificationType(juce::Justification::centred);
+        
+        // Set font
+        label.setFont(16.0f);
     }
 
+    // Style for popup menu
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override
     {
         g.fillAll(juce::Colours::black.withAlpha(0.95f));

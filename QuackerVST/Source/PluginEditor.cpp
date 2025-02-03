@@ -80,6 +80,11 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     divisionSelector.getComboBox().addItem("Sixteenth", 5);
     addAndMakeVisible(divisionSelector);
     
+    // In your constructor
+    waveformSelector.getComboBox().setJustificationType(juce::Justification::centred);
+    divisionSelector.getComboBox().setJustificationType(juce::Justification::centred);
+
+    
     // Style the ComboBoxes
     juce::Colour textColor = juce::Colour(232, 193, 185);  // Light rose gold
     auto setupComboBox = [textColor](juce::ComboBox& box) {
