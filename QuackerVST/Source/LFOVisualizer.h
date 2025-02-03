@@ -105,6 +105,8 @@ public:
 
     void resized() override {}
 
+
+    
     void timerCallback() override
     {
         if (tempoSynced)
@@ -112,14 +114,14 @@ public:
             // Calculate phase increment based on BPM and note division
             const double quarterNoteRate = bpm / 60.0; // Quarter notes per second
             const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 }; // whole, half, quarter, eighth, sixteenth
-            double frequencyHz = quarterNoteRate * multipliers[noteDivision];
-            double phaseIncrement = frequencyHz / 60.0; // 60 is our timer frequency
+            double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0; // Added *2.0 to match audio processor
+            double phaseIncrement = frequencyHz / 100.0; // 100Hz is our timer frequency
             currentPhase += phaseIncrement;
         }
         else
         {
             // Free-running mode
-            currentPhase += rate / 60.0;
+            currentPhase += rate / 100.0;
         }
 
         while (currentPhase >= 1.0)

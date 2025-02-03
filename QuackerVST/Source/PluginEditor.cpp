@@ -384,7 +384,7 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
                juce::Rectangle<int>(startX + dialSize + spacing, labelY, dialSize, 20),
                juce::Justification::centred);
                
-    g.drawText("PHASE",
+    g.drawText("WAVE OFFSET",
                juce::Rectangle<int>(startX + (dialSize + spacing) * 2, labelY, dialSize, 20),
                juce::Justification::centred);
                
