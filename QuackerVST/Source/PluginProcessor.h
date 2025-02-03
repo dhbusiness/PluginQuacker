@@ -139,7 +139,7 @@ private:
             {
                 // In sync mode, calculate phase directly from beat position
                 double beatsPerCycle = 4.0 / noteDivision; // 4 for whole note, 2 for half, 1 for quarter, etc.
-                phase = std::fmod(beatPosition / beatsPerCycle, 1.0);
+                phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0); // Multiply by 2 to complete full cycle per interval
             }
 
             // Apply phase offset
