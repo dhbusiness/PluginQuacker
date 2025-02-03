@@ -286,9 +286,13 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             // Store the dry signal
             float drySample = channelData[sample];
             
-            // Create the wet signal
+            // Get LFO value (0 to 1) and center it around 0.5
             float lfoValue = lfo.getNextSample();
-            float wetSample = drySample * (1.0f - lfoValue);
+            // Scale LFO to prevent clipping - now oscillates between 0 and 1 instead of 0 and 2
+            float modulationAmount = 0.5f + (lfoValue - 0.5f);
+            
+            // Apply modulation
+            float wetSample = drySample * modulationAmount;
             
             // Mix dry and wet signals
             channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
