@@ -249,21 +249,25 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     
     auto bounds = juce::Rectangle<float>(0, 0, width, height);
     
-    // Enhanced color palette
+    // Enhanced color palette with metallic tones
     juce::Colour darkPlum(61, 21, 46);
     juce::Colour midPlum(72, 28, 55);
     juce::Colour lightPlum(89, 34, 68);
     juce::Colour peachPink = juce::Colour(255, 201, 190).withMultipliedBrightness(0.6f);
     juce::Colour roseGold = juce::Colour(232, 193, 185).withMultipliedBrightness(0.6f);
     juce::Colour warmPlum = juce::Colour(198, 109, 139).withMultipliedBrightness(0.7f);
+    
+    // Metallic sheen colors - adjusted for more uniformity
+    juce::Colour metalHighlight = juce::Colour(255, 255, 255).withAlpha(0.03f);
+    juce::Colour metalShadow = juce::Colours::black.withAlpha(0.05f);
 
-    // Base gradient background
+    // Base gradient with more uniform metallic effect
     juce::ColourGradient baseGradient(
-        darkPlum,
-        bounds.getCentreX(), bounds.getCentreY(),
-        midPlum,
-        0, 0,
-        true);  // Radial gradient
+        darkPlum.brighter(0.05f),  // Reduced brightness difference
+        bounds.getCentreX(), bounds.getCentreY(),  // Changed to center-based gradient
+        midPlum.darker(0.05f),     // Reduced darkness difference
+        bounds.getRight(), bounds.getBottom(),
+        true);
     
     baseGradient.addColour(0.3, midPlum);
     baseGradient.addColour(0.7, lightPlum);
@@ -271,25 +275,58 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     g.setGradientFill(baseGradient);
     g.fillAll();
 
+    // More uniform metallic sheen
+    juce::ColourGradient sheenGradient(
+        metalHighlight,
+        bounds.getCentreX(), bounds.getCentreY(),  // Center-based gradient
+        metalShadow,
+        bounds.getRight(), bounds.getBottom(),
+        true);  // Changed to radial gradient
+    
+    g.setGradientFill(sheenGradient);
+    g.fillAll();
+
+    // Enhanced metal flakes
+    juce::Random random;
+    for (int i = 0; i < 15000; ++i) // Increased number of flakes
+    {
+        float x = random.nextFloat() * width;
+        float y = random.nextFloat() * height;
+        float size = random.nextFloat() * 1.8f; // Slightly larger flakes
+        float alpha = random.nextFloat() * 0.08f; // Increased opacity
+
+        // Randomize between highlight and shadow for flakes
+        if (random.nextBool())
+        {
+            g.setColour(juce::Colours::white.withAlpha(alpha));
+        }
+        else
+        {
+            g.setColour(metalShadow.withAlpha(alpha * 0.8f));
+        }
+        
+        g.fillEllipse(x, y, size, size);
+    }
+
+    // Add your existing Perlin noise patterns with adjusted alpha
     const float scale = 0.007f;
     const float fixedSeed = 42.0f;
     
-    // In the LayerConfig struct, add an amplitude field:
     struct LayerConfig {
         float scale;
         float alpha;
-        float amplitude;  // Add this field
+        float amplitude;
         juce::Colour color;
         float offset;
     };
 
-    // Then modify the layers array to include larger amplitudes and adjusted scales:
+    // Adjust layers for metallic effect
     std::array<LayerConfig, 5> layers = {{
-        { 0.003f, 0.1f, 8.0f, warmPlum, 0.0f },          // Reduced amplitude and alpha
-        { 0.005f, 0.08f, 6.0f, roseGold, 50.0f },        // Reduced amplitude and alpha
-        { 0.008f, 0.06f, 5.0f, peachPink, 100.0f },      // Reduced amplitude and alpha
-        { 0.002f, 0.1f, 10.0f, lightPlum, 150.0f },      // Reduced amplitude and alpha
-        { 0.004f, 0.05f, 6.0f, warmPlum, 200.0f }        // Reduced amplitude and alpha
+        { 0.003f, 0.08f, 8.0f, warmPlum, 0.0f },
+        { 0.005f, 0.06f, 6.0f, roseGold, 50.0f },
+        { 0.008f, 0.04f, 5.0f, peachPink, 100.0f },
+        { 0.002f, 0.08f, 10.0f, lightPlum, 150.0f },
+        { 0.004f, 0.03f, 6.0f, warmPlum, 200.0f }
     }};
 
     // Generate each texture layer
@@ -297,13 +334,12 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     {
         juce::Path swirlyPath;
         
-        for (float y = 0; y < bounds.getHeight(); y += 4.0f) // Increased density
+        for (float y = 0; y < bounds.getHeight(); y += 4.0f)
         {
             swirlyPath.startNewSubPath(0, y);
             
             for (float x = 0; x < bounds.getWidth(); x += 4.0f)
             {
-                // Multiple noise functions for more organic feel
                 float noise1 = PerlinNoise::noise(x * layer.scale, y * layer.scale, fixedSeed + layer.offset);
                 float noise2 = PerlinNoise::noise(x * layer.scale * 1.7f, y * layer.scale * 1.7f, fixedSeed + layer.offset + 10.0f);
                 float noise3 = PerlinNoise::noise(y * layer.scale * 0.5f, x * layer.scale * 0.5f, fixedSeed + layer.offset + 20.0f);
@@ -318,54 +354,19 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
         }
         
         g.setColour(layer.color.withAlpha(layer.alpha));
-        g.strokePath(swirlyPath, juce::PathStrokeType(1.5f));  // Changed from 1.0f
+        g.strokePath(swirlyPath, juce::PathStrokeType(1.5f));
     }
 
-    // Add subtle highlight dots for texture
-    for (int i = 0; i < 400; ++i) // Increased number of highlights
-    {
-        float angle = (float)i * 0.157f; // Golden ratio angle
-        float radius = std::sqrt((float)i) * 20.0f;
-        float x = bounds.getCentreX() + std::cos(angle) * radius;
-        float y = bounds.getCentreY() + std::sin(angle) * radius;
-        
-        if (x >= 0 && x < width && y >= 0 && y < height)
-        {
-            float size = (std::cos(i * 0.1f) + 1.0f) * 0.75f + 0.5f;
-            
-            // Alternate between warm and cool highlights
-            if (i % 2 == 0)
-                g.setColour(peachPink.withAlpha(0.01f));
-            else
-                g.setColour(warmPlum.withAlpha(0.01f));
-                
-            g.fillEllipse(x, y, size, size);
-        }
-    }
-
-    // Add a subtle velvety texture overlay
-    for (float y = 0; y < bounds.getHeight(); y += 2.0f)
-    {
-        for (float x = 0; x < bounds.getWidth(); x += 2.0f)
-        {
-            float noise = PerlinNoise::noise(x * 0.05f, y * 0.05f, fixedSeed + 1000.0f);
-            if (noise > 0.75f)
-            {
-                g.setColour(roseGold.withAlpha(0.005f));
-                g.fillRect(x, y, 2.0f, 2.0f);
-            }
-        }
-    }
-    
-    // Final subtle bloom effect
-    juce::ColourGradient bloomGradient(
-        peachPink.withAlpha(0.02f),
+    // Final metallic sheen overlay
+    // Final metallic sheen overlay - more subtle and uniform
+    juce::ColourGradient finalSheen(
+        metalHighlight.withAlpha(0.01f),
         bounds.getCentreX(), bounds.getCentreY(),
-        juce::Colours::transparentBlack,
-        0, 0,
-        true);
+        metalShadow.withAlpha(0.01f),
+        bounds.getRight(), bounds.getBottom(),
+        true);  // Changed to radial gradient
     
-    g.setGradientFill(bloomGradient);
+    g.setGradientFill(finalSheen);
     g.fillAll();
 }
 
