@@ -75,7 +75,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         "lfoNoteDivision",
         "LFO Note Division",
-        juce::StringArray{ "Whole", "Half", "Quarter", "Eighth", "Sixteenth" },
+        juce::StringArray{ "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" },
         2  // default to Quarter note
     ));
 
@@ -296,7 +296,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // Handle sync and timing
     if (syncParam->load() > 0.5f)
     {
-        const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
+        const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
         lfo.setSyncMode(true, division);
         if (isPlaying)

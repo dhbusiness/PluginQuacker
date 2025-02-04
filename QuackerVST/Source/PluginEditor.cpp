@@ -42,15 +42,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoDepthSlider.setRange(0.0, 1.0, 0.01);
     addAndMakeVisible(lfoDepthSlider);
 
-    lfoWaveformBox.addItem("Sine", 1);
-    lfoWaveformBox.addItem("Square", 2);
-    lfoWaveformBox.addItem("Triangle", 3);
-    lfoWaveformBox.addItem("Sawtooth Up",4);
-    lfoWaveformBox.addItem("Sawtooth Down", 5);
-    lfoWaveformBox.addItem("Soft Square", 6);
-    lfoWaveformBox.addItem("Fender Style", 7);
-    lfoWaveformBox.addItem("Wurlitzer Style", 8);
-    addAndMakeVisible(lfoWaveformBox);
+
     
     waveformSelector.getComboBox().addItem("Sine", 1);
     waveformSelector.getComboBox().addItem("Square", 2);
@@ -66,18 +58,14 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     //lfoSyncButton.setButtonText("Sync to BPM");
     addAndMakeVisible(lfoSyncButton);
 
-    lfoNoteDivisionBox.addItem("Whole", 1);
-    lfoNoteDivisionBox.addItem("Half", 2);
-    lfoNoteDivisionBox.addItem("Quarter", 3);
-    lfoNoteDivisionBox.addItem("Eighth", 4);
-    lfoNoteDivisionBox.addItem("Sixteenth", 5);
-    addAndMakeVisible(lfoNoteDivisionBox);
+
     
-    divisionSelector.getComboBox().addItem("Whole", 1);
-    divisionSelector.getComboBox().addItem("Half", 2);
-    divisionSelector.getComboBox().addItem("Quarter", 3);
-    divisionSelector.getComboBox().addItem("Eighth", 4);
-    divisionSelector.getComboBox().addItem("Sixteenth", 5);
+    divisionSelector.getComboBox().addItem("1/1", 1);
+    divisionSelector.getComboBox().addItem("1/2", 2);
+    divisionSelector.getComboBox().addItem("1/4", 3);
+    divisionSelector.getComboBox().addItem("1/8", 4);
+    divisionSelector.getComboBox().addItem("1/16", 5);
+    divisionSelector.getComboBox().addItem("1/32", 6);
     addAndMakeVisible(divisionSelector);
     
     // In your constructor

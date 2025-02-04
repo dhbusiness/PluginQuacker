@@ -40,7 +40,7 @@ public:
         juce::String rateText;
         if (tempoSynced)
         {
-            const char* divisions[] = { "1/1", "1/2", "1/4", "1/8", "1/16" };
+            const char* divisions[] = { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" };
             rateText = juce::String(bpm, 1) + " BPM - " + juce::String(divisions[noteDivision]);
         }
         else
@@ -179,7 +179,7 @@ public:
             if (tempoSynced)
             {
                 const double quarterNoteRate = bpm / 60.0;
-                const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
+                const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
                 double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0;
                 double phaseIncrement = frequencyHz / 100.0;
                 currentPhase += phaseIncrement;
