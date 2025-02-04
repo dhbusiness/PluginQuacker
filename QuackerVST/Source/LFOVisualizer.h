@@ -30,7 +30,7 @@ public:
         auto bounds = getLocalBounds().toFloat();
         auto originalBounds = bounds; // Store original bounds for border
 
-        // Fill background with subtle scan lines that move
+        // Fill background
         g.setColour(juce::Colours::black);
         g.fillRect(bounds);
 
@@ -52,33 +52,40 @@ public:
         auto textBounds = bounds.removeFromTop(20);
         g.drawText(rateText, textBounds, juce::Justification::centred);
         
-        // Subtle moving scan lines
-        g.setColour(juce::Colours::white.withAlpha(0.03f));
+        // Subtle moving scan lines - Made much more subtle
+        g.setColour(juce::Colours::white.withAlpha(0.015f)); // Reduced opacity
         float scanLineSpacing = 4.0f;
-        float scanLineOffset = currentPhase * bounds.getHeight() * 2.0f;
-        for (float y = -scanLineSpacing; y < bounds.getHeight(); y += scanLineSpacing)
+        float scanLineOffset = crtPhase * bounds.getHeight() * 2.0f;
+        for (float y = -scanLineSpacing; y <= bounds.getHeight() + scanLineSpacing; y += scanLineSpacing)
         {
             float actualY = std::fmod(y + scanLineOffset, bounds.getHeight());
             g.drawHorizontalLine(static_cast<int>(actualY), 0.0f, bounds.getWidth());
         }
 
-        // Subtle grid
+        // Grid drawing - Fixed to account for full bounds
         g.setColour(juce::Colours::darkgrey.withAlpha(0.2f));
-        float gridSize = bounds.getHeight() / 8.0f;
+        
+        // Calculate grid size based on available space
+        int numVerticalDivisions = 8;
+        float gridSizeY = bounds.getHeight() / numVerticalDivisions;
+        float gridSizeX = gridSizeY; // Keep squares proportional
         
         // Vertical grid lines
-        for (float x = 0; x < bounds.getWidth(); x += gridSize)
+        int numHorizontalDivisions = static_cast<int>(std::ceil(bounds.getWidth() / gridSizeX));
+        for (int i = 0; i <= numHorizontalDivisions; ++i)
         {
-            g.drawVerticalLine(static_cast<int>(x), 0.0f, bounds.getHeight());
+            float x = i * gridSizeX;
+            g.drawVerticalLine(static_cast<int>(x), bounds.getY(), bounds.getBottom());
         }
         
         // Horizontal grid lines
-        for (float y = 0; y < bounds.getHeight(); y += gridSize)
+        for (int i = 0; i <= numVerticalDivisions; ++i)
         {
+            float y = bounds.getY() + (i * gridSizeY);
             g.drawHorizontalLine(static_cast<int>(y), 0.0f, bounds.getWidth());
         }
 
-        // Center line
+        // Center line with slightly more emphasis
         g.setColour(juce::Colours::darkgrey.withAlpha(0.4f));
         float midY = bounds.getCentreY();
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
@@ -161,6 +168,12 @@ public:
     
     void timerCallback() override
     {
+        // Always update CRT animation phase
+        crtPhase += 0.01f; // Adjust speed as needed
+        while (crtPhase >= 1.0f)
+            crtPhase -= 1.0f;
+
+        // LFO phase update only when active
         if (active || waitingForReset)
         {
             if (tempoSynced)
@@ -188,6 +201,7 @@ public:
                     currentPhase -= 1.0;
             }
         }
+        
         repaint();
     }
 
@@ -283,6 +297,8 @@ private:
     
     bool active = false;
 
+    float crtPhase = 0.0f;
+    
     bool waitingForReset = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
