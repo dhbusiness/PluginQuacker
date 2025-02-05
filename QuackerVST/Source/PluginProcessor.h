@@ -10,12 +10,17 @@
 
 #include <JuceHeader.h>
 
-class QuackerVSTAudioProcessor : public juce::AudioProcessor
+//==============================================================================
+/**
+*/
+class QuackerVSTAudioProcessor  : public juce::AudioProcessor
 {
 public:
+    //==============================================================================
     QuackerVSTAudioProcessor();
     ~QuackerVSTAudioProcessor() override;
 
+    //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -24,11 +29,12 @@ public:
    #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill);
 
+    //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
+    //==============================================================================
     const juce::String getName() const override;
 
     bool acceptsMidi() const override;
@@ -36,15 +42,18 @@ public:
     bool isMidiEffect() const override;
     double getTailLengthSeconds() const override;
 
+    //==============================================================================
     int getNumPrograms() override;
     int getCurrentProgram() override;
     void setCurrentProgram (int index) override;
     const juce::String getProgramName (int index) override;
     void changeProgramName (int index, const juce::String& newName) override;
 
+    //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     double getCurrentBPM() const;
+    
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
@@ -53,7 +62,9 @@ public:
     bool hasAudioInput() const { return audioInputDetected; }
     bool isLfoWaitingForReset() const { return lfo.isWaitingForReset(); }
     
+    
 private:
+    
     class TremoloLFO
     {
     public:
@@ -64,8 +75,8 @@ private:
             SawtoothUp,
             SawtoothDown,
             SoftSquare,
-            FenderStyle,
-            WurlitzerStyle
+            FenderStyle,    // New
+            WurlitzerStyle  // New
         };
         
         TremoloLFO()
@@ -79,15 +90,13 @@ private:
             , rateSmoothing(0.997)
             , beatPosition(0.0)
             , lastBeatPosition(0.0)
-            , stateFade(0.0f)
         {
-            // Initialize smoothed values with longer smoothing times
-            smoothedDepth.reset(44100, 0.1);    // 100ms smoothing
-            smoothedRate.reset(44100, 0.1);
-            smoothedPhaseOffset.reset(44100, 0.1);
-            stateFade.reset(44100, 0.01);      // 10ms fade time
+            // Initialize smoothed values
+            smoothedDepth.reset(44100, 0.05); // 50ms smoothing
+            smoothedRate.reset(44100, 0.05);
         }
 
+        
         void setRate(float newRate)
         {
             rate = newRate;
@@ -99,38 +108,23 @@ private:
             depth = newDepth;
             smoothedDepth.setTargetValue(newDepth);
         }
-
         void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
-
         void setSampleRate(double newSampleRate)
         {
             sampleRate = newSampleRate;
-            // Longer smoothing times for stability
-            smoothedDepth.reset(sampleRate, 0.2);    // 200ms smoothing
-            smoothedRate.reset(sampleRate, 0.2);
-            smoothedPhaseOffset.reset(sampleRate, 0.2);
-            stateFade.reset(sampleRate, 0.05);       // 50ms fade
-
-            // Set up oversampling
-            oversamplingRatio = (sampleRate < 96000.0) ? 4 : 2;
-            
-            // Update anti-aliasing filter
-            double nyquist = sampleRate * 0.5;
-            double filterFreq = std::min(18000.0, nyquist * 0.8);
-            updateAntiAliasingFilter(filterFreq);
+            rateSmoothing = pow(0.5, 1.0 / (sampleRate * 0.005));
+            // Update smoothed values sample rate
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.05);
         }
         
         void setPhaseOffset(float offsetDegrees)
         {
             phaseOffset = offsetDegrees / 360.0f;
-            smoothedPhaseOffset.setTargetValue(phaseOffset);
         }
 
         void setBeatPosition(double newBeatPosition)
         {
-            if (std::abs(newBeatPosition - lastBeatPosition) > 1.0) {
-                phase = std::fmod(phase, 1.0); // More precise phase reset
-            }
             lastBeatPosition = beatPosition;
             beatPosition = newBeatPosition;
         }
@@ -139,72 +133,155 @@ private:
         {
             phase = 0.0;
             currentRate = rate;
-            smoothedDepth.reset(sampleRate, 0.1);
-            smoothedRate.reset(sampleRate, 0.1);
-            stateFade.setTargetValue(0.0f);
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.05);
         }
         
         bool isWaitingForReset() const { return waitingForReset; }
-        bool isOversamplingEnabled() const { return oversamplingEnabled; }
         
         void updateActiveState(bool isActive, bool isPlaying)
         {
             if (!isPlaying)
             {
-                stateFade.setTargetValue(0.0f);
+                // Immediate reset when playhead stops
                 waitingForReset = false;
                 wasActive = false;
-                phase = std::fmod(phase, 1.0);
+                phase = 0.0;
                 return;
             }
 
             if (wasActive && !isActive)
             {
+                // We just lost audio signal, start waiting for reset
                 waitingForReset = true;
-                stateFade.setTargetValue(0.0f);
             }
             else if (isActive)
             {
+                // If we become active again before reset, cancel the wait
                 waitingForReset = false;
-                stateFade.setTargetValue(1.0f);
             }
 
             wasActive = isActive;
         }
         
+        
         float getNextSample()
         {
+            bool isAtResetPoint = false;
+            
+            // If we're waiting for reset or active, continue the LFO
             if (waitingForReset || wasActive)
             {
-                // Oversample the LFO generation
-                float sum = 0.0f;
-                for (int i = 0; i < oversamplingRatio; ++i)
+                // Normal LFO operation
+                if (!syncedToHost)
                 {
-                    if (!syncedToHost)
+                    currentRate = smoothedRate.getNextValue();
+                    phase += currentRate / sampleRate;
+                    
+                    // Only check for reset point if we're waiting for it
+                    if (waitingForReset && (phase >= 0.99 || phase < 0.01))
                     {
-                        currentRate = smoothedRate.getNextValue();
-                        phase = std::fmod(phase + (currentRate / (sampleRate * oversamplingRatio)), 1.0);
+                        waitingForReset = false;
+                        phase = 0.0;
+                        return depth; // Return neutral position
                     }
-                    else
-                    {
-                        double beatsPerCycle = 4.0 / noteDivision;
-                        phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
-                    }
-
-                    double outputPhase = std::fmod(phase + smoothedPhaseOffset.getNextValue(), 1.0);
-                    sum += generateWaveform(outputPhase);
+                    
+                    while (phase >= 1.0) phase -= 1.0;
                 }
-
-                float output = sum / oversamplingRatio;
-                float fadeValue = stateFade.getNextValue();
-                float depthValue = smoothedDepth.getNextValue();
-
-                // Apply soft saturation to prevent harsh modulation
-                output = std::tanh(output * 1.5f) * 0.666f;
+                else
+                {
+                    double beatsPerCycle = 4.0 / noteDivision;
+                    phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
+                    
+                    // For sync mode, check if we're at a cycle boundary
+                    if (waitingForReset && (phase >= 0.99 || phase < 0.01))
+                    {
+                        waitingForReset = false;
+                        phase = 0.0;
+                        return depth; // Return neutral position
+                    }
+                }
                 
-                return (output * depthValue + (1.0f - depthValue)) * fadeValue;
+                
+                // Apply phase offset
+                double outputPhase = phase + phaseOffset;
+                while (outputPhase >= 1.0) outputPhase -= 1.0;
+                while (outputPhase < 0.0) outputPhase += 1.0;
+                
+                // Generate waveform
+                double output = 0.0;
+                switch (waveform)
+                {
+                    case Sine:
+                        output = std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
+                        break;
+                        
+                    case Square:
+                        output = outputPhase < 0.5 ? 1.0 : 0.0;
+                        break;
+                        
+                    case Triangle:
+                        output = 1.0 - std::abs(2.0 * outputPhase - 1.0);
+                        break;
+                        
+                    case SawtoothUp:
+                        output = 1.0 - outputPhase;
+                        break;
+                        
+                    case SawtoothDown:
+                        output = 1.0 - outputPhase;
+                        break;
+                        
+                    case SoftSquare:
+                    {
+                        // Create a softer square wave using sigmoid function
+                        const double sharpness = 10.0; // Adjust this to control the softness
+                        double centered = outputPhase * 2.0 - 1.0;
+                        output = 1.0 / (1.0 + std::exp(-sharpness * centered));
+                    }
+                        break;
+                        
+                    case FenderStyle:
+                    {
+                        // Fender-style tremolo: Asymmetric sine wave with subtle harmonics
+                        double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                        
+                        // Calculate the base waveform with proper scaling
+                        double raw = std::sin(angle) +                     // Fundamental
+                        0.1 * std::sin(2.0 * angle) +         // 2nd harmonic
+                        0.05 * std::sin(3.0 * angle);         // 3rd harmonic
+                        
+                        // Normalize to 0-1 range with headroom
+                        output = (raw * 0.4) + 0.5;  // Scale by 0.4 to ensure we stay within bounds
+                        
+                        // Add subtle asymmetry without causing dropouts
+                        output = std::pow(output, 1.08);
+                        
+                        // Ensure output stays within bounds
+                        output = juce::jlimit(0.0, 1.0, output);
+                    }
+                        break;
+                        
+                    case WurlitzerStyle:
+                    {
+                        // Wurlitzer-style: Blend of triangle and sine with peak emphasis
+                        double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                        double sineComponent = std::sin(angle);
+                        double triangleComponent = 2.0 * std::abs(2.0 * (outputPhase - 0.5)) - 1.0;
+                        
+                        // Blend the components (60% sine, 40% triangle)
+                        output = (0.6 * sineComponent + 0.4 * triangleComponent) * 0.5 + 0.5;
+                        
+                        // Add slight emphasis to peaks
+                        output = std::pow(output, 0.9);
+                    }
+                        break;
+                        
+                }
+                
+                return output * smoothedDepth.getNextValue() + (1.0f - smoothedDepth.getNextValue());
             }
-            return smoothedDepth.getNextValue();
+            return depth; // Return neutral position when completely inactive
         }
         
         void setSyncMode(bool shouldSync, double division = 1.0)
@@ -214,66 +291,6 @@ private:
         }
 
     private:
-        double generateWaveform(double phase)
-        {
-            switch (waveform)
-            {
-                case Sine:
-                    return std::sin(phase * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
-                    
-                case Square:
-                    return phase < 0.5 ? 1.0 : 0.0;
-                    
-                case Triangle:
-                    return 1.0 - std::abs(2.0 * phase - 1.0);
-                    
-                case SawtoothUp:
-                case SawtoothDown:
-                    return 1.0 - phase;
-                    
-                case SoftSquare:
-                {
-                    const double sharpness = 10.0;
-                    double centered = phase * 2.0 - 1.0;
-                    return 1.0 / (1.0 + std::exp(-sharpness * centered));
-                }
-                    
-                case FenderStyle:
-                {
-                    double angle = phase * 2.0 * juce::MathConstants<double>::pi;
-                    double raw = std::sin(angle) + 0.1 * std::sin(2.0 * angle) + 0.05 * std::sin(3.0 * angle);
-                    double output = (raw * 0.4) + 0.5;
-                    output = std::pow(output, 1.08);
-                    return juce::jlimit(0.0, 1.0, output);
-                }
-                    
-                case WurlitzerStyle:
-                {
-                    double angle = phase * 2.0 * juce::MathConstants<double>::pi;
-                    double sineComponent = std::sin(angle);
-                    double triangleComponent = 2.0 * std::abs(2.0 * (phase - 0.5)) - 1.0;
-                    double output = (0.6 * sineComponent + 0.4 * triangleComponent) * 0.5 + 0.5;
-                    return std::pow(output, 0.9);
-                }
-                    
-                default:
-                    return 0.0;
-            }
-        }
-
-        // Anti-aliasing filter
-        void updateAntiAliasingFilter(double frequency)
-        {
-            // Simple one-pole lowpass filter
-            double w0 = 2.0 * juce::MathConstants<double>::pi * frequency / sampleRate;
-            filterCoeff = std::exp(-w0);
-            lastFilterOutput = 0.0;
-        }
-        
-        double filterCoeff;
-        double lastFilterOutput;
-        int oversamplingRatio;
-        
         double phase;
         float rate;
         float depth;
@@ -285,36 +302,29 @@ private:
         
         juce::SmoothedValue<float> smoothedDepth;
         juce::SmoothedValue<float> smoothedRate;
-        juce::SmoothedValue<float> smoothedPhaseOffset;
-        juce::SmoothedValue<float> stateFade;
         
+        // Beat sync related
         bool syncedToHost = false;
         double beatPosition;
         double lastBeatPosition;
         double noteDivision = 1.0;
         
-        bool waitingForReset = false;
-        bool wasActive = false;
-        
-        // Oversampling
-        bool oversamplingEnabled = false;
-
+        bool waitingForReset = false;  // New flag to track if we're completing a cycle
+        bool wasActive = false;        // Track previous active state
     };
 
-    TremoloLFO lfo;
-    std::atomic<float> currentBPM{0.0f};
-    std::atomic<bool> currentlyPlaying{false};
-    std::atomic<bool> audioInputDetected{false};
+    TremoloLFO lfo;                         //creating the lFO using the defined class above
+
+    float currentBPM = 0.0;                 //Defining variable which will hold DAW bpm
     
-    juce::AudioBuffer<float> tempBuffer;
+    bool currentlyPlaying = false;
+    bool audioInputDetected = false;
+
     
-    // DSP processors
-    juce::dsp::ProcessSpec dspSpec;
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> antiAliasingFilter;
     
-    static constexpr int RING_BUFFER_SIZE = 4096;
-    juce::AbstractFifo fifo{RING_BUFFER_SIZE};
-    std::array<float, RING_BUFFER_SIZE> ringBuffer;
+
     
+    
+    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessor)
 };
