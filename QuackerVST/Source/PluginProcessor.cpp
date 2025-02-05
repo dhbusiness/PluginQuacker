@@ -179,23 +179,24 @@ void QuackerVSTAudioProcessor::changeProgramName (int index, const juce::String&
 //==============================================================================
 void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    // Initialize ProcessSpec for DSP modules
+    currentSpecs.sampleRate = sampleRate;
+    currentSpecs.maximumBlockSize = samplesPerBlock;
+    currentSpecs.numChannels = getTotalNumOutputChannels();
+
+    // Initialize the DC filter
+    *dcFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 20.0f);
+    dcFilter.prepare(currentSpecs);
     
-    //init spec for dsp modules
-    juce::dsp::ProcessSpec spec;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.sampleRate = sampleRate;
-    spec.numChannels = getTotalNumOutputChannels();
-    
-    lfo.setSampleRate(sampleRate); //SETS SAMPLE RATE FOR LFO TO USER SAMPLE RATE
-    
+    // Set LFO sample rate
+    lfo.setSampleRate(sampleRate);
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
+    dcFilter.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -320,7 +321,6 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         {
             float drySample = channelData[sample];
             
-            // Process if playing AND (has signal OR waiting for reset) AND not bypassed
             if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
             {
                 float lfoValue = lfo.getNextSample();
@@ -334,6 +334,11 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             }
         }
     }
+
+    // Apply DC filtering to the entire buffer
+    juce::dsp::AudioBlock<float> block(buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    dcFilter.process(context);
 }
 
 //==============================================================================

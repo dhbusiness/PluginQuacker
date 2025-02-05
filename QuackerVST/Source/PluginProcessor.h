@@ -65,6 +65,11 @@ public:
     
 private:
     
+    // DC Filter components
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>,
+                                  juce::dsp::IIR::Coefficients<float>> dcFilter;
+    juce::dsp::ProcessSpec currentSpecs;
+    
     class TremoloLFO
     {
     public:
