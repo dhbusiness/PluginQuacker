@@ -6,10 +6,10 @@
   ==============================================================================
 */
 
+
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
 QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
@@ -25,96 +25,58 @@ apvts(*this, nullptr, "Parameters", createParameters())
 {
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
-{
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-
-    // LFO Rate
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "lfoRate",           // parameterID
-        "LFO Rate",         // parameter name
-        0.01f,              // minimum value
-        2.0f,               // maximum value
-        1.0f               // default value
-    ));
-
-    // LFO Depth
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "lfoDepth",
-        "LFO Depth",
-        0.0f,
-        1.0f,
-        0.5f
-    ));
-
-    // LFO Waveform
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "lfoWaveform",
-        "LFO Waveform",
-        juce::StringArray{
-            "Sine",
-            "Square",
-            "Triangle",
-            "Sawtooth Up",
-            "Sawtooth Down",
-            "Soft Square",
-            "Fender Style",
-            "Wurlitzer Style"
-        },
-        0  // default to Sine
-    ));
-
-    // LFO Sync
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        "lfoSync",
-        "LFO Sync",
-        false
-    ));
-
-    // Note Division
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "lfoNoteDivision",
-        "LFO Note Division",
-        juce::StringArray{ "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" },
-        2  // default to Quarter note
-    ));
-
-    // Phase Offset
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "lfoPhaseOffset",
-        "LFO Phase Offset",
-        -180.0f,
-        180.0f,
-        0.0f
-    ));
-    
-    // Mix Control
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "mix",
-        "Mix",
-        0.0f,
-        1.0f,
-        1.0f  // default to 100% wet
-    ));
-
-    
-    // Add bypass parameter
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        "bypass",
-        "Bypass",
-        false
-    ));
-
-
-    return { params.begin(), params.end() };
-}
-
-
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
 {
 }
 
-//==============================================================================
+juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoRate", "LFO Rate", 0.01f, 2.0f, 1.0f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoDepth", "LFO Depth", 0.0f, 1.0f, 0.5f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "lfoWaveform",
+        "LFO Waveform",
+        juce::StringArray{
+            "Sine", "Square", "Triangle", "Sawtooth Up",
+            "Sawtooth Down", "Soft Square", "Fender Style", "Wurlitzer Style"
+        },
+        0
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "lfoSync", "LFO Sync", false
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "lfoNoteDivision",
+        "LFO Note Division",
+        juce::StringArray{ "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" },
+        2
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "lfoPhaseOffset", "LFO Phase Offset", -180.0f, 180.0f, 0.0f
+    ));
+    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "mix", "Mix", 0.0f, 1.0f, 1.0f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "bypass", "Bypass", false
+    ));
+
+    return { params.begin(), params.end() };
+}
+
 const juce::String QuackerVSTAudioProcessor::getName() const
 {
     return JucePlugin_Name;
@@ -149,13 +111,12 @@ bool QuackerVSTAudioProcessor::isMidiEffect() const
 
 double QuackerVSTAudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;
+    return 0.1; // Return actual tail time based on tremolo settings
 }
 
 int QuackerVSTAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    return 1;
 }
 
 int QuackerVSTAudioProcessor::getCurrentProgram()
@@ -176,20 +137,43 @@ void QuackerVSTAudioProcessor::changeProgramName (int index, const juce::String&
 {
 }
 
-//==============================================================================
 void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    // Initialize DSP spec
+    dspSpec.maximumBlockSize = samplesPerBlock;
+    dspSpec.sampleRate = sampleRate;
+    dspSpec.numChannels = getTotalNumOutputChannels();
     
-    //init spec for dsp modules
+    // Initialize anti-aliasing filter
+    antiAliasingFilter.prepare(dspSpec);
+    auto& filter = antiAliasingFilter.state;
+    
+    // Adjust filter frequency based on buffer size
+    float cutoffFreq = sampleRate * 0.45f;  // Nyquist adjustment
+    if (samplesPerBlock > 128)
+    {
+        // For larger buffer sizes, be more conservative with the cutoff
+        cutoffFreq = std::min(cutoffFreq, 18000.0f);
+    }
+    *filter = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, cutoffFreq);
+    
+    // Initialize LFO with adjusted parameters for larger buffer sizes
+    lfo.setSampleRate(sampleRate);
+    
+    // Adjust smoothing times based on buffer size
+    float smoothingTime = juce::jmap((float)samplesPerBlock,
+                                   32.0f, 2048.0f,  // Input range
+                                   0.1f, 0.25f);    // Output range (100ms to 250ms)
+    
+    // Reserve memory for processing
     juce::dsp::ProcessSpec spec;
     spec.maximumBlockSize = samplesPerBlock;
     spec.sampleRate = sampleRate;
     spec.numChannels = getTotalNumOutputChannels();
     
-    lfo.setSampleRate(sampleRate); //SETS SAMPLE RATE FOR LFO TO USER SAMPLE RATE
-    
+    // Clear ring buffer
+    std::fill(ringBuffer.begin(), ringBuffer.end(), 0.0f);
+    fifo.reset();
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
@@ -198,38 +182,42 @@ void QuackerVSTAudioProcessor::releaseResources()
     // spare memory, etc.
 }
 
+void QuackerVSTAudioProcessor::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
+{
+    if (bufferToFill.buffer == nullptr) return;
+    
+    auto* buffer = bufferToFill.buffer;
+    juce::dsp::AudioBlock<float> block(*buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    
+    // Apply anti-aliasing if needed
+    if (lfo.isOversamplingEnabled())
+    {
+        antiAliasingFilter.process(context);
+    }
+}
+
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool QuackerVSTAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
    #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
    #endif
 
     return true;
-  #endif
 }
 #endif
 
 void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
+    auto numSamples = buffer.getNumSamples();
+    
     // Get playhead info
     bool isPlaying = false;
     juce::AudioPlayHead::CurrentPositionInfo posInfo;
@@ -245,40 +233,17 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // Check for audio signal
     bool hasSignal = false;
-    for (int channel = 0; channel < totalNumInputChannels && !hasSignal; ++channel)
+    for (int channel = 0; channel < buffer.getNumChannels() && !hasSignal; ++channel)
     {
         auto* channelData = buffer.getReadPointer(channel);
-        for (int sample = 0; sample < buffer.getNumSamples() && !hasSignal; ++sample)
+        if (std::abs(juce::FloatVectorOperations::findMaximum(channelData, numSamples)) > 0.0001f)
         {
-            if (std::abs(channelData[sample]) > 0.0001f)
-            {
-                hasSignal = true;
-            }
+            hasSignal = true;
         }
     }
 
-    // Get bypass parameter
+    // Get parameters
     auto* bypassParam = apvts.getRawParameterValue("bypass");
-    bool isBypassed = bypassParam->load();
-
-    // If bypassed, just return the dry signal
-    if (isBypassed)
-    {
-        // Update states but don't process audio
-        audioInputDetected = hasSignal;
-        currentlyPlaying = isPlaying;
-        lfo.resetPhase(); // Reset LFO when bypassed
-        return;
-    }
-    
-    // Update the member variable here
-    audioInputDetected = hasSignal;
-    bool isActive = isPlaying && hasSignal;
-    lfo.updateActiveState(isActive, isPlaying); // Pass both states
-    
-
-    
-    // Get parameters from APVTS
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
     auto* rateParam = apvts.getRawParameterValue("lfoRate");
     auto* depthParam = apvts.getRawParameterValue("lfoDepth");
@@ -286,14 +251,25 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto* syncParam = apvts.getRawParameterValue("lfoSync");
     auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
     auto* mixParam = apvts.getRawParameterValue("mix");
-    float mix = mixParam->load();
 
-    // Set LFO parameters
+    bool isBypassed = bypassParam->load();
+    if (isBypassed)
+    {
+        audioInputDetected = hasSignal;
+        currentlyPlaying = isPlaying;
+        return;
+    }
+
+    // Update LFO state with interpolation
+    audioInputDetected = hasSignal;
+    bool isActive = isPlaying && hasSignal;
+    lfo.updateActiveState(isActive, isPlaying);
+
+    // Configure LFO with smoothing
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
 
-    // Handle sync and timing
     if (syncParam->load() > 0.5f)
     {
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
@@ -310,36 +286,63 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         lfo.setRate(rateParam->load());
     }
 
+    float mix = mixParam->load();
 
-    // Process audio only if not bypassed
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    // Pre-calculate LFO values with interpolation
+    const int interpolationFactor = 4; // Increase for smoother results
+    std::vector<float> interpolatedLFO(numSamples * interpolationFactor);
+    
+    for (int i = 0; i < numSamples * interpolationFactor; ++i)
+    {
+        interpolatedLFO[i] = lfo.getNextSample();
+    }
+
+    // Process audio with interpolation
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
         
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
         {
-            float drySample = channelData[sample];
-            
-            // Process if playing AND (has signal OR waiting for reset) AND not bypassed
-            if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+            for (int sample = 0; sample < numSamples; ++sample)
             {
-                float lfoValue = lfo.getNextSample();
-                float modulationAmount = 0.5f + (lfoValue - 0.5f);
-                float wetSample = drySample * modulationAmount;
-                channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
+                // Get interpolated LFO value
+                float lfoValue = 0.0f;
+                for (int i = 0; i < interpolationFactor; ++i)
+                {
+                    lfoValue += interpolatedLFO[sample * interpolationFactor + i];
+                }
+                lfoValue /= interpolationFactor;
+
+                // Smooth the modulation
+                float smoothedLFO = 0.5f + (lfoValue - 0.5f) * 0.707f; // -3dB scaling for stability
+                
+                // Apply modulation with soft saturation
+                float wetSample = channelData[sample] * smoothedLFO;
+                wetSample = std::tanh(wetSample); // Soft clipping
+                
+                // Mix with dry signal using equal power crossfade
+                float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
+                float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
+                channelData[sample] = (wetSample * wetGain) + (channelData[sample] * dryGain);
             }
-            else
-            {
-                channelData[sample] = drySample;
-            }
+        }
+    }
+
+    // Apply gentle limiting to prevent any potential overs
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        auto* channelData = buffer.getWritePointer(channel);
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            channelData[sample] = std::tanh(channelData[sample] * 0.99f);
         }
     }
 }
 
-//==============================================================================
 bool QuackerVSTAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+    return true;
 }
 
 juce::AudioProcessorEditor* QuackerVSTAudioProcessor::createEditor()
@@ -347,42 +350,29 @@ juce::AudioProcessorEditor* QuackerVSTAudioProcessor::createEditor()
     return new QuackerVSTAudioProcessorEditor (*this);
 }
 
-//==============================================================================
 void QuackerVSTAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
     auto state = apvts.copyState();
-    
-    // Add custom state data
     state.setProperty("version", 1, nullptr);
-    state.setProperty("lastSavedDate", juce::Time::getCurrentTime().toString(true, true), nullptr);  // Fixed
-    // Or more explicitly with a specific format:
-    // state.setProperty("lastSavedDate", juce::Time::getCurrentTime().toString(false, true, false, true), nullptr);
-    
+    state.setProperty("lastSavedDate", juce::Time::getCurrentTime().toString(true, true), nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);}
+    copyXmlToBinary(*xml, destData);
+}
 
 void QuackerVSTAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState.get() != nullptr)
         if (xmlState->hasTagName(apvts.state.getType()))
             apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
-//==============================================================================
-// This creates new instances of the plugin..
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new QuackerVSTAudioProcessor();
-}
-
 double QuackerVSTAudioProcessor::getCurrentBPM() const
 {
     return currentBPM;
+}
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new QuackerVSTAudioProcessor();
 }
