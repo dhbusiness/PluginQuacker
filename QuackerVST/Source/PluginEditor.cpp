@@ -186,74 +186,96 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
 {
-    // Get bypass state
+    // Cache current parameter values
     auto* bypassParam = audioProcessor.apvts.getRawParameterValue("bypass");
+    auto* waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
+    auto* depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
+    auto* phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
+    auto* syncParam = audioProcessor.apvts.getRawParameterValue("lfoSync");
+    auto* rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
+    
     bool isBypassed = bypassParam->load();
+    bool parametersChanged = false;
+    
+    // Check if any parameters have changed
+    if (lastBypass != isBypassed ||
+        lastWaveform != static_cast<int>(waveformParam->load()) ||
+        lastDepth != depthParam->load() ||
+        lastPhaseOffset != phaseOffsetParam->load() ||
+        lastSync != (syncParam->load() > 0.5f) ||
+        lastRate != rateParam->load())
+    {
+        parametersChanged = true;
+        
+        // Update cached values
+        lastBypass = isBypassed;
+        lastWaveform = static_cast<int>(waveformParam->load());
+        lastDepth = depthParam->load();
+        lastPhaseOffset = phaseOffsetParam->load();
+        lastSync = (syncParam->load() > 0.5f);
+        lastRate = rateParam->load();
+    }
 
-    // Only update visualizer if not bypassed
     if (!isBypassed)
     {
         bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
         lfoVisualizer.setActive(isActive, audioProcessor.isLfoWaitingForReset());
         
-        auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
-        auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
-        auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
-        auto syncParam = audioProcessor.apvts.getRawParameterValue("lfoSync");
-        auto rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
-        auto divisionParam = audioProcessor.apvts.getRawParameterValue("lfoNoteDivision");
-
-        // Update visualizer with current parameter values
-        lfoVisualizer.setWaveform(static_cast<int>(waveformParam->load()));
-        lfoVisualizer.setDepth(depthParam->load());
-        lfoVisualizer.setPhaseOffset(phaseOffsetParam->load());
-        
-        // Update rate and sync settings
-        if (syncParam->load() > 0.5f)
+        if (parametersChanged)
         {
-            lfoVisualizer.setTempoSync(true,
-                                     audioProcessor.getCurrentBPM(),
-                                     static_cast<int>(divisionParam->load()));
-        }
-        else
-        {
-            lfoVisualizer.setRate(rateParam->load());
+            // Only update visualizer parameters if they've changed
+            lfoVisualizer.setWaveform(lastWaveform);
+            lfoVisualizer.setDepth(lastDepth);
+            lfoVisualizer.setPhaseOffset(lastPhaseOffset);
+            
+            if (lastSync)
+            {
+                lfoVisualizer.setTempoSync(true,
+                                         audioProcessor.getCurrentBPM(),
+                                         static_cast<int>(audioProcessor.apvts.getRawParameterValue("lfoNoteDivision")->load()));
+            }
+            else
+            {
+                lfoVisualizer.setRate(lastRate);
+            }
         }
     }
     else
     {
-        // When bypassed, stop the LFO visualization
         lfoVisualizer.setActive(false, false);
     }
     
-    repaint();
+    // Only repaint if parameters changed
+    if (parametersChanged)
+    {
+        repaint();
+    }
 }
     
 //==============================================================================
 void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int height)
 {
-    backgroundImage = juce::Image(juce::Image::ARGB, width, height, true);
+    // Create image with hardware acceleration if available
+    backgroundImage = juce::Image(juce::Image::PixelFormat::ARGB, width, height, true);
     juce::Graphics g(backgroundImage);
     
     auto bounds = juce::Rectangle<float>(0, 0, width, height);
     
-    // Enhanced color palette with metallic tones
-    juce::Colour darkPlum(61, 21, 46);
-    juce::Colour midPlum(72, 28, 55);
-    juce::Colour lightPlum(89, 34, 68);
-    juce::Colour peachPink = juce::Colour(255, 201, 190).withMultipliedBrightness(0.6f);
-    juce::Colour roseGold = juce::Colour(232, 193, 185).withMultipliedBrightness(0.6f);
-    juce::Colour warmPlum = juce::Colour(198, 109, 139).withMultipliedBrightness(0.7f);
-    
-    // Metallic sheen colors - adjusted for more uniformity
-    juce::Colour metalHighlight = juce::Colour(255, 255, 255).withAlpha(0.03f);
-    juce::Colour metalShadow = juce::Colours::black.withAlpha(0.05f);
+    // Pre-calculate and cache colors
+    const auto darkPlum = juce::Colour(61, 21, 46);
+    const auto midPlum = juce::Colour(72, 28, 55);
+    const auto lightPlum = juce::Colour(89, 34, 68);
+    const auto peachPink = juce::Colour(255, 201, 190).withMultipliedBrightness(0.6f);
+    const auto roseGold = juce::Colour(232, 193, 185).withMultipliedBrightness(0.6f);
+    const auto warmPlum = juce::Colour(198, 109, 139).withMultipliedBrightness(0.7f);
+    const auto metalHighlight = juce::Colour(255, 255, 255).withAlpha(0.03f);
+    const auto metalShadow = juce::Colours::black.withAlpha(0.05f);
 
-    // Base gradient with more uniform metallic effect
-    juce::ColourGradient baseGradient(
-        darkPlum.brighter(0.05f),  // Reduced brightness difference
-        bounds.getCentreX(), bounds.getCentreY(),  // Changed to center-based gradient
-        midPlum.darker(0.05f),     // Reduced darkness difference
+    // Create single base gradient
+    auto baseGradient = juce::ColourGradient(
+        darkPlum.brighter(0.05f),
+        bounds.getCentreX(), bounds.getCentreY(),
+        midPlum.darker(0.05f),
         bounds.getRight(), bounds.getBottom(),
         true);
     
@@ -263,53 +285,64 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     g.setGradientFill(baseGradient);
     g.fillAll();
 
-    // More uniform metallic sheen
-    juce::ColourGradient sheenGradient(
-        metalHighlight,
-        bounds.getCentreX(), bounds.getCentreY(),  // Center-based gradient
-        metalShadow,
-        bounds.getRight(), bounds.getBottom(),
-        true);  // Changed to radial gradient
+    // Pre-calculate flake positions and properties
+    struct Flake {
+        float x, y, size, alpha;
+        bool isHighlight;
+    };
     
-    g.setGradientFill(sheenGradient);
-    g.fillAll();
-
-    // Enhanced metal flakes
+    std::vector<Flake> flakes;
+    flakes.reserve(15000);
     juce::Random random;
-    for (int i = 0; i < 15000; ++i) // Increased number of flakes
+    
+    for (int i = 0; i < 15000; ++i)
     {
-        float x = random.nextFloat() * width;
-        float y = random.nextFloat() * height;
-        float size = random.nextFloat() * 1.8f; // Slightly larger flakes
-        float alpha = random.nextFloat() * 0.08f; // Increased opacity
-
-        // Randomize between highlight and shadow for flakes
-        if (random.nextBool())
-        {
-            g.setColour(juce::Colours::white.withAlpha(alpha));
-        }
-        else
-        {
-            g.setColour(metalShadow.withAlpha(alpha * 0.8f));
-        }
-        
-        g.fillEllipse(x, y, size, size);
+        flakes.push_back({
+            random.nextFloat() * width,
+            random.nextFloat() * height,
+            random.nextFloat() * 1.8f,
+            random.nextFloat() * 0.08f,
+            random.nextBool()
+        });
     }
 
-    // Add your existing Perlin noise patterns with adjusted alpha
+    // Draw flakes in batches
+    const int batchSize = 1000;
+    for (int i = 0; i < flakes.size(); i += batchSize)
+    {
+        for (int j = i; j < std::min(i + batchSize, static_cast<int>(flakes.size())); ++j)
+        {
+            const auto& flake = flakes[j];
+            g.setColour(flake.isHighlight ?
+                       juce::Colours::white.withAlpha(flake.alpha) :
+                       metalShadow.withAlpha(flake.alpha * 0.8f));
+            g.fillEllipse(flake.x, flake.y, flake.size, flake.size);
+        }
+    }
+
+    // Pre-calculate noise values for efficiency
     const float scale = 0.007f;
     const float fixedSeed = 42.0f;
-    
-    struct LayerConfig {
-        float scale;
-        float alpha;
-        float amplitude;
-        juce::Colour color;
-        float offset;
-    };
+    std::vector<float> noiseCache;
+    const int noiseStepSize = 4;
+    const int noiseWidth = static_cast<int>(std::ceil(width / noiseStepSize)) + 1;
+    const int noiseHeight = static_cast<int>(std::ceil(height / noiseStepSize)) + 1;
+    noiseCache.resize(noiseWidth * noiseHeight);
 
-    // Adjust layers for metallic effect
-    std::array<LayerConfig, 5> layers = {{
+    #pragma omp parallel for collapse(2)
+    for (int y = 0; y < noiseHeight; ++y)
+    {
+        for (int x = 0; x < noiseWidth; ++x)
+        {
+            float xPos = x * noiseStepSize;
+            float yPos = y * noiseStepSize;
+            noiseCache[y * noiseWidth + x] = PerlinNoise::noise(
+                xPos * scale, yPos * scale, fixedSeed);
+        }
+    }
+
+    // Optimized layer configuration
+    const std::array<LayerConfig, 5> layers = {{
         { 0.003f, 0.08f, 8.0f, warmPlum, 0.0f },
         { 0.005f, 0.06f, 6.0f, roseGold, 50.0f },
         { 0.008f, 0.04f, 5.0f, peachPink, 100.0f },
@@ -317,27 +350,31 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
         { 0.004f, 0.03f, 6.0f, warmPlum, 200.0f }
     }};
 
-    // Generate each texture layer
+    // Draw layers using pre-calculated noise
     for (const auto& layer : layers)
     {
         juce::Path swirlyPath;
+        bool pathStarted = false;
         
-        for (float y = 0; y < bounds.getHeight(); y += 4.0f)
+        for (int y = 0; y < noiseHeight - 1; ++y)
         {
-            swirlyPath.startNewSubPath(0, y);
-            
-            for (float x = 0; x < bounds.getWidth(); x += 4.0f)
+            for (int x = 0; x < noiseWidth - 1; ++x)
             {
-                float noise1 = PerlinNoise::noise(x * layer.scale, y * layer.scale, fixedSeed + layer.offset);
-                float noise2 = PerlinNoise::noise(x * layer.scale * 1.7f, y * layer.scale * 1.7f, fixedSeed + layer.offset + 10.0f);
-                float noise3 = PerlinNoise::noise(y * layer.scale * 0.5f, x * layer.scale * 0.5f, fixedSeed + layer.offset + 20.0f);
+                float noise = noiseCache[y * noiseWidth + x];
+                float combinedNoise = noise * juce::MathConstants<float>::pi * 4;
                 
-                float combinedNoise = (noise1 + noise2 * 0.5f + noise3 * 0.25f) * juce::MathConstants<float>::pi * 4;
+                float xPos = x * noiseStepSize + std::sin(combinedNoise) * layer.amplitude;
+                float yPos = y * noiseStepSize + std::cos(combinedNoise) * layer.amplitude;
                 
-                float offsetX = std::sin(combinedNoise) * layer.amplitude;
-                float offsetY = std::cos(combinedNoise) * layer.amplitude;
-                
-                swirlyPath.lineTo(x + offsetX, y + offsetY);
+                if (!pathStarted)
+                {
+                    swirlyPath.startNewSubPath(xPos, yPos);
+                    pathStarted = true;
+                }
+                else
+                {
+                    swirlyPath.lineTo(xPos, yPos);
+                }
             }
         }
         
@@ -345,14 +382,13 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
         g.strokePath(swirlyPath, juce::PathStrokeType(1.5f));
     }
 
-    // Final metallic sheen overlay
-    // Final metallic sheen overlay - more subtle and uniform
+    // Final metallic sheen with single gradient
     juce::ColourGradient finalSheen(
         metalHighlight.withAlpha(0.01f),
         bounds.getCentreX(), bounds.getCentreY(),
         metalShadow.withAlpha(0.01f),
         bounds.getRight(), bounds.getBottom(),
-        true);  // Changed to radial gradient
+        true);
     
     g.setGradientFill(finalSheen);
     g.fillAll();

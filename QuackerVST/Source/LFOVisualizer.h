@@ -164,43 +164,67 @@ public:
     
     void timerCallback() override
     {
-        // Always update CRT animation phase
-        crtPhase += 0.01f; // Adjust speed as needed
-        while (crtPhase >= 1.0f)
+        // Cache static values
+        static constexpr float crtPhaseIncrement = 0.01f;
+        
+        // Update CRT animation phase
+        crtPhase += crtPhaseIncrement;
+        if (crtPhase >= 1.0f)
             crtPhase -= 1.0f;
 
-        // LFO phase update only when active
+        // Only update LFO phase if active
         if (active || waitingForReset)
         {
+            bool needsPhaseUpdate = true;
+            
             if (tempoSynced)
             {
-                const double quarterNoteRate = bpm / 60.0;
-                const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
-                double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0;
-                double phaseIncrement = frequencyHz / 100.0;
-                currentPhase += phaseIncrement;
+                // Convert BPM to Hz for the current note division
+                const double beatsPerSecond = bpm / 60.0;
+                const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 }; // Note divisions in Hz
+                const double multiplier = multipliers[noteDivision];
+                const double cyclesPerSecond = beatsPerSecond * multiplier;
+                
+                // Convert to phase increment per timer interval
+                const double secondsPerTimer = 1.0 / getTimerInterval();
+                currentPhase += (cyclesPerSecond / secondsPerTimer);
             }
             else
             {
-                currentPhase += rate / 100.0;
+                currentPhase += rate / getTimerInterval();
             }
 
-            // Only reset if explicitly waiting for reset and at reset point
+            // Reset handling with phase caching
             if (waitingForReset && (currentPhase >= 0.99 || currentPhase < 0.01))
             {
                 waitingForReset = false;
                 currentPhase = 0.0;
+                needsPhaseUpdate = false;
             }
-            else
+            
+            if (needsPhaseUpdate)
             {
                 while (currentPhase >= 1.0)
                     currentPhase -= 1.0;
             }
         }
         
-        repaint();
+        // Only trigger repaint if visual parameters have changed
+        bool parametersChanged = false;
+        
+        if (lastDepth != depth || lastPhaseOffset != phaseOffset || lastWaveform != currentWaveform)
+        {
+            parametersChanged = true;
+            lastDepth = depth;
+            lastPhaseOffset = phaseOffset;
+            lastWaveform = currentWaveform;
+        }
+        
+        if (parametersChanged || active || waitingForReset)
+        {
+            repaint();
+        }
     }
-
 
     void setWaveform(int waveformType)
     {
@@ -296,6 +320,13 @@ private:
     float crtPhase = 0.0f;
     
     bool waitingForReset = false;
+    
+    std::vector<float> pointCache;
+    std::vector<float> phaseCache;
+    juce::Path cachedWaveformPath;
+    float lastDepth = -1.0f;
+    float lastPhaseOffset = -1.0f;
+    int lastWaveform = -1;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };

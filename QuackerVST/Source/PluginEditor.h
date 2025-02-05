@@ -37,6 +37,21 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
+    
+    // Cache for parameter values
+    float lastRate = 0.0f;
+    float lastDepth = 0.0f;
+    float lastPhaseOffset = 0.0f;
+    int lastWaveform = -1;
+    bool lastSync = false;
+    float lastMix = 0.0f;
+    bool lastBypass = false;
+    
+    // Cache for UI elements
+    juce::Rectangle<int> cachedBounds;
+    juce::Image cachedBackground;
+    bool backgroundNeedsUpdate = true;
+    
     QuackerVSTAudioProcessor& audioProcessor;
     
     LFOVisualizer lfoVisualizer;
@@ -75,6 +90,16 @@ private:
     static juce::Image backgroundImage;  // Make it static
     static bool backgroundGenerated;     // Track if we've generated it
     static void generateBackgroundPattern(int width, int height); // Static generator
+    
+    // Background pattern configuration
+    struct LayerConfig {
+        float scale;
+        float alpha;
+        float amplitude;
+        juce::Colour color;
+        float offset;
+    };
+
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

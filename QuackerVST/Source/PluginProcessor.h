@@ -82,9 +82,9 @@ private:
             , stateFade(0.0f)
         {
             // Initialize smoothed values with longer smoothing times
-            smoothedDepth.reset(44100, 0.1);    // 100ms smoothing
-            smoothedRate.reset(44100, 0.1);
-            smoothedPhaseOffset.reset(44100, 0.1);
+            smoothedRate.reset(sampleRate, 0.3);    // 300ms smoothing for rate
+            smoothedDepth.reset(sampleRate, 0.2);    // 200ms smoothing
+            smoothedPhaseOffset.reset(sampleRate, 0.2);
             stateFade.reset(44100, 0.01);      // 10ms fade time
         }
 
@@ -184,6 +184,15 @@ private:
                     {
                         currentRate = smoothedRate.getNextValue();
                         phase = std::fmod(phase + (currentRate / (sampleRate * oversamplingRatio)), 1.0);
+                        
+                        // Check for reset point in each oversample iteration
+                        if (waitingForReset && (phase >= 0.99 || phase < 0.01))
+                        {
+                            waitingForReset = false;
+                            phase = 0.0;
+                            return smoothedDepth.getCurrentValue(); // Return current depth for smooth transition
+                        }
+                        
                     }
                     else
                     {
@@ -199,8 +208,8 @@ private:
                 float fadeValue = stateFade.getNextValue();
                 float depthValue = smoothedDepth.getNextValue();
 
-                // Apply soft saturation to prevent harsh modulation
-                output = std::tanh(output * 1.5f) * 0.666f;
+                // Apply soft saturation with less aggressive scaling
+                output = std::tanh(output * 1.2f) * 0.833f;
                 
                 return (output * depthValue + (1.0f - depthValue)) * fadeValue;
             }
