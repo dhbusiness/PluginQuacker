@@ -144,6 +144,8 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     dspSpec.sampleRate = sampleRate;
     dspSpec.numChannels = getTotalNumOutputChannels();
     
+    tempBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+    
     // Initialize anti-aliasing filter
     antiAliasingFilter.prepare(dspSpec);
     auto& filter = antiAliasingFilter.state;
@@ -218,9 +220,9 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
     auto numSamples = buffer.getNumSamples();
     
-    // Get playhead info
+    // Cache playhead info at block rate
     bool isPlaying = false;
-    juce::AudioPlayHead::CurrentPositionInfo posInfo;
+    static juce::AudioPlayHead::CurrentPositionInfo posInfo;
     if (auto* playHead = getPlayHead())
     {
         if (playHead->getCurrentPosition(posInfo))
@@ -231,7 +233,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
     }
 
-    // Check for audio signal
+    // Optimized signal detection using SIMD
     bool hasSignal = false;
     for (int channel = 0; channel < buffer.getNumChannels() && !hasSignal; ++channel)
     {
@@ -239,20 +241,12 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         if (std::abs(juce::FloatVectorOperations::findMaximum(channelData, numSamples)) > 0.0001f)
         {
             hasSignal = true;
+            break;
         }
     }
 
-    // Get parameters
-    auto* bypassParam = apvts.getRawParameterValue("bypass");
-    auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
-    auto* rateParam = apvts.getRawParameterValue("lfoRate");
-    auto* depthParam = apvts.getRawParameterValue("lfoDepth");
-    auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
-    auto* syncParam = apvts.getRawParameterValue("lfoSync");
-    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
-    auto* mixParam = apvts.getRawParameterValue("mix");
-
-    bool isBypassed = bypassParam->load();
+    // Cache parameters at block rate
+    const bool isBypassed = apvts.getRawParameterValue("bypass")->load();
     if (isBypassed)
     {
         audioInputDetected = hasSignal;
@@ -260,20 +254,28 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         return;
     }
 
-    // Update LFO state with interpolation
+    const auto currentWaveform = static_cast<TremoloLFO::Waveform>(
+        static_cast<int>(apvts.getRawParameterValue("lfoWaveform")->load()));
+    const float currentDepth = apvts.getRawParameterValue("lfoDepth")->load();
+    const float currentPhaseOffset = apvts.getRawParameterValue("lfoPhaseOffset")->load();
+    const bool syncEnabled = apvts.getRawParameterValue("lfoSync")->load() > 0.5f;
+    const float currentRate = apvts.getRawParameterValue("lfoRate")->load();
+    const float currentMix = apvts.getRawParameterValue("mix")->load();
+
+    // Update LFO state
     audioInputDetected = hasSignal;
     bool isActive = isPlaying && hasSignal;
     lfo.updateActiveState(isActive, isPlaying);
 
-    // Configure LFO with smoothing
-    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
-    lfo.setDepth(depthParam->load());
-    lfo.setPhaseOffset(phaseOffsetParam->load());
+    // Configure LFO
+    lfo.setWaveform(currentWaveform);
+    lfo.setDepth(currentDepth);
+    lfo.setPhaseOffset(currentPhaseOffset);
 
-    if (syncParam->load() > 0.5f)
+    if (syncEnabled)
     {
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
-        double division = divisions[static_cast<int>(divisionParam->load())];
+        double division = divisions[static_cast<int>(apvts.getRawParameterValue("lfoNoteDivision")->load())];
         lfo.setSyncMode(true, division);
         if (isPlaying)
         {
@@ -283,60 +285,67 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     else
     {
         lfo.setSyncMode(false);
-        lfo.setRate(rateParam->load());
+        lfo.setRate(currentRate);
     }
 
-    float mix = mixParam->load();
+    // Pre-calculate mix gains using equal power crossfade
+    const float wetGain = std::sin(currentMix * juce::MathConstants<float>::halfPi);
+    const float dryGain = std::cos(currentMix * juce::MathConstants<float>::halfPi);
 
-    // Pre-calculate LFO values with interpolation
-    const int interpolationFactor = 4; // Increase for smoother results
-    std::vector<float> interpolatedLFO(numSamples * interpolationFactor);
-    
-    for (int i = 0; i < numSamples * interpolationFactor; ++i)
+    // Process audio with optimized buffer operations
+    if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
     {
-        interpolatedLFO[i] = lfo.getNextSample();
-    }
-
-    // Process audio with interpolation
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-    {
-        auto* channelData = buffer.getWritePointer(channel);
-        
-        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
+            auto* channelData = buffer.getWritePointer(channel);
+            
+            // Store dry signal
+            if (currentMix < 1.0f)
+            {
+                tempBuffer.copyFrom(channel, 0, channelData, numSamples);
+            }
+
+            // Apply modulation
             for (int sample = 0; sample < numSamples; ++sample)
             {
-                // Get interpolated LFO value
-                float lfoValue = 0.0f;
-                for (int i = 0; i < interpolationFactor; ++i)
-                {
-                    lfoValue += interpolatedLFO[sample * interpolationFactor + i];
-                }
-                lfoValue /= interpolationFactor;
+                float lfoValue = lfo.getNextSample();
+                float smoothedLFO = 0.5f + (lfoValue - 0.5f) * 0.707f;
+                channelData[sample] *= smoothedLFO;
+            }
 
-                // Smooth the modulation
-                float smoothedLFO = 0.5f + (lfoValue - 0.5f) * 0.707f; // -3dB scaling for stability
-                
-                // Apply modulation with soft saturation
-                float wetSample = channelData[sample] * smoothedLFO;
-                wetSample = std::tanh(wetSample); // Soft clipping
-                
-                // Mix with dry signal using equal power crossfade
-                float wetGain = std::sin(mix * juce::MathConstants<float>::halfPi);
-                float dryGain = std::cos(mix * juce::MathConstants<float>::halfPi);
-                channelData[sample] = (wetSample * wetGain) + (channelData[sample] * dryGain);
+            // Apply soft saturation
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                channelData[sample] = std::tanh(channelData[sample]);
+            }
+
+            // Mix wet and dry signals
+            if (currentMix < 1.0f)
+            {
+                juce::FloatVectorOperations::multiply(channelData, wetGain, numSamples);
+                juce::FloatVectorOperations::addWithMultiply(channelData, tempBuffer.getReadPointer(channel),
+                                                           dryGain, numSamples);
+            }
+        }
+
+        // Apply gentle limiting
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            auto* channelData = buffer.getWritePointer(channel);
+            juce::FloatVectorOperations::multiply(channelData, 0.99f, numSamples);
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                channelData[sample] = std::tanh(channelData[sample]);
             }
         }
     }
 
-    // Apply gentle limiting to prevent any potential overs
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    // Apply anti-aliasing if needed
+    if (lfo.isOversamplingEnabled())
     {
-        auto* channelData = buffer.getWritePointer(channel);
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            channelData[sample] = std::tanh(channelData[sample] * 0.99f);
-        }
+        juce::dsp::AudioBlock<float> block(buffer);
+        juce::dsp::ProcessContextReplacing<float> context(block);
+        antiAliasingFilter.process(context);
     }
 }
 

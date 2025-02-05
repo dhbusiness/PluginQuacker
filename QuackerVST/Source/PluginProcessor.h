@@ -306,6 +306,8 @@ private:
     std::atomic<bool> currentlyPlaying{false};
     std::atomic<bool> audioInputDetected{false};
     
+    juce::AudioBuffer<float> tempBuffer;
+    
     // DSP processors
     juce::dsp::ProcessSpec dspSpec;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> antiAliasingFilter;
