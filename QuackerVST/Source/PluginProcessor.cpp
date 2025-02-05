@@ -355,9 +355,15 @@ void QuackerVSTAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
     auto state = apvts.copyState();
+    
+    // Add custom state data
+    state.setProperty("version", 1, nullptr);
+    state.setProperty("lastSavedDate", juce::Time::getCurrentTime().toString(true, true), nullptr);  // Fixed
+    // Or more explicitly with a specific format:
+    // state.setProperty("lastSavedDate", juce::Time::getCurrentTime().toString(false, true, false, true), nullptr);
+    
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
-}
+    copyXmlToBinary(*xml, destData);}
 
 void QuackerVSTAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {

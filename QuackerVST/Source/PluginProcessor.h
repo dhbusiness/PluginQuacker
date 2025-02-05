@@ -94,6 +94,7 @@ private:
             // Initialize smoothed values
             smoothedDepth.reset(44100, 0.05); // 50ms smoothing
             smoothedRate.reset(44100, 0.05);
+            smoothedPhaseOffset.reset(44100, 0.05);  // 50ms smoothing
         }
 
         
@@ -116,6 +117,7 @@ private:
             // Update smoothed values sample rate
             smoothedDepth.reset(sampleRate, 0.05);
             smoothedRate.reset(sampleRate, 0.05);
+            smoothedPhaseOffset.reset(sampleRate, 0.05);
         }
         
         void setPhaseOffset(float offsetDegrees)
@@ -125,6 +127,10 @@ private:
 
         void setBeatPosition(double newBeatPosition)
         {
+            if (std::abs(newBeatPosition - lastBeatPosition) > 1.0) {
+                // Handle transport jumps
+                phase = 0.0;
+            }
             lastBeatPosition = beatPosition;
             beatPosition = newBeatPosition;
         }
@@ -302,6 +308,7 @@ private:
         
         juce::SmoothedValue<float> smoothedDepth;
         juce::SmoothedValue<float> smoothedRate;
+        juce::SmoothedValue<float> smoothedPhaseOffset;
         
         // Beat sync related
         bool syncedToHost = false;
@@ -315,11 +322,9 @@ private:
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above
 
-    float currentBPM = 0.0;                 //Defining variable which will hold DAW bpm
-    
-    bool currentlyPlaying = false;
-    bool audioInputDetected = false;
-
+    std::atomic<float> currentBPM{0.0f};
+    std::atomic<bool> currentlyPlaying{false};
+    std::atomic<bool> audioInputDetected{false};
     
     
 
