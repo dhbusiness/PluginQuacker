@@ -28,7 +28,10 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
-        auto originalBounds = bounds; // Store original bounds for border
+        auto originalBounds = bounds;
+        const float width = bounds.getWidth();
+        const float height = bounds.getHeight();
+        const float midY = bounds.getCentreY();
 
         // Fill background
         g.setColour(juce::Colours::black);
@@ -48,12 +51,11 @@ public:
             rateText = juce::String(rate, 2) + " Hz";
         }
         
-        // Remove top area for rate display from working bounds
         auto textBounds = bounds.removeFromTop(20);
         g.drawText(rateText, textBounds, juce::Justification::centred);
         
-        // Subtle moving scan lines - Made much more subtle
-        g.setColour(juce::Colours::white.withAlpha(0.015f)); // Reduced opacity
+        // Subtle moving scan lines
+        g.setColour(juce::Colours::white.withAlpha(0.015f));
         float scanLineSpacing = 4.0f;
         float scanLineOffset = crtPhase * bounds.getHeight() * 2.0f;
         for (float y = -scanLineSpacing; y <= bounds.getHeight() + scanLineSpacing; y += scanLineSpacing)
@@ -62,57 +64,54 @@ public:
             g.drawHorizontalLine(static_cast<int>(actualY), 0.0f, bounds.getWidth());
         }
 
-        // Grid drawing - Fixed to account for full bounds
+        // Grid drawing
         g.setColour(juce::Colours::darkgrey.withAlpha(0.2f));
         
-        // Calculate grid size based on available space
+        // Cache grid calculations
         int numVerticalDivisions = 8;
         float gridSizeY = bounds.getHeight() / numVerticalDivisions;
-        float gridSizeX = gridSizeY; // Keep squares proportional
-        
-        // Vertical grid lines
+        float gridSizeX = gridSizeY;
         int numHorizontalDivisions = static_cast<int>(std::ceil(bounds.getWidth() / gridSizeX));
+        
+        // Draw grid using cached values
         for (int i = 0; i <= numHorizontalDivisions; ++i)
         {
             float x = i * gridSizeX;
             g.drawVerticalLine(static_cast<int>(x), bounds.getY(), bounds.getBottom());
         }
         
-        // Horizontal grid lines
         for (int i = 0; i <= numVerticalDivisions; ++i)
         {
             float y = bounds.getY() + (i * gridSizeY);
             g.drawHorizontalLine(static_cast<int>(y), 0.0f, bounds.getWidth());
         }
 
-        // Center line with slightly more emphasis
+        // Center line
         g.setColour(juce::Colours::darkgrey.withAlpha(0.4f));
-        float midY = bounds.getCentreY();
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
         
-        // Draw waveform with dynamic thickness
-        juce::Path waveformPath;
-        bool pathStarted = false;
-
-        const float pointsPerPixel = 1.0f;
-        const int numPoints = static_cast<int>(bounds.getWidth() * pointsPerPixel);
-
+        // Optimized waveform drawing with pre-calculation
+        const int numPoints = static_cast<int>(width);
+        std::vector<float> points(numPoints);
+        
+        // Pre-calculate all points
         for (int i = 0; i < numPoints; ++i)
         {
-            float x = (static_cast<float>(i) / static_cast<float>(numPoints - 1)) * bounds.getWidth();
             float phase = (static_cast<float>(i) / static_cast<float>(numPoints - 1) + currentPhase);
             phase += phaseOffset / 360.0f;
-
-            while (phase >= 1.0f) phase -= 1.0f;
-            while (phase < 0.0f) phase += 1.0f;
-
-            float y = bounds.getCentreY();
-            float value = calculateWaveformValue(phase, currentWaveform);
+            phase = std::fmod(phase, 1.0f);
+            points[i] = calculateWaveformValue(phase, currentWaveform);
+        }
+        
+        // Create single path for waveform
+        juce::Path waveformPath;
+        bool pathStarted = false;
+        
+        for (int i = 0; i < numPoints; ++i)
+        {
+            float x = static_cast<float>(i);
+            float y = midY - (points[i] * depth * bounds.getHeight() * 0.4f);
             
-            // Add subtle vertical variation
-            float variation = std::sin(phase * 50.0f + currentPhase * 10.0f) * 0.5f;
-            y -= (value * depth * bounds.getHeight() * 0.4f) + variation;
-
             if (!pathStarted)
             {
                 waveformPath.startNewSubPath(x, y);
@@ -124,27 +123,24 @@ public:
             }
         }
 
+        // Draw waveform with optimized glow effect
         const juce::Colour waveformColor(19, 224, 139);
-        
-        // Enhanced glow effect with varying intensity
         float glowIntensity = 0.3f + std::sin(currentPhase * 5.0f) * 0.1f;
         
-        // Outer glow
+        // Batch the path stroking operations
         g.setColour(waveformColor.withAlpha(glowIntensity * 0.3f));
         g.strokePath(waveformPath, juce::PathStrokeType(4.0f));
         
-        // Middle glow
         g.setColour(waveformColor.withAlpha(glowIntensity * 0.5f));
         g.strokePath(waveformPath, juce::PathStrokeType(2.5f));
         
-        // Main line with slightly varying thickness
         float mainLineThickness = 2.0f + std::sin(currentPhase * 3.0f) * 0.2f;
         g.setColour(waveformColor);
         g.strokePath(waveformPath, juce::PathStrokeType(mainLineThickness));
 
-        // Draw border LAST, using the ORIGINAL bounds
+        // Draw border
         g.setColour(juce::Colour(120, 80, 75));
-        g.drawRect(originalBounds, 1.0f); // Use originalBounds instead of bounds
+        g.drawRect(originalBounds, 1.0f);
     }
 
     void resized() override {}
