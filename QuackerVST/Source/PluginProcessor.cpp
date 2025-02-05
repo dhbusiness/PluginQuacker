@@ -232,7 +232,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-
+    const int numSamples = buffer.getNumSamples();  // Added this declaration
+    
     // Get playhead info
     bool isPlaying = false;
     juce::AudioPlayHead::CurrentPositionInfo posInfo;
@@ -314,26 +315,29 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
 
 
-    // Process audio only if not bypassed
+    // Pre-calculate LFO values for the entire buffer
+    std::vector<float> lfoValues(numSamples);
+    if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            lfoValues[i] = 0.5f + (lfo.getNextSample() - 0.5f);
+        }
+    }
+
+    // Process audio
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
         
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
         {
-            float drySample = channelData[sample];
-            
-            if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+            // SIMD-friendly loop without branches
+            for (int sample = 0; sample < numSamples; ++sample)
             {
-                float lfoValue = lfo.getNextSample();
-                float modulationAmount = 0.5f + (lfoValue - 0.5f);
-                float wetSample = drySample * modulationAmount;
+                float drySample = channelData[sample];
+                float wetSample = drySample * lfoValues[sample];
                 channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
-                
-            }
-            else
-            {
-                channelData[sample] = drySample;
             }
         }
     }
