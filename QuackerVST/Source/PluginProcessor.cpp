@@ -179,16 +179,18 @@ void QuackerVSTAudioProcessor::changeProgramName (int index, const juce::String&
 //==============================================================================
 void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Initialize ProcessSpec for DSP modules
     currentSpecs.sampleRate = sampleRate;
     currentSpecs.maximumBlockSize = samplesPerBlock;
     currentSpecs.numChannels = getTotalNumOutputChannels();
 
-    // Initialize the DC filter
-    *dcFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 20.0f);
+    // Remove the unused chain creation and just configure the filter
+    *dcFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(
+        sampleRate,
+        1.0f,  // Lower cutoff frequency
+        0.707f // Butterworth Q
+    );
     dcFilter.prepare(currentSpecs);
     
-    // Set LFO sample rate
     lfo.setSampleRate(sampleRate);
 }
 
@@ -327,6 +329,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
                 float modulationAmount = 0.5f + (lfoValue - 0.5f);
                 float wetSample = drySample * modulationAmount;
                 channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
+                
             }
             else
             {

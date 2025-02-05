@@ -96,9 +96,10 @@ private:
             , beatPosition(0.0)
             , lastBeatPosition(0.0)
         {
-            // Initialize smoothed values
-            smoothedDepth.reset(44100, 0.05); // 50ms smoothing
-            smoothedRate.reset(44100, 0.05);
+            // Initialize smoothed values with optimized timings
+            smoothedDepth.reset(sampleRate, 0.02);  // 20ms smoothing for depth
+            smoothedRate.reset(sampleRate, 0.05);   // 50ms smoothing for rate
+            phaseSmoothing.reset(sampleRate, 0.01); // 10ms smoothing for phase
         }
 
         
@@ -118,9 +119,18 @@ private:
         {
             sampleRate = newSampleRate;
             rateSmoothing = pow(0.5, 1.0 / (sampleRate * 0.005));
-            // Update smoothed values sample rate
+            
+            // Update smoothing times and calculate reset transition increment
             smoothedDepth.reset(sampleRate, 0.05);
-            smoothedRate.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.08);
+            phaseSmoothing.reset(sampleRate, 0.03);
+            resetTransitionIncrement = 1.0f / (resetTransitionTime * static_cast<float>(sampleRate));
+        }
+        
+        void setSyncMode(bool shouldSync, double division = 1.0)
+        {
+            syncedToHost = shouldSync;
+            noteDivision = division;
         }
         
         void setPhaseOffset(float offsetDegrees)
@@ -172,130 +182,128 @@ private:
         
         float getNextSample()
         {
-            bool isAtResetPoint = false;
+            if (!wasActive && !waitingForReset) {
+                lastOutputValue = depth;
+                return depth;
+            }
+
+            float output;
             
-            // If we're waiting for reset or active, continue the LFO
-            if (waitingForReset || wasActive)
-            {
+            if (waitingForReset) {
+                if (!inResetTransition && (phase >= 0.99 || phase < 0.01)) {
+                    inResetTransition = true;
+                    resetTransitionPhase = 0.0f;
+                    double outputPhase = phase + phaseOffset;
+                    while (outputPhase >= 1.0) outputPhase -= 1.0;
+                    while (outputPhase < 0.0) outputPhase += 1.0;
+                    double smoothedPhase = phaseSmoothing.getNextValue();
+                    lastOutputValue = calculateCurrentValue(outputPhase, smoothedPhase);
+                }
+            }
+
+            if (inResetTransition) {
+                // Smoothly transition from last value to reset position
+                resetTransitionPhase += resetTransitionIncrement;
+                
+                if (resetTransitionPhase >= 1.0f) {
+                    // Transition complete
+                    inResetTransition = false;
+                    waitingForReset = false;
+                    phase = 0.0;
+                    lastOutputValue = depth;
+                    output = depth;
+                } else {
+                    // Cosine interpolation for smoother transition
+                    float cosPhase = (1.0f - std::cos(resetTransitionPhase * juce::MathConstants<float>::pi)) * 0.5f;
+                    output = lastOutputValue * (1.0f - cosPhase) + depth * cosPhase;
+                }
+            } else {
                 // Normal LFO operation
-                if (!syncedToHost)
-                {
+                if (!syncedToHost) {
                     currentRate = smoothedRate.getNextValue();
                     phase += currentRate / sampleRate;
-                    
-                    // Only check for reset point if we're waiting for it
-                    if (waitingForReset && (phase >= 0.99 || phase < 0.01))
-                    {
-                        waitingForReset = false;
-                        phase = 0.0;
-                        return depth; // Return neutral position
-                    }
-                    
                     while (phase >= 1.0) phase -= 1.0;
-                }
-                else
-                {
+                } else {
                     double beatsPerCycle = 4.0 / noteDivision;
                     phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
-                    
-                    // For sync mode, check if we're at a cycle boundary
-                    if (waitingForReset && (phase >= 0.99 || phase < 0.01))
-                    {
-                        waitingForReset = false;
-                        phase = 0.0;
-                        return depth; // Return neutral position
-                    }
                 }
                 
-                
-                // Apply phase offset
+                // Apply phase offset and calculate output
                 double outputPhase = phase + phaseOffset;
                 while (outputPhase >= 1.0) outputPhase -= 1.0;
                 while (outputPhase < 0.0) outputPhase += 1.0;
-                
-                // Generate waveform
-                double output = 0.0;
-                switch (waveform)
-                {
-                    case Sine:
-                        output = std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
-                        break;
-                        
-                    case Square:
-                        output = outputPhase < 0.5 ? 1.0 : 0.0;
-                        break;
-                        
-                    case Triangle:
-                        output = 1.0 - std::abs(2.0 * outputPhase - 1.0);
-                        break;
-                        
-                    case SawtoothUp:
-                        output = 1.0 - outputPhase;
-                        break;
-                        
-                    case SawtoothDown:
-                        output = 1.0 - outputPhase;
-                        break;
-                        
-                    case SoftSquare:
-                    {
-                        // Create a softer square wave using sigmoid function
-                        const double sharpness = 10.0; // Adjust this to control the softness
-                        double centered = outputPhase * 2.0 - 1.0;
-                        output = 1.0 / (1.0 + std::exp(-sharpness * centered));
-                    }
-                        break;
-                        
-                    case FenderStyle:
-                    {
-                        // Fender-style tremolo: Asymmetric sine wave with subtle harmonics
-                        double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
-                        
-                        // Calculate the base waveform with proper scaling
-                        double raw = std::sin(angle) +                     // Fundamental
-                        0.1 * std::sin(2.0 * angle) +         // 2nd harmonic
-                        0.05 * std::sin(3.0 * angle);         // 3rd harmonic
-                        
-                        // Normalize to 0-1 range with headroom
-                        output = (raw * 0.4) + 0.5;  // Scale by 0.4 to ensure we stay within bounds
-                        
-                        // Add subtle asymmetry without causing dropouts
-                        output = std::pow(output, 1.08);
-                        
-                        // Ensure output stays within bounds
-                        output = juce::jlimit(0.0, 1.0, output);
-                    }
-                        break;
-                        
-                    case WurlitzerStyle:
-                    {
-                        // Wurlitzer-style: Blend of triangle and sine with peak emphasis
-                        double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
-                        double sineComponent = std::sin(angle);
-                        double triangleComponent = 2.0 * std::abs(2.0 * (outputPhase - 0.5)) - 1.0;
-                        
-                        // Blend the components (60% sine, 40% triangle)
-                        output = (0.6 * sineComponent + 0.4 * triangleComponent) * 0.5 + 0.5;
-                        
-                        // Add slight emphasis to peaks
-                        output = std::pow(output, 0.9);
-                    }
-                        break;
-                        
-                }
-                
-                return output * smoothedDepth.getNextValue() + (1.0f - smoothedDepth.getNextValue());
+                double smoothedPhase = phaseSmoothing.getNextValue();
+                output = calculateCurrentValue(outputPhase, smoothedPhase);
+                lastOutputValue = output;
             }
-            return depth; // Return neutral position when completely inactive
+
+            // Apply depth
+            float smoothedDepthValue = smoothedDepth.getNextValue();
+            return output * smoothedDepthValue + (1.0f - smoothedDepthValue);
+        }
+    private:
+        
+        // Add helper method before other private members
+        float calculateCurrentValue(double outputPhase, double smoothedPhase) {
+            // Generate waveform
+            double output = 0.0;
+            switch (waveform)
+            {
+                case Sine:
+                    output = std::sin(outputPhase * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
+                    output = output * (1.0 - smoothedPhase) + smoothedPhase *
+                        std::sin((outputPhase + 0.01) * 2.0 * juce::MathConstants<double>::pi) * 0.5 + 0.5;
+                    break;
+                    
+                case Square:
+                    output = outputPhase < 0.5 ? 1.0 : 0.0;
+                    break;
+                    
+                case Triangle:
+                    output = 1.0 - std::abs(2.0 * outputPhase - 1.0);
+                    break;
+                    
+                case SawtoothUp:
+                    output = 1.0 - outputPhase;
+                    break;
+                    
+                case SawtoothDown:
+                    output = 1.0 - outputPhase;
+                    break;
+                    
+                case SoftSquare:
+                {
+                    const double sharpness = 10.0;
+                    double centered = outputPhase * 2.0 - 1.0;
+                    output = 1.0 / (1.0 + std::exp(-sharpness * centered));
+                }
+                    break;
+                    
+                case FenderStyle:
+                {
+                    double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                    double raw = std::sin(angle) +
+                        0.1 * std::sin(2.0 * angle) +
+                        0.05 * std::sin(3.0 * angle);
+                    output = (raw * 0.4) + 0.5;
+                    output = std::pow(output, 1.08);
+                    output = juce::jlimit(0.0, 1.0, output);
+                }
+                    break;
+                    
+                case WurlitzerStyle:
+                {
+                    double angle = outputPhase * 2.0 * juce::MathConstants<double>::pi;
+                    double sineComponent = std::sin(angle);
+                    double triangleComponent = 2.0 * std::abs(2.0 * (outputPhase - 0.5)) - 1.0;
+                    output = (0.6 * sineComponent + 0.4 * triangleComponent) * 0.5 + 0.5;
+                    output = std::pow(output, 0.9);
+                }
+                    break;
+            }
+            return output;
         }
         
-        void setSyncMode(bool shouldSync, double division = 1.0)
-        {
-            syncedToHost = shouldSync;
-            noteDivision = division;
-        }
-
-    private:
         double phase;
         float rate;
         float depth;
@@ -307,6 +315,7 @@ private:
         
         juce::SmoothedValue<float> smoothedDepth;
         juce::SmoothedValue<float> smoothedRate;
+        juce::SmoothedValue<float> phaseSmoothing;
         
         // Beat sync related
         bool syncedToHost = false;
@@ -316,6 +325,15 @@ private:
         
         bool waitingForReset = false;  // New flag to track if we're completing a cycle
         bool wasActive = false;        // Track previous active state
+        
+        // Add new member variables at the top of the private section
+        float resetTransitionPhase = 0.0f;
+        bool inResetTransition = false;
+        float lastOutputValue = 0.0f;
+        const float resetTransitionTime = 0.05f; // 50ms transition
+        float resetTransitionIncrement = 0.0f;
+        
+        
     };
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above
@@ -325,7 +343,9 @@ private:
     bool currentlyPlaying = false;
     bool audioInputDetected = false;
 
-    
+ 
+
+
     
 
     
