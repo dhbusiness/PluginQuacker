@@ -183,11 +183,14 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     currentSpecs.maximumBlockSize = samplesPerBlock;
     currentSpecs.numChannels = getTotalNumOutputChannels();
 
-    // Remove the unused chain creation and just configure the filter
+    // Allocate buffer with alignment for SIMD operations
+    lfoValuesBuffer.allocate(samplesPerBlock + 4, true);
+
+    // High-quality DC filter setup - notice the gentler settings to maintain audio quality
     *dcFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(
         sampleRate,
-        1.0f,  // Lower cutoff frequency
-        0.707f // Butterworth Q
+        5.0f,    // Gentle cutoff to avoid affecting the audio
+        0.707f   // Butterworth Q for optimal flatness
     );
     dcFilter.prepare(currentSpecs);
     
@@ -315,38 +318,52 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
 
 
-    // Pre-calculate LFO values for the entire buffer
-    std::vector<float> lfoValues(numSamples);
+    // Pre-calculate LFO values with high quality
     if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
     {
         for (int i = 0; i < numSamples; ++i)
         {
-            lfoValues[i] = 0.5f + (lfo.getNextSample() - 0.5f);
+            lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample() - 0.5f);
         }
     }
+    else
+    {
+        juce::FloatVectorOperations::fill(lfoValuesBuffer, 1.0f, numSamples);
+    }
 
-    // Process audio
+    // Process audio with SIMD operations while maintaining quality
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
+        auto* dryData = buffer.getReadPointer(channel);
         
         if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
         {
-            // SIMD-friendly loop without branches
-            for (int sample = 0; sample < numSamples; ++sample)
+            // Store dry signal for mix
+            juce::AudioBuffer<float> dryBuffer(1, numSamples);
+            dryBuffer.copyFrom(0, 0, dryData, numSamples);
+
+            // Apply modulation
+            juce::FloatVectorOperations::multiply(channelData, lfoValuesBuffer, numSamples);
+
+            // Apply mix with precise interpolation
+            if (mix < 1.0f)
             {
-                float drySample = channelData[sample];
-                float wetSample = drySample * lfoValues[sample];
-                channelData[sample] = (wetSample * mix) + (drySample * (1.0f - mix));
+                juce::FloatVectorOperations::multiply(channelData, mix, numSamples);
+                juce::FloatVectorOperations::addWithMultiply(channelData,
+                    dryBuffer.getReadPointer(0),
+                    1.0f - mix,
+                    numSamples);
             }
         }
     }
 
-    // Apply DC filtering to the entire buffer
+    // Apply DC filtering
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
     dcFilter.process(context);
 }
+
 
 //==============================================================================
 bool QuackerVSTAudioProcessor::hasEditor() const
