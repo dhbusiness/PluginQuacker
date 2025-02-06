@@ -76,5 +76,16 @@ private:
     static bool backgroundGenerated;     // Track if we've generated it
     static void generateBackgroundPattern(int width, int height); // Static generator
     
+    // Modulation controls
+    juce::Slider modRateSlider, modDepthSlider;
+    ArrowNavigationComboBox modWaveformSelector;
+    ArrowNavigationComboBox modTargetSelector;
+    
+    // Modulation parameter attachments
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modRateAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modDepthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modWaveformAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modTargetAttachment;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

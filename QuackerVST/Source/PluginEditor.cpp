@@ -147,6 +147,50 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     //
     addAndMakeVisible(lfoVisualizer);
     
+    //
+    // Setup modulation controls
+    modRateSlider.setSliderStyle(juce::Slider::Rotary);
+    modRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+    modRateSlider.setRange(0.01f, 5.0f, 0.01f);
+    modRateSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    modRateSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    modRateSlider.setLookAndFeel(&customDialLookAndFeel);
+    addAndMakeVisible(modRateSlider);
+
+    modDepthSlider.setSliderStyle(juce::Slider::Rotary);
+    modDepthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+    modDepthSlider.setRange(0.0f, 1.0f, 0.01f);
+    modDepthSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    modDepthSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    modDepthSlider.setLookAndFeel(&customDialLookAndFeel);
+    addAndMakeVisible(modDepthSlider);
+
+    // Setup modulation ComboBoxes
+    modWaveformSelector.getComboBox().addItem("Sine", 1);
+    modWaveformSelector.getComboBox().addItem("Triangle", 2);
+    modWaveformSelector.getComboBox().addItem("Square", 3);
+    modWaveformSelector.getComboBox().addItem("Saw", 4);
+    modWaveformSelector.getComboBox().setJustificationType(juce::Justification::centred);
+    modWaveformSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
+    addAndMakeVisible(modWaveformSelector);
+
+    modTargetSelector.getComboBox().addItem("Rate", 1);
+    modTargetSelector.getComboBox().addItem("Depth", 2);
+    modTargetSelector.getComboBox().addItem("Phase", 3);
+    modTargetSelector.getComboBox().setJustificationType(juce::Justification::centred);
+    modTargetSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
+    addAndMakeVisible(modTargetSelector);
+
+    // Create modulation parameter attachments
+    modRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "modLfoRate", modRateSlider);
+    modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "modLfoDepth", modDepthSlider);
+    modWaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "modLfoWaveform", modWaveformSelector.getComboBox());
+    modTargetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "modTarget", modTargetSelector.getComboBox());
+    
     //LookandFeel
     lfoRateSlider.setLookAndFeel(&customDialLookAndFeel);
     lfoDepthSlider.setLookAndFeel(&customDialLookAndFeel);
@@ -182,6 +226,11 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     
     lfoWaveformBox.setLookAndFeel(nullptr);
     lfoNoteDivisionBox.setLookAndFeel(nullptr);
+    
+    modRateSlider.setLookAndFeel(nullptr);
+    modDepthSlider.setLookAndFeel(nullptr);
+    modWaveformSelector.getComboBox().setLookAndFeel(nullptr);
+    modTargetSelector.getComboBox().setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -369,7 +418,6 @@ void QuackerVSTAudioProcessorEditor::paint(juce::Graphics& g)
 
 void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
 {
-    // Your existing control drawing code here
     g.setColour(juce::Colour(232, 193, 185));  // Light rose gold
     g.setFont(16.0f);
 
@@ -379,6 +427,7 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
     const int startX = (getWidth() - totalWidth) / 2;
     const int labelY = 210 + dialSize + 5;
 
+    // Main control labels
     g.drawText("RATE",
                juce::Rectangle<int>(startX, labelY, dialSize, 20),
                juce::Justification::centred);
@@ -393,6 +442,31 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
                
     g.drawText("MIX",
                juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20),
+               juce::Justification::centred);
+               
+    // Modulation section header
+    g.setFont(14.0f);
+    const int buttonHeight = 40;
+    const int comboHeight = 25;
+    const int modLabelY = labelY + 95 + buttonHeight + spacing + 5;
+    g.drawText("MODULATION",
+               juce::Rectangle<int>(0, modLabelY, getWidth(), 20),
+               juce::Justification::centred);
+               
+    // Modulation control labels
+    g.setFont(12.0f);
+    const int modDialSize = 70;
+    const int modSpacing = 15;
+    const int modSectionWidth = (modDialSize * 2) + modSpacing + 200 + (modSpacing * 3);
+    const int modStartX = (getWidth() - modSectionWidth) / 2;
+    const int modLabelY2 = modLabelY + 85;
+
+    g.drawText("MOD RATE",
+               juce::Rectangle<int>(modStartX, modLabelY2, modDialSize, 20),
+               juce::Justification::centred);
+               
+    g.drawText("MOD DEPTH",
+               juce::Rectangle<int>(modStartX + modDialSize + modSpacing, modLabelY2, modDialSize, 20),
                juce::Justification::centred);
 }
 
@@ -429,41 +503,57 @@ void QuackerVSTAudioProcessorEditor::resized()
     visualizerBounds.reduce(10, 10);
     lfoVisualizer.setBounds(visualizerBounds);
     
-    // Calculate sizes for uniform dials
+    // Calculate sizes for main dials
     const int dialSize = 150;
-    const int labelHeight = 20;
     const int spacing = 20;
-    
-    // Calculate total width needed for dials
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
     const int startY = visualizerBounds.getBottom() + spacing;
 
-    // Position dials
+    // Position main dials
     lfoRateSlider.setBounds(startX, startY, dialSize, dialSize);
     lfoDepthSlider.setBounds(startX + dialSize + spacing, startY, dialSize, dialSize);
     lfoPhaseOffsetSlider.setBounds(startX + (dialSize + spacing) * 2, startY, dialSize, dialSize);
     mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
 
-    // ComboBox dimensions
+    // ComboBox dimensions for main controls
     const int comboBoxWidth = 140;
     const int comboBoxHeight = 25;
     const int comboY = startY + dialSize + spacing + 25;
 
-    // Center the combo boxes under their respective dials
+    // Center combo boxes under their dials
     const int rateDialCenterX = startX + (dialSize / 2);
     const int mixDialCenterX = startX + (dialSize + spacing) * 3 + (dialSize / 2);
     
-    // Position combo boxes centered under their dials
     divisionSelector.setBounds(rateDialCenterX - (comboBoxWidth / 2), comboY, comboBoxWidth, comboBoxHeight);
     waveformSelector.setBounds(mixDialCenterX - (comboBoxWidth / 2), comboY, comboBoxWidth, comboBoxHeight);
 
-    // Position buttons below their respective combo boxes
+    // Button dimensions
     const int buttonWidth = 100;
     const int buttonHeight = 40;
     const int buttonsY = comboY + comboBoxHeight + spacing;
 
-    // Center the buttons under their corresponding combo boxes
     lfoSyncButton.setBounds(rateDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
     bypassButton.setBounds(mixDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
+
+    // Modulation section
+    const int modDialSize = 70;  // Smaller dials for modulation
+    const int modSpacing = 15;
+    const int modComboWidth = 100;
+    const int modComboHeight = 25;
+    
+    // Calculate center position for modulation section
+    const int modSectionWidth = (modDialSize * 2) + modSpacing + (modComboWidth * 2) + (modSpacing * 3);
+    const int modStartX = (getWidth() - modSectionWidth) / 2;
+    const int modStartY = buttonsY + buttonHeight + spacing * 2;
+
+    // Position modulation controls
+    modRateSlider.setBounds(modStartX, modStartY, modDialSize, modDialSize);
+    modDepthSlider.setBounds(modStartX + modDialSize + modSpacing, modStartY, modDialSize, modDialSize);
+    
+    const int modComboY = modStartY + (modDialSize - modComboHeight) / 2;  // Center combos vertically with dials
+    modWaveformSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 2),
+                                modComboY, modComboWidth, modComboHeight);
+    modTargetSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 3) + modComboWidth,
+                               modComboY, modComboWidth, modComboHeight);
 }
