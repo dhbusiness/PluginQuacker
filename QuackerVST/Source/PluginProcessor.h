@@ -63,6 +63,7 @@ public:
     bool hasAudioInput() const { return audioInputDetected; }
     bool isLfoWaitingForReset() const { return lfo.isWaitingForReset(); }
     
+    float getModulationValue() const { return lastModValue; }
     
 private:
     
@@ -347,6 +348,7 @@ private:
 
     juce::HeapBlock<float> lfoValuesBuffer; 
  
+    float lastModValue = 0.0f;
 
 
     

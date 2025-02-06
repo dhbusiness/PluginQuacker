@@ -135,6 +135,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         juce::StringArray{"Rate", "Depth", "Phase"},
         0  // default to Rate
     ));
+    
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "modEnable",
+        "Modulation Enable",
+        false  // default to off
+    ));
 
 
     return { params.begin(), params.end() };
@@ -269,6 +275,9 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
+    
+    float modValue = modLFO.getNextValue();
+    lastModValue = modValue;
 
     // Get playhead info
     bool isPlaying = false;
@@ -358,32 +367,58 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     modLFO.setWaveform(static_cast<ModulationLFO::Waveform>(static_cast<int>(modWaveformParam->load())));
     modLFO.setTarget(static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load())));
 
-    // Process audio
-    if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
-    {
-        // Pre-calculate LFO values with modulation
-        for (int i = 0; i < numSamples; ++i)
-        {
-            float modValue = modLFO.getNextValue();
-            
-            // Apply modulation to base parameters based on target
-            switch (modLFO.getTarget())
-            {
-                case ModulationLFO::Target::Rate:
-                    lfo.setRate(modLFO.applyModulation(rateParam->load(), modValue));
-                    break;
-                case ModulationLFO::Target::Depth:
-                    lfo.setDepth(modLFO.applyModulation(depthParam->load(), modValue));
-                    break;
-                case ModulationLFO::Target::Phase:
-                    lfo.setPhaseOffset(modLFO.applyModulation(phaseOffsetParam->load(), modValue));
-                    break;
-            }
-            
-            lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample() - 0.5f);
-        }
+    // Get base parameter values outside the loop
+        float baseRate = rateParam->load();
+        float baseDepth = depthParam->load();
+        float basePhaseOffset = phaseOffsetParam->load();
 
-        // Apply to all channels
+        // Get modulation enable state
+        auto* modEnableParam = apvts.getRawParameterValue("modEnable");
+        bool modEnabled = modEnableParam->load();
+
+        // Process audio
+        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+        {
+            // Get modulation target once
+            auto target = modLFO.getTarget();
+
+            // Pre-calculate LFO values with modulation
+            for (int i = 0; i < numSamples; ++i)
+            {
+                float modValue = modLFO.getNextValue();
+                lastModValue = modValue; // Store for visualization
+
+                // Calculate modulated values based on target
+                float effectiveRate = baseRate;
+                float effectiveDepth = baseDepth;
+                float effectivePhaseOffset = basePhaseOffset;
+
+                // Only apply modulation if enabled
+                if (modEnabled)
+                {
+                    switch (target)
+                    {
+                        case ModulationLFO::Target::Rate:
+                            effectiveRate = modLFO.applyModulation(baseRate, modValue);
+                            break;
+                        case ModulationLFO::Target::Depth:
+                            effectiveDepth = modLFO.applyModulation(baseDepth, modValue);
+                            break;
+                        case ModulationLFO::Target::Phase:
+                            effectivePhaseOffset = modLFO.applyModulation(basePhaseOffset, modValue);
+                            break;
+                    }
+                }
+
+                // Update LFO parameters with modulated values
+                lfo.setRate(effectiveRate);
+                lfo.setDepth(effectiveDepth);
+                lfo.setPhaseOffset(effectivePhaseOffset);
+                
+                lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample() - 0.5f);
+            }
+
+        // Process audio channels (rest of the code remains the same)
         for (int channel = 0; channel < totalNumInputChannels; ++channel)
         {
             auto* channelData = buffer.getWritePointer(channel);

@@ -180,6 +180,13 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     modTargetSelector.getComboBox().setJustificationType(juce::Justification::centred);
     modTargetSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
     addAndMakeVisible(modTargetSelector);
+    
+    modEnableButton.setButtonText("MOD ON");
+    modEnableButton.setLookAndFeel(&customToggleLookAndFeel);
+    addAndMakeVisible(modEnableButton);
+
+    modEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        audioProcessor.apvts, "modEnable", modEnableButton);
 
     // Create modulation parameter attachments
     modRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -231,6 +238,7 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     modDepthSlider.setLookAndFeel(nullptr);
     modWaveformSelector.getComboBox().setLookAndFeel(nullptr);
     modTargetSelector.getComboBox().setLookAndFeel(nullptr);
+    modEnableButton.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -245,6 +253,7 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
         lfoVisualizer.setActive(isActive, audioProcessor.isLfoWaitingForReset());
         
+        // Get main LFO parameters
         auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");
         auto depthParam = audioProcessor.apvts.getRawParameterValue("lfoDepth");
         auto phaseOffsetParam = audioProcessor.apvts.getRawParameterValue("lfoPhaseOffset");
@@ -252,10 +261,47 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         auto rateParam = audioProcessor.apvts.getRawParameterValue("lfoRate");
         auto divisionParam = audioProcessor.apvts.getRawParameterValue("lfoNoteDivision");
 
-        // Update visualizer with current parameter values
+        // Get modulation parameters
+        auto modRateParam = audioProcessor.apvts.getRawParameterValue("modLfoRate");
+        auto modDepthParam = audioProcessor.apvts.getRawParameterValue("modLfoDepth");
+        auto modTargetParam = audioProcessor.apvts.getRawParameterValue("modTarget");
+
+        // Calculate modulation values
+        float baseRate = rateParam->load();
+        float baseDepth = depthParam->load();
+        float basePhase = phaseOffsetParam->load();
+
+        // Get current modulation value from processor
+        auto modValue = audioProcessor.getModulationValue();
+        auto* modEnableParam = audioProcessor.apvts.getRawParameterValue("modEnable");
+        bool modEnabled = modEnableParam->load();
+
+        float modRate = 1.0f, modDepth = 1.0f, modPhase = 0.0f;
+        auto target = static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load()));
+        
+        if (modEnabled)  // Only calculate modulation if enabled
+        {
+            auto modValue = audioProcessor.getModulationValue();
+            
+            switch (target)
+            {
+                case ModulationLFO::Target::Rate:
+                    modRate = 0.5f + 1.5f * modValue;
+                    break;
+                case ModulationLFO::Target::Depth:
+                    modDepth = modValue;
+                    break;
+                case ModulationLFO::Target::Phase:
+                    modPhase = (modValue - 0.5f) * juce::MathConstants<float>::pi;
+                    break;
+            }
+        }
+
+        // Update visualizer with all parameters
         lfoVisualizer.setWaveform(static_cast<int>(waveformParam->load()));
-        lfoVisualizer.setDepth(depthParam->load());
-        lfoVisualizer.setPhaseOffset(phaseOffsetParam->load());
+        lfoVisualizer.setDepth(baseDepth);
+        lfoVisualizer.setPhaseOffset(basePhase);
+        lfoVisualizer.setModulationValues(modRate, modDepth, modPhase, target);
         
         // Update rate and sync settings
         if (syncParam->load() > 0.5f)
@@ -266,7 +312,7 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         }
         else
         {
-            lfoVisualizer.setRate(rateParam->load());
+            lfoVisualizer.setRate(baseRate);
         }
     }
     else
@@ -541,6 +587,9 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int modSpacing = 15;
     const int modComboWidth = 100;
     const int modComboHeight = 25;
+    const int modButtonWidth = 100;
+    const int modButtonHeight = 25;
+
     
     // Calculate center position for modulation section
     const int modSectionWidth = (modDialSize * 2) + modSpacing + (modComboWidth * 2) + (modSpacing * 3);
@@ -556,4 +605,7 @@ void QuackerVSTAudioProcessorEditor::resized()
                                 modComboY, modComboWidth, modComboHeight);
     modTargetSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 3) + modComboWidth,
                                modComboY, modComboWidth, modComboHeight);
+    modEnableButton.setBounds((getWidth() - modButtonWidth) / 2,
+                             modStartY - modButtonHeight - spacing,
+                             modButtonWidth, modButtonHeight);
 }

@@ -163,6 +163,13 @@ public:
 
     void resized() override {}
 
+    void setModulationValues(float modRate, float modDepth, float modPhase, ModulationLFO::Target target)
+    {
+        modRateValue = modRate;
+        modDepthValue = modDepth;
+        modPhaseValue = modPhase;
+        modTarget = target;
+    }
 
     void setActive(bool shouldBeActive, bool isWaitingForReset)
     {
@@ -183,24 +190,42 @@ public:
     void timerCallback() override
     {
         // Always update CRT animation phase
-        crtPhase += 0.01f; // Adjust speed as needed
+        crtPhase += 0.01f;
         while (crtPhase >= 1.0f)
             crtPhase -= 1.0f;
 
         // LFO phase update only when active
         if (active || waitingForReset)
         {
+            float effectiveRate = rate;
+            float effectiveDepth = depth;
+            float effectivePhaseOffset = phaseOffset;
+
+            // Apply modulation based on target
+            switch (modTarget)
+            {
+                case ModulationLFO::Target::Rate:
+                    effectiveRate *= modRateValue;
+                    break;
+                case ModulationLFO::Target::Depth:
+                    effectiveDepth *= modDepthValue;
+                    break;
+                case ModulationLFO::Target::Phase:
+                    effectivePhaseOffset += modPhaseValue;
+                    break;
+            }
+
             if (tempoSynced)
             {
                 const double quarterNoteRate = bpm / 60.0;
                 const double multipliers[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
                 double frequencyHz = quarterNoteRate * multipliers[noteDivision] * 2.0;
                 double phaseIncrement = frequencyHz / 100.0;
-                currentPhase += phaseIncrement;
+                currentPhase += phaseIncrement * effectiveRate;
             }
             else
             {
-                currentPhase += rate / 100.0;
+                currentPhase += effectiveRate / 100.0;
             }
 
             // Only reset if explicitly waiting for reset and at reset point
@@ -214,6 +239,9 @@ public:
                 while (currentPhase >= 1.0)
                     currentPhase -= 1.0;
             }
+
+            setDepth(effectiveDepth);
+            setPhaseOffset(effectivePhaseOffset);
         }
         
         repaint();
@@ -249,6 +277,12 @@ public:
     }
 
 private:
+    
+    // Add modulation state
+    float modRateValue = 1.0f;
+    float modDepthValue = 1.0f;
+    float modPhaseValue = 0.0f;
+    ModulationLFO::Target modTarget = ModulationLFO::Target::Rate;
     
     float calculateWaveformValue(float phase, int waveform)
     {
@@ -314,6 +348,10 @@ private:
     float crtPhase = 0.0f;
     
     bool waitingForReset = false;
+    
+
+    
+ 
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };

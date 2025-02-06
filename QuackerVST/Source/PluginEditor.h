@@ -86,6 +86,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modDepthAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modWaveformAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modTargetAttachment;
+    juce::ToggleButton modEnableButton;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modEnableAttachment;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };
