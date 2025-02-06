@@ -30,8 +30,22 @@ public:
         auto bounds = getLocalBounds().toFloat();
         auto originalBounds = bounds; // Store original bounds for border
 
-        // Fill background
-        g.setColour(juce::Colours::black);
+        // Enhanced background gradient
+        juce::ColourGradient bgGradient(
+            juce::Colours::black.brighter(0.1f), bounds.getX(), bounds.getY(),
+            juce::Colours::black.darker(0.2f), bounds.getX(), bounds.getBottom(),
+            false);
+        g.setGradientFill(bgGradient);
+        g.fillRect(bounds);
+
+        // Subtle vignette effect
+        juce::ColourGradient vignette(
+            juce::Colours::transparentBlack,
+            bounds.getCentreX(), bounds.getCentreY(),
+            juce::Colours::black.withAlpha(0.3f),
+            bounds.getX(), bounds.getY(),
+            true);
+        g.setGradientFill(vignette);
         g.fillRect(bounds);
 
         // Draw rate indicator
