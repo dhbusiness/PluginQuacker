@@ -76,8 +76,8 @@ public:
             g.drawHorizontalLine(static_cast<int>(actualY), 0.0f, bounds.getWidth());
         }
 
-        // Grid drawing - Fixed to account for full bounds
-        g.setColour(juce::Colours::darkgrey.withAlpha(0.2f));
+        // Enhanced grid drawing
+                g.setColour(juce::Colour(232, 193, 185).withAlpha(0.1f));
         
         // Calculate grid size based on available space
         int numVerticalDivisions = 8;
