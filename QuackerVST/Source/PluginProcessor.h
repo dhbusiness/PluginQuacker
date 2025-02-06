@@ -342,7 +342,6 @@ private:
     
     bool currentlyPlaying = false;
     bool audioInputDetected = false;
-
     juce::HeapBlock<float> lfoValuesBuffer; 
  
 
