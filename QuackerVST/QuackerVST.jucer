@@ -15,6 +15,7 @@
       <FILE id="YXny8O" name="CustomComboBox.h" compile="0" resource="0"
             file="Source/CustomComboBox.h"/>
       <FILE id="KMgUcO" name="PerlinNoise.h" compile="0" resource="0" file="Source/PerlinNoise.h"/>
+      <FILE id="l89a0R" name="ModulationLFO.h" compile="0" resource="0" file="Source/ModulationLFO.h"/>
       <FILE id="P4kBhr" name="CustomDialLookAndFeel.h" compile="0" resource="0"
             file="Source/CustomDialLookAndFeel.h"/>
       <FILE id="Dkwx6u" name="PluginProcessor.h" compile="0" resource="0"

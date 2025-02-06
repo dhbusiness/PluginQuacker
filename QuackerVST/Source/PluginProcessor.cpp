@@ -104,6 +104,37 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "Bypass",
         false
     ));
+    
+    // Modulation LFO Parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "modLfoRate",
+        "Mod LFO Rate",
+        0.01f,
+        5.0f,
+        0.5f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "modLfoDepth",
+        "Mod LFO Depth",
+        0.0f,
+        1.0f,
+        0.5f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "modLfoWaveform",
+        "Mod LFO Waveform",
+        juce::StringArray{"Sine", "Triangle", "Square", "Saw"},
+        0  // default to Sine
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "modTarget",
+        "Modulation Target",
+        juce::StringArray{"Rate", "Depth", "Phase"},
+        0  // default to Rate
+    ));
 
 
     return { params.begin(), params.end() };
@@ -186,15 +217,17 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     // Allocate buffer with alignment for SIMD operations
     lfoValuesBuffer.allocate(samplesPerBlock + 4, true);
 
-    // High-quality DC filter setup - notice the gentler settings to maintain audio quality
+    // High-quality DC filter setup
     *dcFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(
         sampleRate,
-        5.0f,    // Gentle cutoff to avoid affecting the audio
-        0.707f   // Butterworth Q for optimal flatness
+        5.0f,
+        0.707f
     );
     dcFilter.prepare(currentSpecs);
     
+    // Prepare both LFOs
     lfo.setSampleRate(sampleRate);
+    modLFO.prepare(sampleRate);
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
@@ -235,8 +268,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    const int numSamples = buffer.getNumSamples();  // Added this declaration
-    
+    const int numSamples = buffer.getNumSamples();
+
     // Get playhead info
     bool isPlaying = false;
     juce::AudioPlayHead::CurrentPositionInfo posInfo;
@@ -271,21 +304,18 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // If bypassed, just return the dry signal
     if (isBypassed)
     {
-        // Update states but don't process audio
         audioInputDetected = hasSignal;
         currentlyPlaying = isPlaying;
-        lfo.resetPhase(); // Reset LFO when bypassed
+        lfo.resetPhase();
         return;
     }
-    
-    // Update the member variable here
+
+    // Update the member variables
     audioInputDetected = hasSignal;
     bool isActive = isPlaying && hasSignal;
-    lfo.updateActiveState(isActive, isPlaying); // Pass both states
-    
+    lfo.updateActiveState(isActive, isPlaying);
 
-    
-    // Get parameters from APVTS
+    // Get main LFO parameters
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
     auto* rateParam = apvts.getRawParameterValue("lfoRate");
     auto* depthParam = apvts.getRawParameterValue("lfoDepth");
@@ -295,7 +325,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto* mixParam = apvts.getRawParameterValue("mix");
     float mix = mixParam->load();
 
-    // Set LFO parameters
+    // Update main LFO settings
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
@@ -317,36 +347,53 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         lfo.setRate(rateParam->load());
     }
 
+    // Get modulation parameters and update modulation LFO
+    auto* modRateParam = apvts.getRawParameterValue("modLfoRate");
+    auto* modDepthParam = apvts.getRawParameterValue("modLfoDepth");
+    auto* modWaveformParam = apvts.getRawParameterValue("modLfoWaveform");
+    auto* modTargetParam = apvts.getRawParameterValue("modTarget");
 
-    // Pre-calculate LFO values with high quality
+    modLFO.setRate(modRateParam->load());
+    modLFO.setDepth(modDepthParam->load());
+    modLFO.setWaveform(static_cast<ModulationLFO::Waveform>(static_cast<int>(modWaveformParam->load())));
+    modLFO.setTarget(static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load())));
+
+    // Process audio
     if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
     {
+        // Pre-calculate LFO values with modulation
         for (int i = 0; i < numSamples; ++i)
         {
+            float modValue = modLFO.getNextValue();
+            
+            // Apply modulation to base parameters based on target
+            switch (modLFO.getTarget())
+            {
+                case ModulationLFO::Target::Rate:
+                    lfo.setRate(modLFO.applyModulation(rateParam->load(), modValue));
+                    break;
+                case ModulationLFO::Target::Depth:
+                    lfo.setDepth(modLFO.applyModulation(depthParam->load(), modValue));
+                    break;
+                case ModulationLFO::Target::Phase:
+                    lfo.setPhaseOffset(modLFO.applyModulation(phaseOffsetParam->load(), modValue));
+                    break;
+            }
+            
             lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample() - 0.5f);
         }
-    }
-    else
-    {
-        juce::FloatVectorOperations::fill(lfoValuesBuffer, 1.0f, numSamples);
-    }
 
-    // Process audio with SIMD operations while maintaining quality
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer(channel);
-        auto* dryData = buffer.getReadPointer(channel);
-        
-        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+        // Apply to all channels
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
         {
-            // Store dry signal for mix
+            auto* channelData = buffer.getWritePointer(channel);
+            auto* dryData = buffer.getReadPointer(channel);
+
             juce::AudioBuffer<float> dryBuffer(1, numSamples);
             dryBuffer.copyFrom(0, 0, dryData, numSamples);
 
-            // Apply modulation
             juce::FloatVectorOperations::multiply(channelData, lfoValuesBuffer, numSamples);
 
-            // Apply mix with precise interpolation
             if (mix < 1.0f)
             {
                 juce::FloatVectorOperations::multiply(channelData, mix, numSamples);
@@ -356,6 +403,10 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
                     numSamples);
             }
         }
+    }
+    else
+    {
+        juce::FloatVectorOperations::fill(lfoValuesBuffer, 1.0f, numSamples);
     }
 
     // Apply DC filtering

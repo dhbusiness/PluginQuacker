@@ -9,6 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "ModulationLFO.h"
 
 //==============================================================================
 /**
@@ -337,6 +338,7 @@ private:
     };
 
     TremoloLFO lfo;                         //creating the lFO using the defined class above
+    ModulationLFO modLFO;
 
     float currentBPM = 0.0;                 //Defining variable which will hold DAW bpm
     
