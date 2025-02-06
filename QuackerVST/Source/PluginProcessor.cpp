@@ -339,11 +339,26 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
 
+    // Get modulation enable state
+    auto* modEnableParam = apvts.getRawParameterValue("modEnable");
+    bool modEnabled = modEnableParam->load();
+    auto target = modLFO.getTarget();
+
+    
     // Handle sync and timing
     if (syncParam->load() > 0.5f)
     {
+        // Calculate base timing for sync mode
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
+        
+        // In sync mode, we need to apply rate modulation to the division value
+        if (modEnabled && target == ModulationLFO::Target::Rate)
+        {
+            float modValue = modLFO.getNextValue();
+            division = division * modLFO.applyModulation(1.0f, modValue); // Modify the division timing
+        }
+        
         lfo.setSyncMode(true, division);
         if (isPlaying)
         {
@@ -372,15 +387,12 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         float baseDepth = depthParam->load();
         float basePhaseOffset = phaseOffsetParam->load();
 
-        // Get modulation enable state
-        auto* modEnableParam = apvts.getRawParameterValue("modEnable");
-        bool modEnabled = modEnableParam->load();
 
         // Process audio
         if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
         {
             // Get modulation target once
-            auto target = modLFO.getTarget();
+            
 
             // Pre-calculate LFO values with modulation
             for (int i = 0; i < numSamples; ++i)
