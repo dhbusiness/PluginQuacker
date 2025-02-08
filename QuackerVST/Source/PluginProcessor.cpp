@@ -141,6 +141,36 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "Modulation Enable",
         false  // default to off
     ));
+    
+    //Waveshape LFO
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "wsLfoRate",
+        "Waveshape LFO Rate",
+        0.01f,
+        5.0f,
+        0.5f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "wsLfoDepth",
+        "Waveshape LFO Depth",
+        0.0f,
+        1.0f,
+        0.5f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "wsLfoWaveform",
+        "Waveshape LFO Waveform",
+        juce::StringArray{"Sine", "Triangle", "Square", "Saw"},
+        0  // default to Sine
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "wsEnable",
+        "Waveshape Enable",
+        false  // default to off
+    ));
 
 
     return { params.begin(), params.end() };
@@ -276,8 +306,11 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
     
+    // Get modulation values from both LFOs
     float modValue = modLFO.getNextValue();
+    float wsValue = waveshapeLFO.getNextValue();
     lastModValue = modValue;
+    lastWaveshapeValue = wsValue;
 
     // Get playhead info
     bool isPlaying = false;
@@ -324,7 +357,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     bool isActive = isPlaying && hasSignal;
     lfo.updateActiveState(isActive, isPlaying);
 
-    // Get main LFO parameters
+    // Get all LFO parameters
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
     auto* rateParam = apvts.getRawParameterValue("lfoRate");
     auto* depthParam = apvts.getRawParameterValue("lfoDepth");
@@ -339,24 +372,23 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
 
-    // Get modulation enable state
+    // Get modulation enable states
     auto* modEnableParam = apvts.getRawParameterValue("modEnable");
+    auto* wsEnableParam = apvts.getRawParameterValue("wsEnable");
     bool modEnabled = modEnableParam->load();
+    bool wsEnabled = wsEnableParam->load();
     auto target = modLFO.getTarget();
 
-    
     // Handle sync and timing
     if (syncParam->load() > 0.5f)
     {
-        // Calculate base timing for sync mode
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
         
-        // In sync mode, we need to apply rate modulation to the division value
         if (modEnabled && target == ModulationLFO::Target::Rate)
         {
             float modValue = modLFO.getNextValue();
-            division = division * modLFO.applyModulation(1.0f, modValue); // Modify the division timing
+            division = division * modLFO.applyModulation(1.0f, modValue);
         }
         
         lfo.setSyncMode(true, division);
@@ -371,7 +403,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         lfo.setRate(rateParam->load());
     }
 
-    // Get modulation parameters and update modulation LFO
+    // Update both modulation LFOs
+    // Original modulation LFO
     auto* modRateParam = apvts.getRawParameterValue("modLfoRate");
     auto* modDepthParam = apvts.getRawParameterValue("modLfoDepth");
     auto* modWaveformParam = apvts.getRawParameterValue("modLfoWaveform");
@@ -382,55 +415,62 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     modLFO.setWaveform(static_cast<ModulationLFO::Waveform>(static_cast<int>(modWaveformParam->load())));
     modLFO.setTarget(static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load())));
 
+    // Waveshape modulation LFO
+    auto* wsRateParam = apvts.getRawParameterValue("wsLfoRate");
+    auto* wsDepthParam = apvts.getRawParameterValue("wsLfoDepth");
+    auto* wsWaveformParam = apvts.getRawParameterValue("wsLfoWaveform");
+
+    waveshapeLFO.setRate(wsRateParam->load());
+    waveshapeLFO.setDepth(wsDepthParam->load());
+    waveshapeLFO.setWaveform(static_cast<ModulationLFO::Waveform>(static_cast<int>(wsWaveformParam->load())));
+
     // Get base parameter values outside the loop
-        float baseRate = rateParam->load();
-        float baseDepth = depthParam->load();
-        float basePhaseOffset = phaseOffsetParam->load();
+    float baseRate = rateParam->load();
+    float baseDepth = depthParam->load();
+    float basePhaseOffset = phaseOffsetParam->load();
 
-
-        // Process audio
-        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+    // Process audio
+    if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+    {
+        // Pre-calculate LFO values with modulation
+        for (int i = 0; i < numSamples; ++i)
         {
-            // Get modulation target once
-            
+            float modValue = modLFO.getNextValue();
+            float wsValue = wsEnabled ? waveshapeLFO.getNextValue() : 0.0f;
+            lastModValue = modValue;
+            lastWaveshapeValue = wsValue;
 
-            // Pre-calculate LFO values with modulation
-            for (int i = 0; i < numSamples; ++i)
+            // Calculate modulated values based on target
+            float effectiveRate = baseRate;
+            float effectiveDepth = baseDepth;
+            float effectivePhaseOffset = basePhaseOffset;
+
+            if (modEnabled)
             {
-                float modValue = modLFO.getNextValue();
-                lastModValue = modValue; // Store for visualization
-
-                // Calculate modulated values based on target
-                float effectiveRate = baseRate;
-                float effectiveDepth = baseDepth;
-                float effectivePhaseOffset = basePhaseOffset;
-
-                // Only apply modulation if enabled
-                if (modEnabled)
+                switch (target)
                 {
-                    switch (target)
-                    {
-                        case ModulationLFO::Target::Rate:
-                            effectiveRate = modLFO.applyModulation(baseRate, modValue);
-                            break;
-                        case ModulationLFO::Target::Depth:
-                            effectiveDepth = modLFO.applyModulation(baseDepth, modValue);
-                            break;
-                        case ModulationLFO::Target::Phase:
-                            effectivePhaseOffset = modLFO.applyModulation(basePhaseOffset, modValue);
-                            break;
-                    }
+                    case ModulationLFO::Target::Rate:
+                        effectiveRate = modLFO.applyModulation(baseRate, modValue);
+                        break;
+                    case ModulationLFO::Target::Depth:
+                        effectiveDepth = modLFO.applyModulation(baseDepth, modValue);
+                        break;
+                    case ModulationLFO::Target::Phase:
+                        effectivePhaseOffset = modLFO.applyModulation(basePhaseOffset, modValue);
+                        break;
                 }
-
-                // Update LFO parameters with modulated values
-                lfo.setRate(effectiveRate);
-                lfo.setDepth(effectiveDepth);
-                lfo.setPhaseOffset(effectivePhaseOffset);
-                
-                lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample() - 0.5f);
             }
 
-        // Process audio channels (rest of the code remains the same)
+            // Update LFO parameters with modulated values
+            lfo.setRate(effectiveRate);
+            lfo.setDepth(effectiveDepth);
+            lfo.setPhaseOffset(effectivePhaseOffset);
+            
+            // Get LFO sample with waveshaping
+            lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample(wsValue) - 0.5f);
+        }
+
+        // Process audio channels
         for (int channel = 0; channel < totalNumInputChannels; ++channel)
         {
             auto* channelData = buffer.getWritePointer(channel);
