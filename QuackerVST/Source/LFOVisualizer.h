@@ -275,6 +275,12 @@ public:
         bpm = newBpm;
         noteDivision = division;
     }
+    
+    void setWaveshapeValues(float amount, bool enabled)
+    {
+        wsValue = amount;
+        wsEnabled = enabled;
+    }
 
 private:
     
@@ -286,52 +292,122 @@ private:
     
     float calculateWaveformValue(float phase, int waveform)
     {
+        float output = 0.0f;
+        
+        // Apply base waveform calculation
         switch (waveform)
         {
             case 0: // Sine
-                return std::sin(phase * juce::MathConstants<float>::twoPi);
+            {
+                double angle = phase * juce::MathConstants<float>::twoPi;
+                output = std::sin(angle);
+                
+                // Apply waveshaping modulation
+                if (wsEnabled && wsValue > 0.0f) {
+                    output += wsValue * 0.3f * std::sin(2.0 * angle);  // 2nd harmonic
+                    output += wsValue * 0.15f * std::sin(3.0 * angle); // 3rd harmonic
+                    output = output / (1.0f + wsValue * 0.45f); // Normalize
+                }
+            }
+            break;
                 
             case 1: // Square
-                return (phase < 0.5f) ? 1.0f : -1.0f;
+            {
+                if (wsEnabled) {
+                    // Apply waveshaping to adjust duty cycle and edge softness
+                    float threshold = 0.5f + (wsValue * 0.4f * std::sin(phase * 6.28318f));
+                    float softness = 0.01f + wsValue * 0.2f;
+                    output = (1.0f / (1.0f + std::exp(-(phase - threshold) / softness))) * 2.0f - 1.0f;
+                } else {
+                    output = (phase < 0.5f) ? 1.0f : -1.0f;
+                }
+            }
+            break;
                 
             case 2: // Triangle
-                return 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
+            {
+                output = 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
+                
+                // Apply waveshaping for asymmetric triangle
+                if (wsEnabled && wsValue > 0.0f) {
+                    float shaped = std::pow((output + 1.0f) * 0.5f, 1.0f + wsValue * 2.0f) * 2.0f - 1.0f;
+                    output = output * (1.0f - wsValue) + shaped * wsValue;
+                }
+            }
+            break;
                 
             case 3: // Sawtooth
-                return 2.0f * phase - 1.0f;
+            {
+                output = 2.0f * phase - 1.0f;
+                if (wsEnabled && wsValue > 0.0f) {
+                    float shaped = std::pow((output + 1.0f) * 0.5f, 1.0f + wsValue * 2.0f) * 2.0f - 1.0f;
+                    output = output * (1.0f - wsValue) + shaped * wsValue;
+                }
+            }
+            break;
                 
             case 4: // Ramp Down
-                return 1.0f - (2.0f * phase);
+            {
+                output = 1.0f - (2.0f * phase);
+                if (wsEnabled && wsValue > 0.0f) {
+                    float shaped = std::pow((output + 1.0f) * 0.5f, 1.0f + wsValue * 2.0f) * 2.0f - 1.0f;
+                    output = output * (1.0f - wsValue) + shaped * wsValue;
+                }
+            }
+            break;
                 
             case 5: // Soft Square
-                {
-                    const float sharpness = 10.0f;
-                    float centered = phase * 2.0f - 1.0f;
-                    return 2.0f * (1.0f / (1.0f + std::exp(-sharpness * centered))) - 1.0f;
-                }
+            {
+                const float baseSharpness = 10.0f;
+                float modifiedSharpness = wsEnabled ? baseSharpness * (1.0f - wsValue * 0.8f) : baseSharpness;
+                float centered = phase * 2.0f - 1.0f;
+                output = 2.0f * (1.0f / (1.0f + std::exp(-modifiedSharpness * centered))) - 1.0f;
+            }
+            break;
                 
             case 6: // FenderStyle
             {
                 double angle = phase * 2.0 * juce::MathConstants<float>::pi;
-                float raw = std::sin(angle) +
+                if (wsEnabled) {
+                    float h1 = std::sin(angle);
+                    float h2 = std::sin(2.0 * angle) * (0.1f + wsValue * 0.2f);
+                    float h3 = std::sin(3.0 * angle) * (0.05f + wsValue * 0.15f);
+                    float h4 = wsValue * 0.1f * std::sin(4.0 * angle);
+                    
+                    float raw = h1 + h2 + h3 + h4;
+                    output = (raw * 0.4f) + 0.5f;
+                    output = std::pow(output, 1.08f + wsValue * 0.4f);
+                    output = juce::jlimit(0.0f, 1.0f, output);
+                    output = output * 2.0f - 1.0f;
+                } else {
+                    output = std::sin(angle) +
                             0.1f * std::sin(2.0 * angle) +
                             0.05f * std::sin(3.0 * angle);
-                
-                float value = (raw * 0.4f) + 0.5f;
-                value = std::pow(value, 1.08f);
-                return (value * 2.0f) - 1.0f; // Convert to -1 to 1 for visualizer
-            }
-            case 7: // WurlitzerStyle
-                {
-                    double angle = phase * 2.0 * juce::MathConstants<float>::pi;
-                    float sineComponent = std::sin(angle);
-                    float triangleComponent = 2.0f * std::abs(2.0f * (phase - 0.5f)) - 1.0f;
-                    return 0.6f * sineComponent + 0.4f * triangleComponent;
+                    output = ((output * 0.4f) + 0.5f);
+                    output = std::pow(output, 1.08f);
+                    output = (output * 2.0f) - 1.0f;
                 }
+            }
+            break;
                 
-            default:
-                return 0.0f;
+            case 7: // WurlitzerStyle
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float sineComponent = std::sin(angle);
+                float triangleComponent = 2.0f * std::abs(2.0f * (phase - 0.5f)) - 1.0f;
+                
+                if (wsEnabled) {
+                    float balance = 0.6f + wsValue * 0.3f;
+                    output = balance * sineComponent + (1.0f - balance) * triangleComponent;
+                    output = std::pow((output + 1.0f) * 0.5f, 0.9f + wsValue * 0.2f) * 2.0f - 1.0f;
+                } else {
+                    output = 0.6f * sineComponent + 0.4f * triangleComponent;
+                }
+            }
+            break;
         }
+        
+        return output;
     }
     
     int currentWaveform = 0;
@@ -349,7 +425,8 @@ private:
     
     bool waitingForReset = false;
     
-
+    float wsValue = 0.0f;        // Current waveshape amount
+    bool wsEnabled = false;      // Waveshaping enable state
     
  
     

@@ -65,6 +65,8 @@ public:
     
     float getModulationValue() const { return lastModValue; }
     
+    float getWaveshapeValue() const { return lastWaveshapeValue; }
+    
 private:
     
     // DC Filter components

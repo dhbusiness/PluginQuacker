@@ -89,5 +89,16 @@ private:
     juce::ToggleButton modEnableButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modEnableAttachment;
     
+    
+    // Add to private section of QuackerVSTAudioProcessorEditor
+    juce::Slider wsRateSlider, wsDepthSlider;
+    ArrowNavigationComboBox wsWaveformSelector;
+    juce::ToggleButton wsEnableButton;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> wsRateAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> wsDepthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> wsWaveformAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> wsEnableAttachment;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

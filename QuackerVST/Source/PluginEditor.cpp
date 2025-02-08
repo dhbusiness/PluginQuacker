@@ -19,12 +19,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (800, 600);
+    setSize (800, 700);
 
     // Generate background only if it hasn't been generated yet
     if (!backgroundGenerated)
     {
-        generateBackgroundPattern(800, 600);
+        generateBackgroundPattern(800, 700);
         backgroundGenerated = true;
     }
     
@@ -198,6 +198,45 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     modTargetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         audioProcessor.apvts, "modTarget", modTargetSelector.getComboBox());
     
+    // Waveshaping LFO controls
+    wsRateSlider.setSliderStyle(juce::Slider::Rotary);
+    wsRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+    wsRateSlider.setRange(0.01f, 5.0f, 0.01f);
+    wsRateSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    wsRateSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    wsRateSlider.setLookAndFeel(&customDialLookAndFeel);
+    addAndMakeVisible(wsRateSlider);
+
+    wsDepthSlider.setSliderStyle(juce::Slider::Rotary);
+    wsDepthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+    wsDepthSlider.setRange(0.0f, 1.0f, 0.01f);
+    wsDepthSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    wsDepthSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    wsDepthSlider.setLookAndFeel(&customDialLookAndFeel);
+    addAndMakeVisible(wsDepthSlider);
+
+    wsWaveformSelector.getComboBox().addItem("Sine", 1);
+    wsWaveformSelector.getComboBox().addItem("Triangle", 2);
+    wsWaveformSelector.getComboBox().addItem("Square", 3);
+    wsWaveformSelector.getComboBox().addItem("Saw", 4);
+    wsWaveformSelector.getComboBox().setJustificationType(juce::Justification::centred);
+    wsWaveformSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
+    addAndMakeVisible(wsWaveformSelector);
+
+    wsEnableButton.setButtonText("WAVESHAPE");
+    wsEnableButton.setLookAndFeel(&customToggleLookAndFeel);
+    addAndMakeVisible(wsEnableButton);
+
+    // Create attachments
+    wsRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "wsLfoRate", wsRateSlider);
+    wsDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "wsLfoDepth", wsDepthSlider);
+    wsWaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "wsLfoWaveform", wsWaveformSelector.getComboBox());
+    wsEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        audioProcessor.apvts, "wsEnable", wsEnableButton);
+    
     //LookandFeel
     lfoRateSlider.setLookAndFeel(&customDialLookAndFeel);
     lfoDepthSlider.setLookAndFeel(&customDialLookAndFeel);
@@ -239,6 +278,11 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     modWaveformSelector.getComboBox().setLookAndFeel(nullptr);
     modTargetSelector.getComboBox().setLookAndFeel(nullptr);
     modEnableButton.setLookAndFeel(nullptr);
+    
+    wsRateSlider.setLookAndFeel(nullptr);
+    wsDepthSlider.setLookAndFeel(nullptr);
+    wsWaveformSelector.getComboBox().setLookAndFeel(nullptr);
+    wsEnableButton.setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -275,6 +319,10 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         auto modValue = audioProcessor.getModulationValue();
         auto* modEnableParam = audioProcessor.apvts.getRawParameterValue("modEnable");
         bool modEnabled = modEnableParam->load();
+        
+        auto* wsEnableParam = audioProcessor.apvts.getRawParameterValue("wsEnable");
+        bool wsEnabled = wsEnableParam->load();
+        float wsValue = wsEnabled ? audioProcessor.getWaveshapeValue() : 0.0f;
 
         float modRate = 1.0f, modDepth = 1.0f, modPhase = 0.0f;
         auto target = static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load()));
@@ -302,6 +350,7 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         lfoVisualizer.setDepth(baseDepth);
         lfoVisualizer.setPhaseOffset(basePhase);
         lfoVisualizer.setModulationValues(modRate, modDepth, modPhase, target);
+        lfoVisualizer.setWaveshapeValues(wsValue, wsEnabled);
         
         // Update rate and sync settings
         if (syncParam->load() > 0.5f)
@@ -514,6 +563,21 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
     g.drawText("MOD DEPTH",
                juce::Rectangle<int>(modStartX + modDialSize + modSpacing, modLabelY2, modDialSize, 20),
                juce::Justification::centred);
+
+    // Waveshaping section header and labels
+    const int wsLabelY = modLabelY2 + modDialSize + spacing * 3;
+    g.drawText("WAVESHAPING",
+               juce::Rectangle<int>(0, wsLabelY, getWidth(), 20),
+               juce::Justification::centred);
+
+    const int wsLabelY2 = wsLabelY + 85;
+    g.drawText("WS RATE",
+               juce::Rectangle<int>(modStartX, wsLabelY2, modDialSize, 20),
+               juce::Justification::centred);
+               
+    g.drawText("WS DEPTH",
+               juce::Rectangle<int>(modStartX + modDialSize + modSpacing, wsLabelY2, modDialSize, 20),
+               juce::Justification::centred);
 }
 
 void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
@@ -583,15 +647,13 @@ void QuackerVSTAudioProcessorEditor::resized()
     bypassButton.setBounds(mixDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
 
     // Modulation section
-    const int modDialSize = 70;  // Smaller dials for modulation
+    const int modDialSize = 70;
     const int modSpacing = 15;
     const int modComboWidth = 100;
     const int modComboHeight = 25;
     const int modButtonWidth = 100;
     const int modButtonHeight = 25;
 
-    
-    // Calculate center position for modulation section
     const int modSectionWidth = (modDialSize * 2) + modSpacing + (modComboWidth * 2) + (modSpacing * 3);
     const int modStartX = (getWidth() - modSectionWidth) / 2;
     const int modStartY = buttonsY + buttonHeight + spacing * 2;
@@ -600,7 +662,7 @@ void QuackerVSTAudioProcessorEditor::resized()
     modRateSlider.setBounds(modStartX, modStartY, modDialSize, modDialSize);
     modDepthSlider.setBounds(modStartX + modDialSize + modSpacing, modStartY, modDialSize, modDialSize);
     
-    const int modComboY = modStartY + (modDialSize - modComboHeight) / 2;  // Center combos vertically with dials
+    const int modComboY = modStartY + (modDialSize - modComboHeight) / 2;
     modWaveformSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 2),
                                 modComboY, modComboWidth, modComboHeight);
     modTargetSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 3) + modComboWidth,
@@ -608,4 +670,22 @@ void QuackerVSTAudioProcessorEditor::resized()
     modEnableButton.setBounds((getWidth() - modButtonWidth) / 2,
                              modStartY - modButtonHeight - spacing,
                              modButtonWidth, modButtonHeight);
+
+    // Waveshaping section
+    const int wsStartY = modStartY + modDialSize + spacing * 3;
+    
+    // Position waveshaping controls
+    wsRateSlider.setBounds(modStartX, wsStartY, modDialSize, modDialSize);
+    wsDepthSlider.setBounds(modStartX + modDialSize + modSpacing, wsStartY, modDialSize, modDialSize);
+    
+    const int wsComboY = wsStartY + (modDialSize - modComboHeight) / 2;
+    wsWaveformSelector.setBounds(modStartX + (modDialSize * 2) + (modSpacing * 2),
+                              wsComboY, modComboWidth, modComboHeight);
+                              
+    wsEnableButton.setBounds((getWidth() - modButtonWidth) / 2,
+                          wsStartY - modButtonHeight - spacing,
+                          modButtonWidth, modButtonHeight);
+
+    // Update window size to accommodate new section
+    setSize(getWidth(), wsStartY + modDialSize + spacing * 2);
 }

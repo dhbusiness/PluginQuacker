@@ -430,6 +430,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     float basePhaseOffset = phaseOffsetParam->load();
 
     // Process audio
+
     if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
     {
         // Pre-calculate LFO values with modulation
@@ -466,8 +467,13 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             lfo.setDepth(effectiveDepth);
             lfo.setPhaseOffset(effectivePhaseOffset);
             
-            // Get LFO sample with waveshaping
-            lfoValuesBuffer[i] = 0.5f + (lfo.getNextSample(wsValue) - 0.5f);
+            // Get LFO sample with waveshaping and ensure it's in the correct range
+            float lfoValue = lfo.getNextSample(wsValue);
+            // Clamp value between 0 and 1 to prevent any potential out-of-range issues
+            lfoValue = juce::jlimit(0.0f, 1.0f, lfoValue);
+            
+            // Store the clamped value in the buffer
+            lfoValuesBuffer[i] = lfoValue;
         }
 
         // Process audio channels
