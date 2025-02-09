@@ -10,6 +10,7 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "InterpolationTypes.h"
 
 class ModulationLFO
 {
@@ -33,12 +34,8 @@ public:
         double fraction = 0.0;
     };
 
-    enum class InterpolationType {
-        Linear,
-        Cubic,
-        Hermite
-    };
-
+    // Use TremoloLFO's interpolation type
+    using InterpolationType = InterpolationTypes::Type;
     
     ModulationLFO()
         : phase(0.0)
@@ -57,6 +54,7 @@ public:
         sampleRate = newSampleRate;
         smoothedDepth.reset(sampleRate, 0.02);
         smoothedRate.reset(sampleRate, 0.05);
+        valueState = ValueState(); // Reset interpolation state
     }
 
     void setRate(float newRate)
@@ -75,7 +73,11 @@ public:
     void setTarget(Target newTarget) { target = newTarget; }
     Target getTarget() const { return target; }
     
-    float getNextInterpolatedValue(InterpolationType type = InterpolationType::Linear) {
+    void setInterpolationType(InterpolationType type) {
+        currentInterpolation = type;
+    }
+    
+    float getNextInterpolatedValue(InterpolationType type = InterpolationType::Cubic) {
         float nextValue = getNextValue();
         
         valueState.previousValue = valueState.currentValue;
@@ -125,21 +127,17 @@ public:
         return rawValue * smoothedDepth.getNextValue();
     }
 
-    // Apply modulation to a parameter based on the target
     float applyModulation(float baseValue, float modulationValue) const
     {
         switch (target)
         {
             case Target::Rate:
-                // Modulate rate between 0.5x and 2x
                 return baseValue * (0.5f + 1.5f * modulationValue);
             
             case Target::Depth:
-                // Direct depth modulation
                 return baseValue * modulationValue;
             
             case Target::Phase:
-                // Phase modulation up to ±180 degrees
                 return baseValue + (modulationValue - 0.5f) * juce::MathConstants<float>::pi;
             
             default:
@@ -161,6 +159,7 @@ private:
     ValueState valueState;
     std::array<float, 4> valueHistory = {0.0f, 0.0f, 0.0f, 0.0f};
     static constexpr double INTERPOLATION_FACTOR = 0.5;
+    InterpolationType currentInterpolation = InterpolationType::Cubic;
 
     double rateToFraction() {
         return (rate / sampleRate) * INTERPOLATION_FACTOR;
@@ -173,7 +172,6 @@ private:
     }
 
     void updateValueHistory(float newValue) {
-        // Shift values down
         for (int i = 0; i < 3; ++i) {
             valueHistory[i] = valueHistory[i + 1];
         }
@@ -206,5 +204,4 @@ private:
         
         return a0 * valueHistory[1] + a1 * m0 + a2 * m1 + a3 * valueHistory[2];
     }
-    
 };

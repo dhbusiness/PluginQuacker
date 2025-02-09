@@ -100,5 +100,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> wsWaveformAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> wsEnableAttachment;
     
+    ArrowNavigationComboBox interpolationSelector;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> interpolationAttachment;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

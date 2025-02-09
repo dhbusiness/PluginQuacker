@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "ModulationLFO.h"
+#include "InterpolationTypes.h"
 
 //==============================================================================
 /**
@@ -67,6 +68,7 @@ public:
     
     float getWaveshapeValue() const { return lastWaveshapeValue; }
     
+
 private:
     
     // DC Filter components
@@ -94,11 +96,7 @@ private:
             double fraction = 0.0;
         };
 
-        enum class InterpolationType {
-            Linear,
-            Cubic,
-            Hermite
-        };
+        using InterpolationType = InterpolationTypes::Type;
         
         TremoloLFO()
             : phase(0.0)
