@@ -88,6 +88,18 @@ private:
             WurlitzerStyle  // New
         };
         
+        struct ValueState {
+            float currentValue = 0.0f;
+            float previousValue = 0.0f;
+            double fraction = 0.0;
+        };
+
+        enum class InterpolationType {
+            Linear,
+            Cubic,
+            Hermite
+        };
+        
         TremoloLFO()
             : phase(0.0)
             , rate(1.0)
@@ -129,6 +141,7 @@ private:
             smoothedRate.reset(sampleRate, 0.08);
             phaseSmoothing.reset(sampleRate, 0.03);
             resetTransitionIncrement = 1.0f / (resetTransitionTime * static_cast<float>(sampleRate));
+            valueState = ValueState(); 
         }
         
         void setSyncMode(bool shouldSync, double division = 1.0)
@@ -191,22 +204,47 @@ private:
                 return depth;
             }
 
-            float output;
+            float rawOutput = calculateNextSampleValue(waveshapeAmount);
+            updateValueHistory(rawOutput);
             
-            if (waitingForReset) {
-                if (!inResetTransition && (phase >= 0.99 || phase < 0.01)) {
-                    inResetTransition = true;
-                    resetTransitionPhase = 0.0f;
-                    double outputPhase = phase + phaseOffset;
-                    while (outputPhase >= 1.0) outputPhase -= 1.0;
-                    while (outputPhase < 0.0) outputPhase += 1.0;
-                    double smoothedPhase = phaseSmoothing.getNextValue();
-                    lastOutputValue = calculateCurrentValue(outputPhase, smoothedPhase, waveshapeAmount);
-                }
+            valueState.previousValue = valueState.currentValue;
+            valueState.currentValue = rawOutput;
+            
+            valueState.fraction += rateToFraction();
+            if (valueState.fraction >= 1.0) {
+                valueState.fraction -= 1.0;
             }
 
+            float interpolatedOutput;
+            switch(currentInterpolation) {
+                case InterpolationType::Cubic:
+                    interpolatedOutput = cubicInterpolation();
+                    break;
+                case InterpolationType::Hermite:
+                    interpolatedOutput = hermiteInterpolation();
+                    break;
+                default:
+                    interpolatedOutput = linearInterpolation(valueState.previousValue,
+                                                           valueState.currentValue,
+                                                           valueState.fraction);
+            }
+
+            // Apply depth
+            float smoothedDepthValue = smoothedDepth.getNextValue();
+            return juce::jlimit(0.0f, 1.0f, interpolatedOutput * smoothedDepthValue +
+                                           (1.0f - smoothedDepthValue));
+        }
+        
+        void setInterpolationType(InterpolationType type) {
+            currentInterpolation = type;
+        }
+        
+    private:
+        
+        float calculateNextSampleValue(float waveshapeAmount) {
+            float output;
+            
             if (inResetTransition) {
-                // Smoothly transition from last value to reset position
                 resetTransitionPhase += resetTransitionIncrement;
                 
                 if (resetTransitionPhase >= 1.0f) {
@@ -220,7 +258,6 @@ private:
                     output = lastOutputValue * (1.0f - cosPhase) + depth * cosPhase;
                 }
             } else {
-                // Normal LFO operation
                 if (!syncedToHost) {
                     currentRate = smoothedRate.getNextValue();
                     phase += currentRate / sampleRate;
@@ -238,11 +275,8 @@ private:
                 lastOutputValue = output;
             }
 
-            // Apply depth
-            float smoothedDepthValue = smoothedDepth.getNextValue();
-            return output * smoothedDepthValue + (1.0f - smoothedDepthValue);
+            return output;
         }
-    private:
         
         // Add helper method before other private members
         float calculateCurrentValue(double outputPhase, double smoothedPhase, float waveshapeAmount) {
@@ -355,6 +389,53 @@ private:
             }
             
             return output;
+        }
+        
+        ValueState valueState;
+        std::array<float, 4> valueHistory = {0.0f, 0.0f, 0.0f, 0.0f};
+        static constexpr double INTERPOLATION_FACTOR = 0.5;
+        InterpolationType currentInterpolation = InterpolationType::Cubic;
+
+        double rateToFraction() {
+            return (currentRate / sampleRate) * INTERPOLATION_FACTOR;
+        }
+
+        void updateValueHistory(float newValue) {
+            for (int i = 0; i < 3; ++i) {
+                valueHistory[i] = valueHistory[i + 1];
+            }
+            valueHistory[3] = newValue;
+        }
+
+        float linearInterpolation(float prev, float curr, float frac) {
+            return prev + (curr - prev) * frac;
+        }
+
+        float cubicInterpolation() {
+            float mu = valueState.fraction;
+            float mu2 = mu * mu;
+            float a0 = valueHistory[3] - valueHistory[2] - valueHistory[0] + valueHistory[1];
+            float a1 = valueHistory[0] - valueHistory[1] - a0;
+            float a2 = valueHistory[2] - valueHistory[0];
+            float a3 = valueHistory[1];
+
+            return (a0 * mu * mu2) + (a1 * mu2) + (a2 * mu) + a3;
+        }
+
+        float hermiteInterpolation() {
+            float mu = valueState.fraction;
+            float mu2 = mu * mu;
+            float mu3 = mu2 * mu;
+            
+            float m0 = (valueHistory[2] - valueHistory[0]) * 0.5f;
+            float m1 = (valueHistory[3] - valueHistory[1]) * 0.5f;
+            
+            float a0 = 2.0f * mu3 - 3.0f * mu2 + 1.0f;
+            float a1 = mu3 - 2.0f * mu2 + mu;
+            float a2 = mu3 - mu2;
+            float a3 = -2.0f * mu3 + 3.0f * mu2;
+            
+            return a0 * valueHistory[1] + a1 * m0 + a2 * m1 + a3 * valueHistory[2];
         }
         
         double phase;

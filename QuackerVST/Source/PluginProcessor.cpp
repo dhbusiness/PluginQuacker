@@ -264,6 +264,7 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     // Prepare both LFOs
     lfo.setSampleRate(sampleRate);
     modLFO.prepare(sampleRate);
+    waveshapeLFO.prepare(sampleRate);
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
@@ -436,8 +437,12 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         // Pre-calculate LFO values with modulation
         for (int i = 0; i < numSamples; ++i)
         {
-            float modValue = modLFO.getNextValue();
-            float wsValue = wsEnabled ? waveshapeLFO.getNextValue() : 0.0f;
+            // Use interpolated values for both modulation sources
+            float modValue = modLFO.getNextInterpolatedValue(ModulationLFO::InterpolationType::Cubic);
+            float wsValue = wsEnabled ?
+                waveshapeLFO.getNextInterpolatedValue(ModulationLFO::InterpolationType::Cubic) :
+                0.0f;
+                
             lastModValue = modValue;
             lastWaveshapeValue = wsValue;
 
@@ -469,10 +474,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             
             // Get LFO sample with waveshaping and ensure it's in the correct range
             float lfoValue = lfo.getNextSample(wsValue);
-            // Clamp value between 0 and 1 to prevent any potential out-of-range issues
             lfoValue = juce::jlimit(0.0f, 1.0f, lfoValue);
-            
-            // Store the clamped value in the buffer
             lfoValuesBuffer[i] = lfoValue;
         }
 

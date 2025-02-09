@@ -27,6 +27,19 @@ public:
         Phase
     };
 
+    struct ValueState {
+        float currentValue = 0.0f;
+        float previousValue = 0.0f;
+        double fraction = 0.0;
+    };
+
+    enum class InterpolationType {
+        Linear,
+        Cubic,
+        Hermite
+    };
+
+    
     ModulationLFO()
         : phase(0.0)
         , rate(0.5f)
@@ -61,6 +74,29 @@ public:
     void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
     void setTarget(Target newTarget) { target = newTarget; }
     Target getTarget() const { return target; }
+    
+    float getNextInterpolatedValue(InterpolationType type = InterpolationType::Linear) {
+        float nextValue = getNextValue();
+        
+        valueState.previousValue = valueState.currentValue;
+        valueState.currentValue = nextValue;
+        
+        valueState.fraction += rateToFraction();
+        if (valueState.fraction >= 1.0) {
+            valueState.fraction -= 1.0;
+        }
+        
+        switch(type) {
+            case InterpolationType::Cubic:
+                updateValueHistory(nextValue);
+                return cubicInterpolation();
+            case InterpolationType::Hermite:
+                updateValueHistory(nextValue);
+                return hermiteInterpolation();
+            default:
+                return linearInterpolation();
+        }
+    }
 
     // Returns a modulation value between 0 and 1
     float getNextValue()
@@ -122,5 +158,53 @@ private:
     juce::SmoothedValue<float> smoothedDepth;
     juce::SmoothedValue<float> smoothedRate;
     
+    ValueState valueState;
+    std::array<float, 4> valueHistory = {0.0f, 0.0f, 0.0f, 0.0f};
+    static constexpr double INTERPOLATION_FACTOR = 0.5;
+
+    double rateToFraction() {
+        return (rate / sampleRate) * INTERPOLATION_FACTOR;
+    }
+
+    float linearInterpolation() {
+        return valueState.previousValue +
+               (valueState.currentValue - valueState.previousValue) *
+               valueState.fraction;
+    }
+
+    void updateValueHistory(float newValue) {
+        // Shift values down
+        for (int i = 0; i < 3; ++i) {
+            valueHistory[i] = valueHistory[i + 1];
+        }
+        valueHistory[3] = newValue;
+    }
+
+    float cubicInterpolation() {
+        float mu = valueState.fraction;
+        float mu2 = mu * mu;
+        float a0 = valueHistory[3] - valueHistory[2] - valueHistory[0] + valueHistory[1];
+        float a1 = valueHistory[0] - valueHistory[1] - a0;
+        float a2 = valueHistory[2] - valueHistory[0];
+        float a3 = valueHistory[1];
+
+        return (a0 * mu * mu2) + (a1 * mu2) + (a2 * mu) + a3;
+    }
+
+    float hermiteInterpolation() {
+        float mu = valueState.fraction;
+        float mu2 = mu * mu;
+        float mu3 = mu2 * mu;
+        
+        float m0 = (valueHistory[2] - valueHistory[0]) * 0.5f;
+        float m1 = (valueHistory[3] - valueHistory[1]) * 0.5f;
+        
+        float a0 = 2.0f * mu3 - 3.0f * mu2 + 1.0f;
+        float a1 = mu3 - 2.0f * mu2 + mu;
+        float a2 = mu3 - mu2;
+        float a3 = -2.0f * mu3 + 3.0f * mu2;
+        
+        return a0 * valueHistory[1] + a1 * m0 + a2 * m1 + a3 * valueHistory[2];
+    }
     
 };
