@@ -226,17 +226,6 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     wsEnableButton.setButtonText("WAVESHAPE");
     wsEnableButton.setLookAndFeel(&customToggleLookAndFeel);
     addAndMakeVisible(wsEnableButton);
-    
-    //Interpolation controls
-    interpolationSelector.getComboBox().addItem("Linear", 1);
-    interpolationSelector.getComboBox().addItem("Cubic", 2);
-    interpolationSelector.getComboBox().addItem("Hermite", 3);
-    interpolationSelector.getComboBox().setJustificationType(juce::Justification::centred);
-    interpolationSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
-    addAndMakeVisible(interpolationSelector);
-
-    interpolationAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        audioProcessor.apvts, "interpolationType", interpolationSelector.getComboBox());
 
     // Create attachments
     wsRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -294,8 +283,6 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     wsDepthSlider.setLookAndFeel(nullptr);
     wsWaveformSelector.getComboBox().setLookAndFeel(nullptr);
     wsEnableButton.setLookAndFeel(nullptr);
-    
-    interpolationSelector.getComboBox().setLookAndFeel(nullptr);
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -591,10 +578,6 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
     g.drawText("WS DEPTH",
                juce::Rectangle<int>(modStartX + modDialSize + modSpacing, wsLabelY2, modDialSize, 20),
                juce::Justification::centred);
-    
-    g.drawText("INTERPOLATION",
-               juce::Rectangle<int>(0, wsLabelY2 + modDialSize + spacing * 2, getWidth(), 20),
-               juce::Justification::centred);
 }
 
 void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
@@ -702,13 +685,7 @@ void QuackerVSTAudioProcessorEditor::resized()
     wsEnableButton.setBounds((getWidth() - modButtonWidth) / 2,
                           wsStartY - modButtonHeight - spacing,
                           modButtonWidth, modButtonHeight);
-    
-    const int interpolationY = wsStartY + modDialSize + spacing * 2;
-    interpolationSelector.setBounds((getWidth() - modComboWidth) / 2,
-                                  interpolationY,
-                                  modComboWidth,
-                                  modComboHeight);
 
     // Update window size to accommodate new section
-    setSize(getWidth(), interpolationY + modComboHeight + spacing);
+    setSize(getWidth(), wsStartY + modDialSize + spacing * 2);
 }

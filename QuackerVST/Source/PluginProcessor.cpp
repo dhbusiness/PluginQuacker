@@ -172,13 +172,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         false  // default to off
     ));
 
-    //Interpolation control
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "interpolationType",
-        "Interpolation Type",
-        juce::StringArray{"Linear", "Cubic", "Hermite"},
-        1  // default to Cubic
-    ));
 
     return { params.begin(), params.end() };
 }
@@ -271,7 +264,6 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     // Prepare both LFOs
     lfo.setSampleRate(sampleRate);
     modLFO.prepare(sampleRate);
-    waveshapeLFO.prepare(sampleRate);
 }
 
 void QuackerVSTAudioProcessor::releaseResources()
@@ -314,19 +306,11 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
     
-    // Get the interpolation type parameter
-    auto* interpolationParam = apvts.getRawParameterValue("interpolationType");
-    auto interpolationType = static_cast<TremoloLFO::InterpolationType>(
-        static_cast<int>(interpolationParam->load()));
-    
-    // Get modulation values from both LFOs with interpolation
-    float modValue = modLFO.getNextInterpolatedValue(interpolationType);
-    float wsValue = waveshapeLFO.getNextInterpolatedValue(interpolationType);
+    // Get modulation values from both LFOs
+    float modValue = modLFO.getNextValue();
+    float wsValue = waveshapeLFO.getNextValue();
     lastModValue = modValue;
     lastWaveshapeValue = wsValue;
-
-    // Set interpolation type for main LFO
-    lfo.setInterpolationType(interpolationType);
 
     // Get playhead info
     bool isPlaying = false;
@@ -403,7 +387,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         
         if (modEnabled && target == ModulationLFO::Target::Rate)
         {
-            float modValue = modLFO.getNextInterpolatedValue(interpolationType);
+            float modValue = modLFO.getNextValue();
             division = division * modLFO.applyModulation(1.0f, modValue);
         }
         
@@ -420,6 +404,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
 
     // Update both modulation LFOs
+    // Original modulation LFO
     auto* modRateParam = apvts.getRawParameterValue("modLfoRate");
     auto* modDepthParam = apvts.getRawParameterValue("modLfoDepth");
     auto* modWaveformParam = apvts.getRawParameterValue("modLfoWaveform");
@@ -430,7 +415,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     modLFO.setWaveform(static_cast<ModulationLFO::Waveform>(static_cast<int>(modWaveformParam->load())));
     modLFO.setTarget(static_cast<ModulationLFO::Target>(static_cast<int>(modTargetParam->load())));
 
-    // Update waveshape LFO
+    // Waveshape modulation LFO
     auto* wsRateParam = apvts.getRawParameterValue("wsLfoRate");
     auto* wsDepthParam = apvts.getRawParameterValue("wsLfoDepth");
     auto* wsWaveformParam = apvts.getRawParameterValue("wsLfoWaveform");
@@ -445,16 +430,14 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     float basePhaseOffset = phaseOffsetParam->load();
 
     // Process audio
+
     if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
     {
         // Pre-calculate LFO values with modulation
         for (int i = 0; i < numSamples; ++i)
         {
-            float modValue = modLFO.getNextInterpolatedValue(interpolationType);
-            float wsValue = wsEnabled ?
-                waveshapeLFO.getNextInterpolatedValue(interpolationType) :
-                0.0f;
-                
+            float modValue = modLFO.getNextValue();
+            float wsValue = wsEnabled ? waveshapeLFO.getNextValue() : 0.0f;
             lastModValue = modValue;
             lastWaveshapeValue = wsValue;
 
@@ -486,7 +469,10 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             
             // Get LFO sample with waveshaping and ensure it's in the correct range
             float lfoValue = lfo.getNextSample(wsValue);
+            // Clamp value between 0 and 1 to prevent any potential out-of-range issues
             lfoValue = juce::jlimit(0.0f, 1.0f, lfoValue);
+            
+            // Store the clamped value in the buffer
             lfoValuesBuffer[i] = lfoValue;
         }
 
