@@ -11,6 +11,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PerlinNoise.h"
+#include "TremoloLFO.h"
 
 class LFOVisualizer : public juce::Component, public juce::Timer
 {
@@ -295,26 +296,24 @@ private:
         float output = 0.0f;
         
         // Apply base waveform calculation
-        switch (waveform)
+        switch (static_cast<TremoloLFO::Waveform>(waveform))
         {
-            case 0: // Sine
+            case TremoloLFO::Waveform::Sine:
             {
                 double angle = phase * juce::MathConstants<float>::twoPi;
                 output = std::sin(angle);
                 
-                // Apply waveshaping modulation
                 if (wsEnabled && wsValue > 0.0f) {
-                    output += wsValue * 0.3f * std::sin(2.0 * angle);  // 2nd harmonic
-                    output += wsValue * 0.15f * std::sin(3.0 * angle); // 3rd harmonic
-                    output = output / (1.0f + wsValue * 0.45f); // Normalize
+                    output += wsValue * 0.3f * std::sin(2.0 * angle);
+                    output += wsValue * 0.15f * std::sin(3.0 * angle);
+                    output = output / (1.0f + wsValue * 0.45f);
                 }
             }
             break;
                 
-            case 1: // Square
+            case TremoloLFO::Waveform::Square:
             {
                 if (wsEnabled) {
-                    // Apply waveshaping to adjust duty cycle and edge softness
                     float threshold = 0.5f + (wsValue * 0.4f * std::sin(phase * 6.28318f));
                     float softness = 0.01f + wsValue * 0.2f;
                     output = (1.0f / (1.0f + std::exp(-(phase - threshold) / softness))) * 2.0f - 1.0f;
@@ -324,11 +323,10 @@ private:
             }
             break;
                 
-            case 2: // Triangle
+            case TremoloLFO::Waveform::Triangle:
             {
                 output = 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
                 
-                // Apply waveshaping for asymmetric triangle
                 if (wsEnabled && wsValue > 0.0f) {
                     float shaped = std::pow((output + 1.0f) * 0.5f, 1.0f + wsValue * 2.0f) * 2.0f - 1.0f;
                     output = output * (1.0f - wsValue) + shaped * wsValue;
@@ -336,7 +334,7 @@ private:
             }
             break;
                 
-            case 3: // Sawtooth
+            case TremoloLFO::Waveform::SawtoothUp:
             {
                 output = 2.0f * phase - 1.0f;
                 if (wsEnabled && wsValue > 0.0f) {
@@ -346,7 +344,7 @@ private:
             }
             break;
                 
-            case 4: // Ramp Down
+            case TremoloLFO::Waveform::SawtoothDown:
             {
                 output = 1.0f - (2.0f * phase);
                 if (wsEnabled && wsValue > 0.0f) {
@@ -356,7 +354,7 @@ private:
             }
             break;
                 
-            case 5: // Soft Square
+            case TremoloLFO::Waveform::SoftSquare:
             {
                 const float baseSharpness = 10.0f;
                 float modifiedSharpness = wsEnabled ? baseSharpness * (1.0f - wsValue * 0.8f) : baseSharpness;
@@ -365,7 +363,7 @@ private:
             }
             break;
                 
-            case 6: // FenderStyle
+            case TremoloLFO::Waveform::FenderStyle:
             {
                 double angle = phase * 2.0 * juce::MathConstants<float>::pi;
                 if (wsEnabled) {
@@ -390,7 +388,7 @@ private:
             }
             break;
                 
-            case 7: // WurlitzerStyle
+            case TremoloLFO::Waveform::WurlitzerStyle:
             {
                 double angle = phase * 2.0 * juce::MathConstants<float>::pi;
                 float sineComponent = std::sin(angle);
