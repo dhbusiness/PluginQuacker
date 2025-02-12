@@ -22,6 +22,8 @@
             file="Source/PluginProcessor.h"/>
       <FILE id="qkZSSN" name="LFOVisualizer.h" compile="0" resource="0" file="Source/LFOVisualizer.h"/>
       <FILE id="zXaaGW" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
+      <FILE id="l3cjxN" name="AntiAliasedOscillator.h" compile="0" resource="0"
+            file="Source/AntiAliasedOscillator.h"/>
       <FILE id="qgsjNI" name="TremoloLFO.cpp" compile="1" resource="0" file="Source/TremoloLFO.cpp"/>
       <FILE id="nJO9T7" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>

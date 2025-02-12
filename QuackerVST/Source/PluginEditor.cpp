@@ -179,7 +179,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     modTargetSelector.getComboBox().addItem("Phase", 3);
     modTargetSelector.getComboBox().setJustificationType(juce::Justification::centred);
     modTargetSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
-    addAndMakeVisible(modTargetSelector);
+    //addAndMakeVisible(modTargetSelector);
     
     modEnableButton.setButtonText("MOD ON");
     modEnableButton.setLookAndFeel(&customToggleLookAndFeel);

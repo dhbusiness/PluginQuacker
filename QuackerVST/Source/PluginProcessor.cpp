@@ -382,7 +382,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     // Handle sync and timing
     if (syncParam->load() > 0.5f)
     {
-        const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
+        const double divisions[] = { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
         
         if (modEnabled && target == ModulationLFO::Target::Rate)

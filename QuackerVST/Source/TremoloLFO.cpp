@@ -53,7 +53,7 @@ float TremoloLFO::getNextSample(float waveshapeAmount)
             while (phase >= 1.0) phase -= 1.0;
         } else {
             double beatsPerCycle = 4.0 / noteDivision;
-            phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
+            phase = std::fmod(beatPosition / beatsPerCycle, 1.0);
         }
         
         double outputPhase = phase + phaseOffset;
