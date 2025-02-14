@@ -170,10 +170,15 @@ private:
             phaseOffset = offsetDegrees / 360.0f;
         }
 
-        void setBeatPosition(double newBeatPosition)
-        {
-            lastBeatPosition = beatPosition;
-            beatPosition = newBeatPosition;
+        void setBeatPosition(double newBeatPosition) {
+            if (syncedToHost) {
+                lastBeatPosition = beatPosition;
+                beatPosition = newBeatPosition;
+                
+                // Update accumulated phase to match beat position
+                double beatsPerCycle = 4.0 / noteDivision;
+                accumulatedPhase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
+            }
         }
 
         void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
@@ -235,14 +240,13 @@ private:
             float sum = 0.0f;
             
             if (!syncedToHost) {
+                // Non-synced mode remains the same - this was working well
                 currentRate = smoothedRate.getNextValue();
                 double phaseIncrement = (currentRate / sampleRate) / oversamplingFactor;
                 
                 for (int i = 0; i < oversamplingFactor; ++i) {
-                    // Accumulate phase with higher precision
                     accumulatedPhase += phaseIncrement;
                     
-                    // Prevent floating point accumulation errors
                     if (accumulatedPhase > 1000.0) {
                         accumulatedPhase = std::fmod(accumulatedPhase, 1.0);
                     }
@@ -251,13 +255,16 @@ private:
                     sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
                 }
             } else {
-                // For tempo-synced mode, we still oversample but use beat position
+                // Tempo-synced mode - revert to original logic but with oversampling
                 double beatsPerCycle = 4.0 / noteDivision;
                 double basePhaseDelta = ((beatPosition - lastBeatPosition) / beatsPerCycle) * 2.0;
                 double phaseIncrement = basePhaseDelta / oversamplingFactor;
                 
+                // For tempo sync, we calculate each oversampled position directly
                 for (int i = 0; i < oversamplingFactor; ++i) {
-                    accumulatedPhase = std::fmod((beatPosition + (i * phaseIncrement)) / beatsPerCycle * 2.0, 1.0);
+                    double currentPhasePosition = (beatPosition + (i * phaseIncrement / 2.0)) / beatsPerCycle * 2.0;
+                    accumulatedPhase = std::fmod(currentPhasePosition, 1.0);
+                    
                     double smoothedPhase = phaseSmoothing.getNextValue();
                     sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
                 }
