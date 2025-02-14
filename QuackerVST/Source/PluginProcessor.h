@@ -95,18 +95,35 @@ private:
             , rateSmoothing(0.997)
             , beatPosition(0.0)
             , lastBeatPosition(0.0)
+            , oversamplingFactor(4)  // Default 4x oversampling
         {
             // Initialize smoothed values with optimized timings
             smoothedDepth.reset(sampleRate, 0.02);  // 20ms smoothing for depth
             smoothedRate.reset(sampleRate, 0.05);   // 50ms smoothing for rate
             phaseSmoothing.reset(sampleRate, 0.01); // 10ms smoothing for phase
+            
+            // Initialize oversampling buffers
+            oversampledBuffer.resize(oversamplingFactor);
         }
-
         
-        void setRate(float newRate)
-        {
+        void setSampleRate(double newSampleRate) {
+            sampleRate = newSampleRate;
+            rateSmoothing = std::pow(0.5, 1.0 / (sampleRate * 0.005));
+            
+            // Update smoothing times
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.08);
+            phaseSmoothing.reset(sampleRate, 0.03);
+            resetTransitionIncrement = 1.0f / (resetTransitionTime * static_cast<float>(sampleRate));
+
+            // Update oversampling if rate is high
+            updateOversamplingFactor();
+        }
+        
+        void setRate(float newRate) {
             rate = newRate;
             smoothedRate.setTargetValue(newRate);
+            updateOversamplingFactor();  // Adjust oversampling based on new rate
         }
 
         void setDepth(float newDepth)
@@ -114,17 +131,32 @@ private:
             depth = newDepth;
             smoothedDepth.setTargetValue(newDepth);
         }
-        void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
-        void setSampleRate(double newSampleRate)
-        {
-            sampleRate = newSampleRate;
-            rateSmoothing = pow(0.5, 1.0 / (sampleRate * 0.005));
-            
-            // Update smoothing times and calculate reset transition increment
-            smoothedDepth.reset(sampleRate, 0.05);
-            smoothedRate.reset(sampleRate, 0.08);
-            phaseSmoothing.reset(sampleRate, 0.03);
-            resetTransitionIncrement = 1.0f / (resetTransitionTime * static_cast<float>(sampleRate));
+        
+        float getNextSample() {
+            if (!wasActive && !waitingForReset) {
+                lastOutputValue = depth;
+                return depth;
+            }
+
+            float output;
+
+            if (waitingForReset) {
+                if (!inResetTransition && (getPhaseNormalized() >= 0.99 || getPhaseNormalized() < 0.01)) {
+                    inResetTransition = true;
+                    resetTransitionPhase = 0.0f;
+                    lastOutputValue = calculateCurrentValue(getPhaseWithOffset(), phaseSmoothing.getNextValue());
+                }
+            }
+
+            if (inResetTransition) {
+                output = handleResetTransition();
+            } else {
+                output = generateOversampledOutput();
+            }
+
+            // Apply depth with smoothing
+            float smoothedDepthValue = smoothedDepth.getNextValue();
+            return output * smoothedDepthValue + (1.0f - smoothedDepthValue);
         }
         
         void setSyncMode(bool shouldSync, double division = 1.0)
@@ -144,13 +176,7 @@ private:
             beatPosition = newBeatPosition;
         }
 
-        void resetPhase()
-        {
-            phase = 0.0;
-            currentRate = rate;
-            smoothedDepth.reset(sampleRate, 0.05);
-            smoothedRate.reset(sampleRate, 0.05);
-        }
+        void setWaveform(Waveform newWaveform) { waveform = newWaveform; }
         
         bool isWaitingForReset() const { return waitingForReset; }
         
@@ -180,68 +206,104 @@ private:
         }
         
         
-        float getNextSample()
-        {
-            if (!wasActive && !waitingForReset) {
+
+        
+        void resetPhase() {
+            phase = 0.0;
+            accumulatedPhase = 0.0;  // Reset accumulated phase as well
+            currentRate = rate;
+            smoothedDepth.reset(sampleRate, 0.05);
+            smoothedRate.reset(sampleRate, 0.05);
+        }
+        
+    private:
+        
+        // Improved phase handling
+        double getPhaseNormalized() const {
+            return std::fmod(accumulatedPhase, 1.0);
+        }
+        
+        double getPhaseWithOffset() const {
+            double outputPhase = getPhaseNormalized() + phaseOffset;
+            while (outputPhase >= 1.0) outputPhase -= 1.0;
+            while (outputPhase < 0.0) outputPhase += 1.0;
+            return outputPhase;
+        }
+        
+        // Oversampling implementation
+        float generateOversampledOutput() {
+            float sum = 0.0f;
+            
+            if (!syncedToHost) {
+                currentRate = smoothedRate.getNextValue();
+                double phaseIncrement = (currentRate / sampleRate) / oversamplingFactor;
+                
+                for (int i = 0; i < oversamplingFactor; ++i) {
+                    // Accumulate phase with higher precision
+                    accumulatedPhase += phaseIncrement;
+                    
+                    // Prevent floating point accumulation errors
+                    if (accumulatedPhase > 1000.0) {
+                        accumulatedPhase = std::fmod(accumulatedPhase, 1.0);
+                    }
+                    
+                    double smoothedPhase = phaseSmoothing.getNextValue();
+                    sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
+                }
+            } else {
+                // For tempo-synced mode, we still oversample but use beat position
+                double beatsPerCycle = 4.0 / noteDivision;
+                double basePhaseDelta = ((beatPosition - lastBeatPosition) / beatsPerCycle) * 2.0;
+                double phaseIncrement = basePhaseDelta / oversamplingFactor;
+                
+                for (int i = 0; i < oversamplingFactor; ++i) {
+                    accumulatedPhase = std::fmod((beatPosition + (i * phaseIncrement)) / beatsPerCycle * 2.0, 1.0);
+                    double smoothedPhase = phaseSmoothing.getNextValue();
+                    sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
+                }
+            }
+            
+            lastOutputValue = sum / oversamplingFactor;
+            return lastOutputValue;
+        }
+        
+        float handleResetTransition() {
+            resetTransitionPhase += resetTransitionIncrement;
+            
+            if (resetTransitionPhase >= 1.0f) {
+                inResetTransition = false;
+                waitingForReset = false;
+                phase = 0.0;
+                accumulatedPhase = 0.0;  // Reset accumulated phase
                 lastOutputValue = depth;
                 return depth;
             }
-
-            float output;
             
-            if (waitingForReset) {
-                if (!inResetTransition && (phase >= 0.99 || phase < 0.01)) {
-                    inResetTransition = true;
-                    resetTransitionPhase = 0.0f;
-                    double outputPhase = phase + phaseOffset;
-                    while (outputPhase >= 1.0) outputPhase -= 1.0;
-                    while (outputPhase < 0.0) outputPhase += 1.0;
-                    double smoothedPhase = phaseSmoothing.getNextValue();
-                    lastOutputValue = calculateCurrentValue(outputPhase, smoothedPhase);
-                }
-            }
-
-            if (inResetTransition) {
-                // Smoothly transition from last value to reset position
-                resetTransitionPhase += resetTransitionIncrement;
-                
-                if (resetTransitionPhase >= 1.0f) {
-                    // Transition complete
-                    inResetTransition = false;
-                    waitingForReset = false;
-                    phase = 0.0;
-                    lastOutputValue = depth;
-                    output = depth;
-                } else {
-                    // Cosine interpolation for smoother transition
-                    float cosPhase = (1.0f - std::cos(resetTransitionPhase * juce::MathConstants<float>::pi)) * 0.5f;
-                    output = lastOutputValue * (1.0f - cosPhase) + depth * cosPhase;
-                }
-            } else {
-                // Normal LFO operation
-                if (!syncedToHost) {
-                    currentRate = smoothedRate.getNextValue();
-                    phase += currentRate / sampleRate;
-                    while (phase >= 1.0) phase -= 1.0;
-                } else {
-                    double beatsPerCycle = 4.0 / noteDivision;
-                    phase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
-                }
-                
-                // Apply phase offset and calculate output
-                double outputPhase = phase + phaseOffset;
-                while (outputPhase >= 1.0) outputPhase -= 1.0;
-                while (outputPhase < 0.0) outputPhase += 1.0;
-                double smoothedPhase = phaseSmoothing.getNextValue();
-                output = calculateCurrentValue(outputPhase, smoothedPhase);
-                lastOutputValue = output;
-            }
-
-            // Apply depth
-            float smoothedDepthValue = smoothedDepth.getNextValue();
-            return output * smoothedDepthValue + (1.0f - smoothedDepthValue);
+            // Cosine interpolation for smoother transition
+            float cosPhase = (1.0f - std::cos(resetTransitionPhase * juce::MathConstants<float>::pi)) * 0.5f;
+            return lastOutputValue * (1.0f - cosPhase) + depth * cosPhase;
         }
-    private:
+
+        void updateOversamplingFactor() {
+            // Dynamically adjust oversampling based on rate
+            // Higher rates need more oversampling to prevent aliasing
+            if (rate > sampleRate * 0.1) {  // Above 10% of sample rate
+                oversamplingFactor = 16;
+            } else if (rate > sampleRate * 0.05) {  // Above 5% of sample rate
+                oversamplingFactor = 8;
+            } else if (rate > sampleRate * 0.01) {  // Above 1% of sample rate
+                oversamplingFactor = 4;
+            } else {
+                oversamplingFactor = 2;
+            }
+            
+            // Resize buffer if needed
+            if (oversampledBuffer.size() != oversamplingFactor) {
+                oversampledBuffer.resize(oversamplingFactor);
+            }
+        }
+        
+        
         
         // Add helper method before other private members
         float calculateCurrentValue(double outputPhase, double smoothedPhase) {
@@ -304,7 +366,9 @@ private:
             return output;
         }
         
+        // Member variables
         double phase;
+        double accumulatedPhase;  // New: accumulated phase for higher precision
         float rate;
         float depth;
         Waveform waveform;
@@ -317,21 +381,23 @@ private:
         juce::SmoothedValue<float> smoothedRate;
         juce::SmoothedValue<float> phaseSmoothing;
         
-        // Beat sync related
         bool syncedToHost = false;
         double beatPosition;
         double lastBeatPosition;
         double noteDivision = 1.0;
         
-        bool waitingForReset = false;  // New flag to track if we're completing a cycle
-        bool wasActive = false;        // Track previous active state
-        
-        // Add new member variables at the top of the private section
-        float resetTransitionPhase = 0.0f;
+        bool waitingForReset = false;
+        bool wasActive = false;
         bool inResetTransition = false;
+        
+        float resetTransitionPhase = 0.0f;
         float lastOutputValue = 0.0f;
-        const float resetTransitionTime = 0.05f; // 50ms transition
+        const float resetTransitionTime = 0.05f;
         float resetTransitionIncrement = 0.0f;
+
+        // New: Oversampling-related members
+        int oversamplingFactor;
+        std::vector<float> oversampledBuffer;
         
         
     };
