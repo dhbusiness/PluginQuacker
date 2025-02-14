@@ -7,15 +7,7 @@
 
   ==============================================================================
 */
-/*
-  ==============================================================================
 
-    TremoloLFO.cpp
-    Created: 14 Feb 2025 12:00:00pm
-    Author:  Your Name
-
-  ==============================================================================
-*/
 
 #include "TremoloLFO.h"
 
@@ -161,21 +153,18 @@ double TremoloLFO::getPhaseWithOffset() const {
 }
 
 float TremoloLFO::generateOversampledOutput() {
-    float sum = 0.0f;
+    // First, apply smoothing at base sample rate
+    currentRate = smoothedRate.getNextValue();
+    double smoothedPhase = phaseSmoothing.getNextValue();
     
     if (!syncedToHost) {
-        currentRate = smoothedRate.getNextValue();
+        // Calculate phase increment for oversampled rate
         double phaseIncrement = (currentRate / sampleRate) / oversamplingFactor;
         
+        // Store oversampled points
         for (int i = 0; i < oversamplingFactor; ++i) {
-            accumulatedPhase += phaseIncrement;
-            
-            if (accumulatedPhase > 1000.0) {
-                accumulatedPhase = std::fmod(accumulatedPhase, 1.0);
-            }
-            
-            double smoothedPhase = phaseSmoothing.getNextValue();
-            sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
+            accumulatedPhase = std::fmod(accumulatedPhase + phaseIncrement, 1.0);
+            oversampledBuffer[i] = calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
         }
     } else {
         double beatsPerCycle = 4.0 / noteDivision;
@@ -183,12 +172,21 @@ float TremoloLFO::generateOversampledOutput() {
         double phaseIncrement = basePhaseDelta / oversamplingFactor;
         
         for (int i = 0; i < oversamplingFactor; ++i) {
-            double currentPhasePosition = (beatPosition + (i * phaseIncrement / 2.0)) / beatsPerCycle * 2.0;
-            accumulatedPhase = std::fmod(currentPhasePosition, 1.0);
-            
-            double smoothedPhase = phaseSmoothing.getNextValue();
-            sum += calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
+            double currentPhasePosition = std::fmod(
+                (beatPosition + (i * phaseIncrement / 2.0)) / beatsPerCycle * 2.0,
+                1.0
+            );
+            oversampledBuffer[i] = calculateCurrentValue(
+                std::fmod(currentPhasePosition + phaseOffset, 1.0),
+                smoothedPhase
+            );
         }
+    }
+    
+    // Apply a simple moving average as a basic downsampling filter
+    float sum = 0.0f;
+    for (int i = 0; i < oversamplingFactor; ++i) {
+        sum += oversampledBuffer[i];
     }
     
     lastOutputValue = sum / oversamplingFactor;
