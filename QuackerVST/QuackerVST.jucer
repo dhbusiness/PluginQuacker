@@ -22,6 +22,8 @@
       <FILE id="qkZSSN" name="LFOVisualizer.h" compile="0" resource="0" file="Source/LFOVisualizer.h"/>
       <FILE id="nJO9T7" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
+      <FILE id="egRPVE" name="TremoloLFO.cpp" compile="1" resource="0" file="Source/TremoloLFO.cpp"/>
+      <FILE id="rEkgTm" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
