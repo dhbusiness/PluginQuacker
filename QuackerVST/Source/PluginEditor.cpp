@@ -34,7 +34,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // Setup controls
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
     lfoRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
-    lfoRateSlider.setRange(0.01, 2.0, 0.01);
+    lfoRateSlider.setRange(0.01, 20.0, 0.01);
     addAndMakeVisible(lfoRateSlider);
 
     lfoDepthSlider.setSliderStyle(juce::Slider::Rotary);

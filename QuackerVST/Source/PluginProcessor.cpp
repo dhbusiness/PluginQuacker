@@ -34,7 +34,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "lfoRate",           // parameterID
         "LFO Rate",         // parameter name
         0.01f,              // minimum value
-        2.0f,               // maximum value
+        20.0f,               // maximum value
         1.0f               // default value
     ));
 
