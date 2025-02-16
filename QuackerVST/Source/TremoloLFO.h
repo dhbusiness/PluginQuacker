@@ -76,6 +76,27 @@ public:
     // Update the remembered manual rate
     void storeManualRate(float manualRate) { lastManualRate = manualRate; };
     
+    // Convert a normalized (0-1) value to an exponential rate
+    static float normalizedToRate(float normalizedValue) {
+        // Map 0-1 to our frequency range (0.01 Hz to 25 Hz) exponentially
+        const float minRate = 0.01f;
+        const float maxRate = 25.0f;
+        
+        // Use an exponential curve with base 2 for musical scaling
+        float expValue = std::pow(2.0f, normalizedValue * std::log2(maxRate / minRate));
+        return minRate * expValue;
+    };
+    
+    // Convert a rate back to a normalized (0-1) value
+    static float rateToNormalized(float rate) {
+        const float minRate = 0.01f;
+        const float maxRate = 25.0f;
+        
+        // Inverse of the above function
+        return std::log2(rate / minRate) / std::log2(maxRate / minRate);
+    };
+
+    
 private:
     double getPhaseNormalized() const;
     double getPhaseWithOffset() const;

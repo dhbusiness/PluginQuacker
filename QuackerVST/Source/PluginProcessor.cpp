@@ -29,14 +29,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // LFO Rate
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+    // LFO Rate with skew factor for exponential response
+    auto* rateParam = new juce::AudioParameterFloat(
         "lfoRate",           // parameterID
         "LFO Rate",         // parameter name
-        0.01f,              // minimum value
-        25.0f,               // maximum value
-        1.0f               // default value
-    ));
+        juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f), // range with skew
+        1.0f                // default value
+    );
+    params.push_back(std::unique_ptr<juce::RangedAudioParameter>(rateParam));
 
     // LFO Depth
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -306,44 +306,49 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto* mixParam = apvts.getRawParameterValue("mix");
     float mix = mixParam->load();
     
-    static bool wasInSync = false;  // Track previous sync state
-    bool isInSync = syncParam->load() > 0.5f;
+ 
 
     // Set LFO parameters
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
 
+    static bool wasInSync = false;
+    bool isInSync = syncParam->load() > 0.5f;
+
     // Handle sync state changes
     if (isInSync != wasInSync) {
         if (isInSync) {
-            // Switching to sync mode - current rate will be stored in LFO
+            // Switching TO sync mode - store current manual rate
+            float currentRate = rateParam->load();
+            lfo.storeManualRate(currentRate);  // Store the current rate before switching to sync
+            
+            // Calculate initial sync frequency
             const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
             double division = divisions[static_cast<int>(divisionParam->load())];
-            
             double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
             
-            // Apply compression for high frequencies
+            // Apply high-frequency compression
             if (syncedFreq > 15.0) {
                 syncedFreq = 15.0 + (std::log10(syncedFreq - 14.0) * 5.0);
             }
             syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
             
-            // Update the rate parameter
+            // Update the rate parameter to show synced value
             if (auto* rateParameter = apvts.getParameter("lfoRate")) {
-                float normalizedValue = (syncedFreq - 0.01f) / (25.0f - 0.01f);
-                rateParameter->setValueNotifyingHost(normalizedValue);
+                rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(syncedFreq));
             }
             
             lfo.setSyncMode(true, division);
-        } else {
-            // Switching back to manual mode - restore previous rate
+            lfo.setRate(static_cast<float>(syncedFreq));
+        }
+        else {
+            // Switching FROM sync mode - restore the previous manual rate
             float manualRate = lfo.getLastManualRate();
             
-            // Update the rate parameter
+            // Update the rate parameter with the stored manual rate
             if (auto* rateParameter = apvts.getParameter("lfoRate")) {
-                float normalizedValue = (manualRate - 0.01f) / (25.0f - 0.01f);
-                rateParameter->setValueNotifyingHost(normalizedValue);
+                rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(manualRate));
             }
             
             lfo.setSyncMode(false);
@@ -353,33 +358,33 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     
     wasInSync = isInSync;
 
-    // Regular sync handling for when we're already in sync mode
+    // Regular parameter handling
     if (isInSync) {
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
         
-        // Update LFO with current BPM
         lfo.setBPM(currentBPM);
         
+        // Calculate tempo-synced frequency
         double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
         
+        // Apply high-frequency compression
         if (syncedFreq > 15.0) {
             syncedFreq = 15.0 + (std::log10(syncedFreq - 14.0) * 5.0);
         }
         syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
         
-        if (auto* rateParameter = apvts.getParameter("lfoRate")) {
-            float normalizedValue = (syncedFreq - 0.01f) / (25.0f - 0.01f);
-            rateParameter->setValueNotifyingHost(normalizedValue);
-        }
-        
+        // Set the actual rate in the LFO and update parameter
         lfo.setRate(static_cast<float>(syncedFreq));
-    } else {
-        // In manual mode, just use the rate parameter directly
-        lfo.setRate(rateParam->load());
-        
-        // Store the current manual rate in case we switch to sync mode
-        lfo.storeManualRate(rateParam->load());
+        if (auto* rateParameter = apvts.getParameter("lfoRate")) {
+            rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(syncedFreq));
+        }
+    }
+    else {
+        // In manual mode
+        float manualRate = rateParam->load();
+        lfo.setRate(manualRate);
+        // Don't store the rate here - we only want to store it when switching TO sync mode
     }
 
     // Pre-calculate LFO values with high quality
