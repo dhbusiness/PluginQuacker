@@ -37,7 +37,25 @@ public:
     float getNextSample();
     bool isWaitingForReset() const;
     void updateActiveState(bool isActive, bool isPlaying);
+    void setBPM(double bpm);
 
+    // Convert BPM and note division to equivalent frequency
+    static double bpmToFrequency(double bpm, double noteDivision) {
+        // noteDivision is in terms of beats (e.g., 0.25 = quarter note, 0.5 = half note)
+        return (bpm / 60.0) * noteDivision;
+    };
+
+    // Get the current effective frequency, whether synced or not
+    double getCurrentEffectiveRate() const {
+        if (syncedToHost) {
+            return bpmToFrequency(currentBPM, noteDivision);
+        }
+        return rate;
+    };
+    
+    bool isSynced() const { return syncedToHost; };
+    double getCurrentDivision() const { return noteDivision; };
+    
 private:
     double getPhaseNormalized() const;
     double getPhaseWithOffset() const;
@@ -77,4 +95,6 @@ private:
 
     int oversamplingFactor;
     std::vector<float> oversampledBuffer;
+    
+    double currentBPM;
 };

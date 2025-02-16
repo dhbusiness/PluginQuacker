@@ -25,6 +25,7 @@ TremoloLFO::TremoloLFO()
     , lastBeatPosition(0.0)
     , syncedToHost(false)
     , noteDivision(1.0)
+    , currentBPM(120.0)
     , waitingForReset(false)
     , wasActive(false)
     , inResetTransition(false)
@@ -38,6 +39,15 @@ TremoloLFO::TremoloLFO()
     smoothedRate.reset(sampleRate, 0.05);
     phaseSmoothing.reset(sampleRate, 0.01);
     oversampledBuffer.resize(oversamplingFactor);
+}
+
+void TremoloLFO::setBPM(double bpm) {
+    currentBPM = bpm;
+    if (syncedToHost) {
+        // When in sync mode, update our effective rate based on the new BPM
+        double syncedFreq = bpmToFrequency(bpm, noteDivision);
+        setRate(static_cast<float>(syncedFreq));
+    }
 }
 
 void TremoloLFO::setSampleRate(double newSampleRate) {
@@ -93,9 +103,16 @@ float TremoloLFO::getNextSample() {
     return output * smoothedDepthValue + (1.0f - smoothedDepthValue);
 }
 
+// Ensure setSyncMode updates our rate when sync state changes:
 void TremoloLFO::setSyncMode(bool shouldSync, double division) {
     syncedToHost = shouldSync;
     noteDivision = division;
+    
+    if (shouldSync) {
+        // When enabling sync, immediately update rate to match tempo
+        double syncedFreq = bpmToFrequency(currentBPM, division);
+        setRate(static_cast<float>(syncedFreq));
+    }
 }
 
 void TremoloLFO::setPhaseOffset(float offsetDegrees) {
@@ -103,14 +120,10 @@ void TremoloLFO::setPhaseOffset(float offsetDegrees) {
 }
 
 void TremoloLFO::setBeatPosition(double newBeatPosition) {
-    if (syncedToHost) {
-        lastBeatPosition = beatPosition;
-        beatPosition = newBeatPosition;
-        
-        double beatsPerCycle = 4.0 / noteDivision;
-        accumulatedPhase = std::fmod((beatPosition / beatsPerCycle) * 2.0, 1.0);
-    }
+    lastBeatPosition = beatPosition;
+    beatPosition = newBeatPosition;
 }
+
 
 void TremoloLFO::updateActiveState(bool isActive, bool isPlaying) {
     if (!isPlaying) {
@@ -153,37 +166,24 @@ double TremoloLFO::getPhaseWithOffset() const {
 }
 
 float TremoloLFO::generateOversampledOutput() {
-    // First, apply smoothing at base sample rate
+    // Get smoothed parameter values
     currentRate = smoothedRate.getNextValue();
     double smoothedPhase = phaseSmoothing.getNextValue();
     
-    if (!syncedToHost) {
-        // Calculate phase increment for oversampled rate
-        double phaseIncrement = (currentRate / sampleRate) / oversamplingFactor;
+    // We'll use the same phase accumulation logic for both sync and non-sync modes
+    // Calculate phase increment based on our current effective rate
+    double phaseIncrement = (currentRate / sampleRate) / oversamplingFactor;
+    
+    // Generate oversampled points using consistent phase accumulation
+    for (int i = 0; i < oversamplingFactor; ++i) {
+        // Accumulate phase and wrap between 0 and 1
+        accumulatedPhase = std::fmod(accumulatedPhase + phaseIncrement, 1.0);
         
-        // Store oversampled points
-        for (int i = 0; i < oversamplingFactor; ++i) {
-            accumulatedPhase = std::fmod(accumulatedPhase + phaseIncrement, 1.0);
-            oversampledBuffer[i] = calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
-        }
-    } else {
-        double beatsPerCycle = 4.0 / noteDivision;
-        double basePhaseDelta = ((beatPosition - lastBeatPosition) / beatsPerCycle) * 2.0;
-        double phaseIncrement = basePhaseDelta / oversamplingFactor;
-        
-        for (int i = 0; i < oversamplingFactor; ++i) {
-            double currentPhasePosition = std::fmod(
-                (beatPosition + (i * phaseIncrement / 2.0)) / beatsPerCycle * 2.0,
-                1.0
-            );
-            oversampledBuffer[i] = calculateCurrentValue(
-                std::fmod(currentPhasePosition + phaseOffset, 1.0),
-                smoothedPhase
-            );
-        }
+        // Calculate the LFO value for this sample
+        oversampledBuffer[i] = calculateCurrentValue(getPhaseWithOffset(), smoothedPhase);
     }
     
-    // Apply a simple moving average as a basic downsampling filter
+    // Apply our downsampling filter (moving average)
     float sum = 0.0f;
     for (int i = 0; i < oversamplingFactor; ++i) {
         sum += oversampledBuffer[i];
@@ -282,3 +282,4 @@ float TremoloLFO::calculateCurrentValue(double outputPhase, double smoothedPhase
     }
     return output;
 }
+

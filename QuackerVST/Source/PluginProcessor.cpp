@@ -34,7 +34,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "lfoRate",           // parameterID
         "LFO Rate",         // parameter name
         0.01f,              // minimum value
-        20.0f,               // maximum value
+        25.0f,               // maximum value
         1.0f               // default value
     ));
 
@@ -183,6 +183,17 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     currentSpecs.maximumBlockSize = samplesPerBlock;
     currentSpecs.numChannels = getTotalNumOutputChannels();
 
+    // Initialize with current BPM
+    if (auto* playHead = getPlayHead())
+    {
+        juce::AudioPlayHead::CurrentPositionInfo posInfo;
+        if (playHead->getCurrentPosition(posInfo))
+        {
+            currentBPM = posInfo.bpm;
+            lfo.setBPM(currentBPM);
+        }
+    }
+    
     // Allocate buffer with alignment for SIMD operations
     lfoValuesBuffer.allocate(samplesPerBlock + 4, true);
 
@@ -305,11 +316,24 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     {
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
         double division = divisions[static_cast<int>(divisionParam->load())];
-        lfo.setSyncMode(true, division);
-        if (isPlaying)
-        {
-            lfo.setBeatPosition(posInfo.ppqPosition);
+        
+        // Update LFO with current BPM
+        lfo.setBPM(currentBPM);
+        
+        // Calculate the equivalent frequency, ensuring we don't exceed rate limits
+        double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
+        syncedFreq = juce::jlimit(0.01, 20.0, syncedFreq); // Match rate parameter range
+        
+        // Update the rate parameter to reflect the synced frequency
+        if (auto* rateParameter = apvts.getParameter("lfoRate")) {
+            // Convert to normalized value (0-1 range)
+            float normalizedValue = (syncedFreq - 0.01f) / (20.0f - 0.01f);
+            rateParameter->setValueNotifyingHost(normalizedValue);
         }
+        
+        // Set sync mode and use the actual rate value
+        lfo.setSyncMode(true, division);
+        lfo.setRate(static_cast<float>(syncedFreq));
     }
     else
     {
