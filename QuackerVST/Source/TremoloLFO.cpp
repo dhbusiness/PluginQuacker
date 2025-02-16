@@ -105,6 +105,11 @@ float TremoloLFO::getNextSample() {
 
 // Ensure setSyncMode updates our rate when sync state changes:
 void TremoloLFO::setSyncMode(bool shouldSync, double division) {
+    // If we're enabling sync, store the current manual rate
+    if (!syncedToHost && shouldSync) {
+        lastManualRate = rate;
+    }
+    
     syncedToHost = shouldSync;
     noteDivision = division;
     
@@ -112,6 +117,9 @@ void TremoloLFO::setSyncMode(bool shouldSync, double division) {
         // When enabling sync, immediately update rate to match tempo
         double syncedFreq = bpmToFrequency(currentBPM, division);
         setRate(static_cast<float>(syncedFreq));
+    } else {
+        // When disabling sync, restore the previous manual rate
+        setRate(lastManualRate);
     }
 }
 

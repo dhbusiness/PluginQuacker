@@ -70,6 +70,12 @@ public:
     bool isSynced() const { return syncedToHost; };
     double getCurrentDivision() const { return noteDivision; };
     
+    // Get the remembered manual rate
+    float getLastManualRate() const { return lastManualRate; };
+    
+    // Update the remembered manual rate
+    void storeManualRate(float manualRate) { lastManualRate = manualRate; };
+    
 private:
     double getPhaseNormalized() const;
     double getPhaseWithOffset() const;
@@ -111,4 +117,7 @@ private:
     std::vector<float> oversampledBuffer;
     
     double currentBPM;
+    
+    // Store the last manual rate setting before sync was enabled
+    float lastManualRate = 1.0f;
 };
