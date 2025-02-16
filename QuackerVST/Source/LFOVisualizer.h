@@ -105,12 +105,22 @@ public:
         g.drawHorizontalLine(static_cast<int>(midY), 0.0f, bounds.getWidth());
         
         // Draw waveform with dynamic thickness
+        // Create our teal-focused gradient colors
+        juce::Colour mainTeal = juce::Colour(19, 224, 139);          // Base teal
+        juce::Colour brightTeal = mainTeal.brighter(0.2f);           // Brighter for peaks
+
+        
+        // Store path points for gradient coloring
+        std::vector<std::pair<float, float>> pathPoints;
+        
+        // Draw waveform with dynamic thickness
         juce::Path waveformPath;
         bool pathStarted = false;
 
         const float pointsPerPixel = 1.0f;
         const int numPoints = static_cast<int>(bounds.getWidth() * pointsPerPixel);
 
+        // First pass: collect points and create path
         for (int i = 0; i < numPoints; ++i)
         {
             float x = (static_cast<float>(i) / static_cast<float>(numPoints - 1)) * bounds.getWidth();
@@ -127,6 +137,8 @@ public:
             float variation = std::sin(phase * 50.0f + currentPhase * 10.0f) * 0.5f;
             y -= (value * depth * bounds.getHeight() * 0.4f) + variation;
 
+            pathPoints.push_back({x, y});
+
             if (!pathStarted)
             {
                 waveformPath.startNewSubPath(x, y);
@@ -138,23 +150,49 @@ public:
             }
         }
 
-        const juce::Colour waveformColor(19, 224, 139);
-        
-        // Enhanced glow effect with varying intensity
+        // Enhanced glow effect with teal gradient
+        const float maxDistance = bounds.getHeight() * 0.4f;
         float glowIntensity = 0.3f + std::sin(currentPhase * 5.0f) * 0.1f;
         
-        // Outer glow
-        g.setColour(waveformColor.withAlpha(glowIntensity * 0.3f));
-        g.strokePath(waveformPath, juce::PathStrokeType(4.0f));
-        
-        // Middle glow
-        g.setColour(waveformColor.withAlpha(glowIntensity * 0.5f));
-        g.strokePath(waveformPath, juce::PathStrokeType(2.5f));
-        
-        // Main line with slightly varying thickness
-        float mainLineThickness = 2.0f + std::sin(currentPhase * 3.0f) * 0.2f;
-        g.setColour(waveformColor);
-        g.strokePath(waveformPath, juce::PathStrokeType(mainLineThickness));
+        // Draw multiple paths with decreasing thickness and varying teal colors
+        for (int i = 0; i < pathPoints.size() - 1; ++i)
+        {
+            float x1 = pathPoints[i].first;
+            float y1 = pathPoints[i].second;
+            float x2 = pathPoints[i + 1].first;
+            float y2 = pathPoints[i + 1].second;
+            
+            // Calculate vertical position relative to center
+            float distanceFromCenter = std::abs(y1 - bounds.getCentreY());
+            float normalizedDistance = juce::jlimit(0.0f, 1.0f, distanceFromCenter / maxDistance);
+            
+            // Create teal gradient based on vertical position
+            juce::Colour segmentColor;
+            if (y1 < bounds.getCentreY()) {
+                // Upper half - blend between bright and main teal
+                segmentColor = brightTeal.interpolatedWith(mainTeal, 1.0f - normalizedDistance);
+            } else {
+                // Lower half - blend between dark and main teal
+                segmentColor = brightTeal.interpolatedWith(mainTeal, 1.0f - normalizedDistance);
+            }
+            
+            // Outer glow - soft, wide teal aura
+            g.setColour(segmentColor.withMultipliedAlpha(0.15f));
+            g.drawLine(x1, y1, x2, y2, 6.0f);
+            
+            // Middle glow - more focused teal glow
+            g.setColour(segmentColor.withMultipliedAlpha(0.3f));
+            g.drawLine(x1, y1, x2, y2, 3.5f);
+            
+            // Core line - bright, sharp teal
+            float mainLineThickness = 2.0f + std::sin(currentPhase * 3.0f + i * 0.1f) * 0.2f;
+            g.setColour(segmentColor.withMultipliedAlpha(0.95f));
+            g.drawLine(x1, y1, x2, y2, mainLineThickness);
+            
+            // Bright center highlight
+            g.setColour(brightTeal.withMultipliedAlpha(0.8f));
+            g.drawLine(x1, y1, x2, y2, 0.5f);
+        }
 
         // Draw border LAST, using the ORIGINAL bounds
         g.setColour(juce::Colour(120, 80, 75));
