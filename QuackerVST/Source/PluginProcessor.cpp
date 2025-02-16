@@ -320,18 +320,24 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         // Update LFO with current BPM
         lfo.setBPM(currentBPM);
         
-        // Calculate the equivalent frequency, ensuring we don't exceed rate limits
+        // Calculate the equivalent frequency with improved scaling
         double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
-        syncedFreq = juce::jlimit(0.01, 20.0, syncedFreq); // Match rate parameter range
+        
+        // Apply a softer limit curve for high frequencies
+        if (syncedFreq > 15.0) {
+            // Compress frequencies above 15 Hz using a logarithmic curve
+            syncedFreq = 15.0 + (std::log10(syncedFreq - 14.0) * 5.0);
+        }
+        
+        // Final hard limit to ensure we stay within parameter range
+        syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
         
         // Update the rate parameter to reflect the synced frequency
         if (auto* rateParameter = apvts.getParameter("lfoRate")) {
-            // Convert to normalized value (0-1 range)
-            float normalizedValue = (syncedFreq - 0.01f) / (20.0f - 0.01f);
+            float normalizedValue = (syncedFreq - 0.01f) / (25.0f - 0.01f);
             rateParameter->setValueNotifyingHost(normalizedValue);
         }
         
-        // Set sync mode and use the actual rate value
         lfo.setSyncMode(true, division);
         lfo.setRate(static_cast<float>(syncedFreq));
     }

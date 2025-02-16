@@ -41,8 +41,22 @@ public:
 
     // Convert BPM and note division to equivalent frequency
     static double bpmToFrequency(double bpm, double noteDivision) {
-        // noteDivision is in terms of beats (e.g., 0.25 = quarter note, 0.5 = half note)
-        return (bpm / 60.0) * noteDivision;
+        // BPM represents beats per minute
+        // noteDivision represents the fraction of a beat (e.g., 0.25 = quarter note)
+        
+        // First calculate cycles per minute
+        double cyclesPerMinute = (bpm * noteDivision);
+        
+        // Convert to Hz (cycles per second)
+        double frequencyHz = cyclesPerMinute / 60.0;
+        
+        // Apply a scaling factor to keep higher divisions within a musical range
+        // This helps prevent excessive rates at high BPMs with small divisions
+        if (noteDivision > 2.0) { // For divisions faster than 1/8 note
+            frequencyHz *= 0.75; // Reduce the frequency to keep it more musical
+        }
+        
+        return frequencyHz;
     };
 
     // Get the current effective frequency, whether synced or not
