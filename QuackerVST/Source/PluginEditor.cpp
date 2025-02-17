@@ -34,8 +34,27 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // Setup controls
     lfoRateSlider.setSliderStyle(juce::Slider::Rotary);
     lfoRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
-    lfoRateSlider.setRange(0.01, 2.0, 0.01);
+    lfoRateSlider.setSkewFactorFromMidPoint(1.0f); // Center the exponential curve around 1 Hz
+    lfoRateSlider.setRange(0.01, 25.0, 0.001);
+    lfoRateSlider.setDoubleClickReturnValue(true, 1.0); // Reset to 1 Hz on double-click
     addAndMakeVisible(lfoRateSlider);
+    
+    // Add a lambda function to format the text display nicely
+    lfoRateSlider.setTextValueSuffix(" Hz");
+    lfoRateSlider.onValueChange = [this]() {
+        float value = lfoRateSlider.getValue();
+        if (value < 0.1f) {
+            // Show more decimal places for very low frequencies
+            lfoRateSlider.setTextValueSuffix(" Hz");
+            lfoRateSlider.setNumDecimalPlacesToDisplay(3);
+        } else if (value < 1.0f) {
+            lfoRateSlider.setTextValueSuffix(" Hz");
+            lfoRateSlider.setNumDecimalPlacesToDisplay(2);
+        } else {
+            lfoRateSlider.setTextValueSuffix(" Hz");
+            lfoRateSlider.setNumDecimalPlacesToDisplay(1);
+        }
+    };
 
     lfoDepthSlider.setSliderStyle(juce::Slider::Rotary);
     lfoDepthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
@@ -164,6 +183,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoWaveformBox.addMouseListener(this, false);
     lfoNoteDivisionBox.addMouseListener(this, false);
 
+    
     
 }
 
