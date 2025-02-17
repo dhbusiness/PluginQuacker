@@ -12,8 +12,70 @@
 
 CustomDial::CustomDial()
 {
-
+    startTimerHz(60); // 60fps for smooth animation
 }
+
+CustomDial::~CustomDial()
+{
+    stopTimer();
+}
+
+void CustomDial::drawLabel(juce::Graphics& g, juce::Label& label)
+{
+    if (auto* slider = dynamic_cast<juce::Slider*>(label.getParentComponent()))
+    {
+        bool isActive = slider->isMouseOverOrDragging();
+        
+        // Update target opacity for this slider.
+        sliderTargetOpacities[slider] = isActive ? 1.0f : 0.0f;
+        auto& currentOpacity = sliderCurrentOpacities[slider];
+        
+        g.setColour(label.findColour(juce::Label::textColourId).withAlpha(currentOpacity));
+    }
+    else
+    {
+        g.setColour(label.findColour(juce::Label::textColourId));
+    }
+    
+    g.setFont(label.getFont());
+    g.drawFittedText(label.getText(), label.getLocalBounds(),
+                     label.getJustificationType(),
+                     juce::jmax(1, (int)(label.getHeight() / label.getFont().getHeight())),
+                     label.getMinimumHorizontalScale());
+}
+
+
+void CustomDial::timerCallback()
+{
+    for (auto& [slider, currentOpacity] : sliderCurrentOpacities)
+    {
+        if (slider != nullptr)
+        {
+            float targetOpacity = sliderTargetOpacities[slider];
+            if (std::abs(currentOpacity - targetOpacity) > 0.01f)
+            {
+                // Smoothly interpolate towards target opacity.
+                currentOpacity += (targetOpacity - currentOpacity) * 0.2f;
+                // Use const_cast to remove constness and call repaint()
+                const_cast<juce::Slider*>(slider)->repaint();
+            }
+        }
+    }
+    
+    // Clean up any null slider pointers.
+    for (auto it = sliderCurrentOpacities.begin(); it != sliderCurrentOpacities.end();)
+    {
+        if (it->first == nullptr)
+            it = sliderCurrentOpacities.erase(it);
+        else
+            ++it;
+    }
+}
+
+
+
+
+
 
 void CustomDial::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
     const float rotaryStartAngle, const float rotaryEndAngle, juce::Slider& slider)
@@ -146,3 +208,6 @@ void CustomDial::drawRotarySlider(juce::Graphics& g, int x, int y, int width, in
                 juce::AffineTransform::rotation(sliderAngle)
                 .translated(centerX - 0.5f, centerY - 0.5f));
 }
+
+
+

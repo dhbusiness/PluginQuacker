@@ -184,6 +184,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoNoteDivisionBox.addMouseListener(this, false);
 
     
+    
 }
 
 QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
