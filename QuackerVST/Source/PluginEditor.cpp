@@ -19,12 +19,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (800, 600);
+    setSize (800, 700);
 
     // Generate background only if it hasn't been generated yet
     if (!backgroundGenerated)
     {
-        generateBackgroundPattern(800, 600);
+        generateBackgroundPattern(800, 700);
         backgroundGenerated = true;
     }
     
@@ -137,10 +137,57 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoSyncButton.setButtonText("SYNC");
     bypassButton.setButtonText("BYPASS");
     
-    // Create bypass attachment (you'll need to add a bypass parameter to your APVTS first)
+    // Create bypass attachment
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         audioProcessor.apvts, "bypass", bypassButton);
 
+    // Initialize waveshaping controls
+    waveshapeRateSlider.setSliderStyle(juce::Slider::Rotary);
+    waveshapeRateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
+    waveshapeRateSlider.setRange(0.01, 25.0, 0.001);
+    waveshapeRateSlider.setSkewFactorFromMidPoint(1.0f);
+    waveshapeRateSlider.setDoubleClickReturnValue(true, 1.0);
+    addAndMakeVisible(waveshapeRateSlider);
+
+    waveshapeDepthSlider.setSliderStyle(juce::Slider::Rotary);
+    waveshapeDepthSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
+    waveshapeDepthSlider.setRange(0.0, 1.0, 0.01);
+    addAndMakeVisible(waveshapeDepthSlider);
+
+    // Setup waveshape waveform selector
+    waveshapeWaveformSelector.getComboBox().addItem("Sine", 1);
+    waveshapeWaveformSelector.getComboBox().addItem("Square", 2);
+    waveshapeWaveformSelector.getComboBox().addItem("Triangle", 3);
+    waveshapeWaveformSelector.getComboBox().addItem("Sawtooth Up", 4);
+    waveshapeWaveformSelector.getComboBox().addItem("Sawtooth Down", 5);
+    waveshapeWaveformSelector.getComboBox().addItem("Soft Square", 6);
+    waveshapeWaveformSelector.getComboBox().addItem("Fender Style", 7);
+    waveshapeWaveformSelector.getComboBox().addItem("Wurlitzer Style", 8);
+    addAndMakeVisible(waveshapeWaveformSelector);
+
+    waveshapeEnableButton.setButtonText("SHAPE");
+    waveshapeEnableButton.setLookAndFeel(&customToggleLookAndFeel);
+    addAndMakeVisible(waveshapeEnableButton);
+
+    waveshapeRateSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    waveshapeDepthSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    waveshapeRateSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    waveshapeDepthSlider.setColour(juce::Slider::textBoxTextColourId, textColor);
+    
+    // Create parameter attachments
+    waveshapeRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "waveshapeRate", waveshapeRateSlider);
+    waveshapeDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "waveshapeDepth", waveshapeDepthSlider);
+    waveshapeWaveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, "waveshapeWaveform", waveshapeWaveformSelector.getComboBox());
+    waveshapeEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        audioProcessor.apvts, "waveshapeEnabled", waveshapeEnableButton);
+
+    // Apply look and feel
+    waveshapeRateSlider.setLookAndFeel(&customDialLookAndFeel);
+    waveshapeDepthSlider.setLookAndFeel(&customDialLookAndFeel);
+    waveshapeWaveformSelector.getComboBox().setLookAndFeel(&customComboBoxLookAndFeel);
     
     // Create attachments
     lfoRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -202,6 +249,11 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     
     lfoWaveformBox.setLookAndFeel(nullptr);
     lfoNoteDivisionBox.setLookAndFeel(nullptr);
+    
+    waveshapeRateSlider.setLookAndFeel(nullptr);
+    waveshapeDepthSlider.setLookAndFeel(nullptr);
+    waveshapeWaveformSelector.getComboBox().setLookAndFeel(nullptr);
+    
 }
 
 void QuackerVSTAudioProcessorEditor::timerCallback()
@@ -245,6 +297,19 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
         // When bypassed, stop the LFO visualization
         lfoVisualizer.setActive(false, false);
     }
+    
+    // Update waveshaping parameters
+    auto waveshapeRateParam = audioProcessor.apvts.getRawParameterValue("waveshapeRate");
+    auto waveshapeDepthParam = audioProcessor.apvts.getRawParameterValue("waveshapeDepth");
+    auto waveshapeWaveformParam = audioProcessor.apvts.getRawParameterValue("waveshapeWaveform");
+    auto waveshapeEnabledParam = audioProcessor.apvts.getRawParameterValue("waveshapeEnabled");
+
+    lfoVisualizer.setWaveshapeParameters(
+        waveshapeDepthParam->load(),
+        waveshapeRateParam->load(),
+        static_cast<int>(waveshapeWaveformParam->load()),
+        waveshapeEnabledParam->load() > 0.5f
+    );
     
     repaint();
 }
@@ -414,6 +479,25 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
     g.drawText("MIX",
                juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20),
                juce::Justification::centred);
+    
+    
+    const int smallDialSize = dialSize * 0.75;
+    const int waveshapeControlsWidth = smallDialSize * 2 + spacing;
+    const int waveshapeStartX = (getWidth() - waveshapeControlsWidth) / 2;
+    
+    g.drawText("SHAPE RATE",
+               juce::Rectangle<int>(waveshapeStartX,
+                                  waveshapeRateSlider.getBottom(),
+                                  smallDialSize,
+                                  20),
+               juce::Justification::centred);
+               
+    g.drawText("SHAPE DEPTH",
+               juce::Rectangle<int>(waveshapeStartX + smallDialSize + spacing,
+                                  waveshapeDepthSlider.getBottom(),
+                                  smallDialSize,
+                                  20),
+               juce::Justification::centred);
 }
 
 void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
@@ -454,6 +538,8 @@ void QuackerVSTAudioProcessorEditor::resized()
     const int labelHeight = 20;
     const int spacing = 20;
     
+    auto mainControlsArea = bounds.removeFromTop(dialSize + 100);
+    
     // Calculate total width needed for dials
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
@@ -486,4 +572,37 @@ void QuackerVSTAudioProcessorEditor::resized()
     // Center the buttons under their corresponding combo boxes
     lfoSyncButton.setBounds(rateDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
     bypassButton.setBounds(mixDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
+    
+    const int smallDialSize = dialSize * 0.75;
+    
+    // Waveshaping controls section (below main controls)
+    auto waveshapeArea = bounds.reduced(spacing);
+    const int waveshapeControlsWidth = smallDialSize * 2 + spacing;
+    const int waveshapeStartX = (getWidth() - waveshapeControlsWidth) / 2;
+    
+    // Position waveshaping controls
+    waveshapeRateSlider.setBounds(waveshapeStartX,
+                                 waveshapeArea.getY(),
+                                 smallDialSize,
+                                 smallDialSize);
+                                 
+    waveshapeDepthSlider.setBounds(waveshapeStartX + smallDialSize + spacing,
+                                  waveshapeArea.getY(),
+                                  smallDialSize,
+                                  smallDialSize);
+                                  
+    // Position selector and button below the dials
+    const int selectorWidth = 140;
+    const int selectorHeight = 25;
+    
+    waveshapeWaveformSelector.setBounds(waveshapeStartX + (waveshapeControlsWidth - selectorWidth) / 2,
+                                      waveshapeArea.getY() + smallDialSize + spacing,
+                                      selectorWidth,
+                                      selectorHeight);
+                                      
+    waveshapeEnableButton.setBounds(waveshapeStartX + (waveshapeControlsWidth - buttonWidth) / 2,
+                                   waveshapeArea.getY() + smallDialSize + spacing * 2 + selectorHeight,
+                                   buttonWidth,
+                                   buttonHeight);
+    
 }

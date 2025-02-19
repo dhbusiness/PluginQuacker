@@ -110,17 +110,14 @@ public:
         juce::Colour brightTeal = mainTeal.brighter(0.2f);           // Brighter for peaks
 
         
-        // Store path points for gradient coloring
-        std::vector<std::pair<float, float>> pathPoints;
+        // Store path points for both original and shaped waveforms
+        std::vector<std::pair<float, float>> originalPoints;
+        std::vector<std::pair<float, float>> shapedPoints;
         
-        // Draw waveform with dynamic thickness
-        juce::Path waveformPath;
-        bool pathStarted = false;
-
         const float pointsPerPixel = 1.0f;
         const int numPoints = static_cast<int>(bounds.getWidth() * pointsPerPixel);
 
-        // First pass: collect points and create path
+        // First pass: collect points for both waveforms
         for (int i = 0; i < numPoints; ++i)
         {
             float x = (static_cast<float>(i) / static_cast<float>(numPoints - 1)) * bounds.getWidth();
@@ -130,69 +127,45 @@ public:
             while (phase >= 1.0f) phase -= 1.0f;
             while (phase < 0.0f) phase += 1.0f;
 
-            float y = bounds.getCentreY();
-            float value = calculateWaveformValue(phase, currentWaveform);
+            // Calculate original waveform value
+            float originalValue = calculateWaveformValue(phase, currentWaveform);
             
-            // Add subtle vertical variation
-            float variation = std::sin(phase * 50.0f + currentPhase * 10.0f) * 0.5f;
-            y -= (value * depth * bounds.getHeight() * 0.4f) + variation;
-
-            pathPoints.push_back({x, y});
-
-            if (!pathStarted)
-            {
-                waveformPath.startNewSubPath(x, y);
-                pathStarted = true;
+            // Calculate waveshaping modulation
+            float shapePhase = std::fmod(phase * waveshapeRate + currentPhase, 1.0f);
+            float shapingValue = calculateWaveformValue(shapePhase, waveshapeWaveform) * waveshapeDepth;
+            
+            // Apply waveshaping
+            float shapedValue = originalValue;
+            if (waveshapeEnabled) {
+                // Convert to -1 to 1 range
+                float centered = originalValue * 2.0f - 1.0f;
+                // Apply waveshaping
+                shapedValue = centered + shapingValue * std::sin(centered * juce::MathConstants<float>::pi);
+                // Convert back to 0-1 range
+                shapedValue = juce::jlimit(0.0f, 1.0f, shapedValue * 0.5f + 0.5f);
             }
-            else
-            {
-                waveformPath.lineTo(x, y);
-            }
+
+            float y1 = bounds.getCentreY() - (originalValue * depth * bounds.getHeight() * 0.4f);
+            float y2 = bounds.getCentreY() - (shapedValue * depth * bounds.getHeight() * 0.4f);
+            
+            originalPoints.push_back({x, y1});
+            shapedPoints.push_back({x, y2});
         }
 
-        // Enhanced glow effect with teal gradient
-        const float maxDistance = bounds.getHeight() * 0.4f;
-        float glowIntensity = 0.3f + std::sin(currentPhase * 5.0f) * 0.1f;
-        
-        // Draw multiple paths with decreasing thickness and varying teal colors
-        for (int i = 0; i < pathPoints.size() - 1; ++i)
-        {
-            float x1 = pathPoints[i].first;
-            float y1 = pathPoints[i].second;
-            float x2 = pathPoints[i + 1].first;
-            float y2 = pathPoints[i + 1].second;
-            
-            // Calculate vertical position relative to center
-            float distanceFromCenter = std::abs(y1 - bounds.getCentreY());
-            float normalizedDistance = juce::jlimit(0.0f, 1.0f, distanceFromCenter / maxDistance);
-            
-            // Create teal gradient based on vertical position
-            juce::Colour segmentColor;
-            if (y1 < bounds.getCentreY()) {
-                // Upper half - blend between bright and main teal
-                segmentColor = brightTeal.interpolatedWith(mainTeal, 1.0f - normalizedDistance);
-            } else {
-                // Lower half - blend between dark and main teal
-                segmentColor = brightTeal.interpolatedWith(mainTeal, 1.0f - normalizedDistance);
-            }
-            
-            // Outer glow - soft, wide teal aura
-            g.setColour(segmentColor.withMultipliedAlpha(0.15f));
-            g.drawLine(x1, y1, x2, y2, 6.0f);
-            
-            // Middle glow - more focused teal glow
-            g.setColour(segmentColor.withMultipliedAlpha(0.3f));
-            g.drawLine(x1, y1, x2, y2, 3.5f);
-            
-            // Core line - bright, sharp teal
-            float mainLineThickness = 2.0f + std::sin(currentPhase * 3.0f + i * 0.1f) * 0.2f;
-            g.setColour(segmentColor.withMultipliedAlpha(0.95f));
-            g.drawLine(x1, y1, x2, y2, mainLineThickness);
-            
-            // Bright center highlight
-            g.setColour(brightTeal.withMultipliedAlpha(0.8f));
-            g.drawLine(x1, y1, x2, y2, 0.5f);
+        // Draw original waveform with reduced opacity when waveshaping is enabled
+        if (waveshapeEnabled) {
+            g.setOpacity(0.3f);
         }
+
+        // Draw original waveform
+        drawWaveform(g, originalPoints, juce::Colour(19, 224, 139));
+
+        // Draw shaped waveform if enabled
+        if (waveshapeEnabled) {
+            g.setOpacity(1.0f);
+            drawWaveform(g, shapedPoints, juce::Colour(232, 193, 185));
+        }
+
 
         // Draw border LAST, using the ORIGINAL bounds
         g.setColour(juce::Colour(120, 80, 75));
@@ -285,6 +258,13 @@ public:
         bpm = newBpm;
         noteDivision = division;
     }
+    
+    void setWaveshapeParameters(float depth, float rate, int waveform, bool enabled) {
+        waveshapeDepth = depth;
+        waveshapeRate = rate;
+        waveshapeWaveform = waveform;
+        waveshapeEnabled = enabled;
+    }
 
 private:
     
@@ -338,6 +318,37 @@ private:
         }
     }
     
+    
+    void drawWaveform(juce::Graphics& g, const std::vector<std::pair<float, float>>& points,
+                      juce::Colour baseColor)
+    {
+        // Outer glow
+        g.setColour(baseColor.withAlpha(0.15f));
+        drawWaveformPath(g, points, 6.0f);
+        
+        // Middle glow
+        g.setColour(baseColor.withAlpha(0.3f));
+        drawWaveformPath(g, points, 3.5f);
+        
+        // Core line
+        g.setColour(baseColor.withAlpha(0.95f));
+        drawWaveformPath(g, points, 2.0f);
+        
+        // Bright center
+        g.setColour(baseColor.brighter(0.2f).withAlpha(0.8f));
+        drawWaveformPath(g, points, 0.5f);
+    }
+
+    void drawWaveformPath(juce::Graphics& g, const std::vector<std::pair<float, float>>& points,
+                         float thickness)
+    {
+        for (size_t i = 0; i < points.size() - 1; ++i) {
+            g.drawLine(points[i].first, points[i].second,
+                      points[i + 1].first, points[i + 1].second,
+                      thickness);
+        }
+    }
+    
     int currentWaveform = 0;
     float depth = 1.0f;
     float phaseOffset = 0.0f;
@@ -352,6 +363,11 @@ private:
     float crtPhase = 0.0f;
     
     bool waitingForReset = false;
+    
+    float waveshapeDepth = 0.0f;
+    float waveshapeRate = 1.0f;
+    int waveshapeWaveform = 0;
+    bool waveshapeEnabled = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };

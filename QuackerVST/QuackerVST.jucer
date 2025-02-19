@@ -4,6 +4,8 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="rSG9EE" name="QuackerVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
+      <FILE id="RVOM1A" name="WaveshapeLFO.cpp" compile="1" resource="0"
+            file="Source/WaveshapeLFO.cpp"/>
       <FILE id="do7XGJ" name="CustomDialLookAndFeel.cpp" compile="1" resource="0"
             file="Source/CustomDialLookAndFeel.cpp"/>
       <FILE id="dQzv2h" name="CustomToggle.h" compile="0" resource="0" file="Source/CustomToggle.h"/>
@@ -22,6 +24,7 @@
       <FILE id="qkZSSN" name="LFOVisualizer.h" compile="0" resource="0" file="Source/LFOVisualizer.h"/>
       <FILE id="nJO9T7" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
+      <FILE id="DZsHWq" name="WaveshapeLFO.h" compile="0" resource="0" file="Source/WaveshapeLFO.h"/>
       <FILE id="egRPVE" name="TremoloLFO.cpp" compile="1" resource="0" file="Source/TremoloLFO.cpp"/>
       <FILE id="rEkgTm" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>

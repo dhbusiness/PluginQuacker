@@ -105,6 +105,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         false
     ));
 
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "waveshapeRate", "Waveshape Rate",
+        juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f),
+        1.0f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "waveshapeDepth", "Waveshape Depth",
+        0.0f, 1.0f, 0.0f
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "waveshapeWaveform", "Waveshape Waveform",
+        juce::StringArray{"Sine", "Square", "Triangle", "Sawtooth Up",
+                          "Sawtooth Down", "Soft Square", "Fender Style",
+                          "Wurlitzer Style"},
+        0
+    ));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "waveshapeEnabled", "Waveshape Enabled",
+        false
+    ));
 
     return { params.begin(), params.end() };
 }
@@ -306,7 +329,19 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto* mixParam = apvts.getRawParameterValue("mix");
     float mix = mixParam->load();
     
- 
+    // Get waveshaping parameters
+    auto* waveshapeRateParam = apvts.getRawParameterValue("waveshapeRate");
+    auto* waveshapeDepthParam = apvts.getRawParameterValue("waveshapeDepth");
+    auto* waveshapeWaveformParam = apvts.getRawParameterValue("waveshapeWaveform");
+    auto* waveshapeEnabledParam = apvts.getRawParameterValue("waveshapeEnabled");
+
+    // Update waveshaping LFO parameters
+    lfo.setWaveshapeParameters(
+        waveshapeRateParam->load(),
+        waveshapeDepthParam->load(),
+        static_cast<int>(waveshapeWaveformParam->load()),
+        waveshapeEnabledParam->load() > 0.5f
+    );
 
     // Set LFO parameters
     lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));

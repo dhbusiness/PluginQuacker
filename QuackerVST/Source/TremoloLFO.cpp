@@ -41,6 +41,8 @@ TremoloLFO::TremoloLFO()
     oversampledBuffer.resize(oversamplingFactor);
 }
 
+
+
 void TremoloLFO::setBPM(double bpm) {
     currentBPM = bpm;
     if (syncedToHost) {
@@ -60,6 +62,7 @@ void TremoloLFO::setSampleRate(double newSampleRate) {
     resetTransitionIncrement = 1.0f / (resetTransitionTime * static_cast<float>(sampleRate));
 
     updateOversamplingFactor();
+    waveshaper.setSampleRate(newSampleRate);
 }
 
 void TremoloLFO::setRate(float newRate) {
@@ -156,6 +159,7 @@ void TremoloLFO::resetPhase() {
     currentRate = rate;
     smoothedDepth.reset(sampleRate, 0.05);
     smoothedRate.reset(sampleRate, 0.05);
+    waveshaper.reset();
 }
 
 bool TremoloLFO::isWaitingForReset() const {
@@ -233,6 +237,19 @@ void TremoloLFO::updateOversamplingFactor() {
     }
 }
 
+float TremoloLFO::applyWaveshaping(float input) {
+    float shapingAmount = waveshaper.getNextShapingValue();
+    
+    // Convert input from 0-1 range to -1 to 1
+    float centered = input * 2.0f - 1.0f;
+    
+    // Apply waveshaping using a combination of the original and shaped signals
+    float shaped = centered + shapingAmount * std::sin(centered * juce::MathConstants<float>::pi);
+    
+    // Convert back to 0-1 range and limit
+    return juce::jlimit(0.0f, 1.0f, (shaped * 0.5f + 0.5f));
+}
+
 float TremoloLFO::calculateCurrentValue(double outputPhase, double smoothedPhase) {
     double output = 0.0;
     switch (waveform) {
@@ -288,6 +305,7 @@ float TremoloLFO::calculateCurrentValue(double outputPhase, double smoothedPhase
         }
             break;
     }
-    return output;
+    output = applyWaveshaping(static_cast<float>(output));
+    
+    return static_cast<float>(output);
 }
-

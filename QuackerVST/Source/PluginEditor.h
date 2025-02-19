@@ -76,5 +76,16 @@ private:
     static bool backgroundGenerated;     // Track if we've generated it
     static void generateBackgroundPattern(int width, int height); // Static generator
     
+    // Waveshaping controls
+     juce::Slider waveshapeRateSlider, waveshapeDepthSlider;
+     ArrowNavigationComboBox waveshapeWaveformSelector;
+     juce::ToggleButton waveshapeEnableButton;
+
+     // Attachments for waveshaping controls
+     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> waveshapeRateAttachment;
+     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> waveshapeDepthAttachment;
+     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveshapeWaveformAttachment;
+     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> waveshapeEnableAttachment;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

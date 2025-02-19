@@ -10,6 +10,8 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "WaveshapeLFO.h"
+
 
 class TremoloLFO {
 public:
@@ -96,6 +98,12 @@ public:
         return std::log2(rate / minRate) / std::log2(maxRate / minRate);
     };
 
+    void setWaveshapeParameters(float rate, float depth, int waveform, bool enabled) {
+        waveshaper.setRate(rate);
+        waveshaper.setDepth(depth);
+        waveshaper.setWaveform(static_cast<WaveshapeLFO::Waveform>(waveform));
+        waveshaper.setEnabled(enabled);
+    }
     
 private:
     double getPhaseNormalized() const;
@@ -141,4 +149,7 @@ private:
     
     // Store the last manual rate setting before sync was enabled
     float lastManualRate = 1.0f;
+    
+    WaveshapeLFO waveshaper;
+    float applyWaveshaping(float input);
 };
