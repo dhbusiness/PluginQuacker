@@ -238,17 +238,22 @@ void TremoloLFO::updateOversamplingFactor() {
 }
 
 float TremoloLFO::applyWaveshaping(float input) {
-    float shapingAmount = waveshaper.getNextShapingValue();
+    // Map the base LFO output from [0, 1] to [-1, 1]
+    float baseValue = input * 2.0f - 1.0f;
     
-    // Convert input from 0-1 range to -1 to 1
-    float centered = input * 2.0f - 1.0f;
+    // Get the shaping value from the waveshaper (which handles oversampling and smoothing)
+    float shapingValue = waveshaper.getNextShapingValue();
     
-    // Apply waveshaping using a combination of the original and shaped signals
-    float shaped = centered + shapingAmount * std::sin(centered * juce::MathConstants<float>::pi);
+    // Combine the base value with the shaping value using simple addition
+    float combined = baseValue + shapingValue;
     
-    // Convert back to 0-1 range and limit
-    return juce::jlimit(0.0f, 1.0f, (shaped * 0.5f + 0.5f));
+    // Clamp the result to the expected range [-1, 1]
+    combined = juce::jlimit(-1.0f, 1.0f, combined);
+    
+    // Map back to [0, 1] for further processing
+    return combined * 0.5f + 0.5f;
 }
+
 
 float TremoloLFO::calculateCurrentValue(double outputPhase, double smoothedPhase) {
     double output = 0.0;
