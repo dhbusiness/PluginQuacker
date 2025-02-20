@@ -19,12 +19,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (800, 700);
+    setSize (800, 650);
 
     // Generate background only if it hasn't been generated yet
     if (!backgroundGenerated)
     {
-        generateBackgroundPattern(800, 700);
+        generateBackgroundPattern(800, 650);
         backgroundGenerated = true;
     }
     
@@ -322,6 +322,15 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     
     auto bounds = juce::Rectangle<float>(0, 0, width, height);
     
+    // Define the raised area for waveshaping section
+    const int waveshapeY = 395;  // Adjusted Y position to match controls
+    const int waveshapeHeight = 250;  // Reduced height to match control area
+    const int waveshapeMargin = 260;   // Increased margin for better centering
+    juce::Rectangle<float> raisedArea(waveshapeMargin,
+                                    waveshapeY,
+                                    width - (waveshapeMargin * 2),
+                                    waveshapeHeight);
+    
     // Enhanced color palette with metallic tones
     juce::Colour darkPlum(61, 21, 46);
     juce::Colour midPlum(72, 28, 55);
@@ -330,15 +339,15 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     juce::Colour roseGold = juce::Colour(232, 193, 185).withMultipliedBrightness(0.6f);
     juce::Colour warmPlum = juce::Colour(198, 109, 139).withMultipliedBrightness(0.7f);
     
-    // Metallic sheen colors - adjusted for more uniformity
+    // Metallic sheen colors
     juce::Colour metalHighlight = juce::Colour(255, 255, 255).withAlpha(0.03f);
     juce::Colour metalShadow = juce::Colours::black.withAlpha(0.05f);
 
-    // Base gradient with more uniform metallic effect
+    // Base gradient
     juce::ColourGradient baseGradient(
-        darkPlum.brighter(0.05f),  // Reduced brightness difference
-        bounds.getCentreX(), bounds.getCentreY(),  // Changed to center-based gradient
-        midPlum.darker(0.05f),     // Reduced darkness difference
+        darkPlum.brighter(0.05f),
+        bounds.getCentreX(), bounds.getCentreY(),
+        midPlum.darker(0.05f),
         bounds.getRight(), bounds.getBottom(),
         true);
     
@@ -348,40 +357,85 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     g.setGradientFill(baseGradient);
     g.fillAll();
 
-    // More uniform metallic sheen
+    // Add initial sheen
     juce::ColourGradient sheenGradient(
         metalHighlight,
-        bounds.getCentreX(), bounds.getCentreY(),  // Center-based gradient
+        bounds.getCentreX(), bounds.getCentreY(),
         metalShadow,
         bounds.getRight(), bounds.getBottom(),
-        true);  // Changed to radial gradient
+        true);
     
     g.setGradientFill(sheenGradient);
     g.fillAll();
 
+    // Create more pronounced raised platform effect
+    // Softer shadow for depth
+    for(int i = 0; i < 12; ++i) {
+        float alpha = 0.03f * (12 - i);  // Reduced shadow intensity
+        g.setColour(juce::Colours::black.withAlpha(alpha));
+        g.fillRoundedRectangle(raisedArea.translated(0, i + 2).expanded(2), 8.0f);
+    }
+    
+    // Add side edges for more prominent raised effect
+    juce::Path edgePath;
+    edgePath.addRoundedRectangle(raisedArea, 8.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.4f));  // More subtle edge color
+    g.strokePath(edgePath, juce::PathStrokeType(2.5f));  // Slightly thinner edge
+    
+    // Draw softer black main surface
+    g.setColour(juce::Colours::black.withAlpha(0.7f));  // More transparent black
+    g.fillRoundedRectangle(raisedArea, 8.0f);
+    
+    // Add more subtle glossy highlights
+    juce::ColourGradient glossGradient(
+        juce::Colours::white.withAlpha(0.08f),  // Reduced highlight intensity
+        raisedArea.getTopLeft(),
+        juce::Colours::transparentBlack,
+        raisedArea.getTopLeft().translated(0, raisedArea.getHeight() * 0.4f),
+        false);
+    g.setGradientFill(glossGradient);
+    g.fillRoundedRectangle(raisedArea, 8.0f);
+    
+    // Softer light reflection on edges
+    g.setColour(juce::Colours::white.withAlpha(0.05f));
+    g.drawRoundedRectangle(raisedArea.reduced(1), 8.0f, 1.0f);
+    
+    // More subtle specular highlight
+    juce::Rectangle<float> specularArea = raisedArea.reduced(20);
+    juce::ColourGradient specularGradient(
+        juce::Colours::white.withAlpha(0.03f),
+        specularArea.getCentreX(), specularArea.getY(),
+        juce::Colours::transparentBlack,
+        specularArea.getCentreX(), specularArea.getCentreY(),
+        true);
+    g.setGradientFill(specularGradient);
+    g.fillRoundedRectangle(specularArea, 6.0f);
+
     // Enhanced metal flakes
     juce::Random random;
-    for (int i = 0; i < 15000; ++i) // Increased number of flakes
+    for (int i = 0; i < 15000; ++i)
     {
         float x = random.nextFloat() * width;
         float y = random.nextFloat() * height;
-        float size = random.nextFloat() * 1.8f; // Slightly larger flakes
-        float alpha = random.nextFloat() * 0.08f; // Increased opacity
+        float size = random.nextFloat() * 1.8f;
+        float alpha = random.nextFloat() * 0.08f;
 
-        // Randomize between highlight and shadow for flakes
-        if (random.nextBool())
-        {
-            g.setColour(juce::Colours::white.withAlpha(alpha));
+        // Reduced flake intensity in raised area
+        if (raisedArea.contains(x, y)) {
+            alpha *= 0.6f;  // Reduced from 1.5f to 0.6f
+            size *= 0.8f;   // Reduced from 1.2f to 0.8f
         }
-        else
-        {
+
+        if (random.nextBool()) {
+            g.setColour(juce::Colours::white.withAlpha(alpha));
+        } else {
             g.setColour(metalShadow.withAlpha(alpha * 0.8f));
         }
         
         g.fillEllipse(x, y, size, size);
     }
 
-    // Add your existing Perlin noise patterns with adjusted alpha
+    // Add Perlin noise patterns
     const float scale = 0.007f;
     const float fixedSeed = 42.0f;
     
@@ -393,7 +447,6 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
         float offset;
     };
 
-    // Adjust layers for metallic effect
     std::array<LayerConfig, 5> layers = {{
         { 0.003f, 0.08f, 8.0f, warmPlum, 0.0f },
         { 0.005f, 0.06f, 6.0f, roseGold, 50.0f },
@@ -402,7 +455,7 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
         { 0.004f, 0.03f, 6.0f, warmPlum, 200.0f }
     }};
 
-    // Generate each texture layer
+    // Generate texture layers with raised area emphasis
     for (const auto& layer : layers)
     {
         juce::Path swirlyPath;
@@ -422,22 +475,41 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
                 float offsetX = std::sin(combinedNoise) * layer.amplitude;
                 float offsetY = std::cos(combinedNoise) * layer.amplitude;
                 
+                // Enhance effect in raised area
+                if (raisedArea.contains(x, y)) {
+                    offsetX *= 1.2f;
+                    offsetY *= 1.2f;
+                }
+                
                 swirlyPath.lineTo(x + offsetX, y + offsetY);
             }
         }
         
-        g.setColour(layer.color.withAlpha(layer.alpha));
+        float alpha = layer.alpha;
+        if (raisedArea.contains(swirlyPath.getBounds().getCentre())) {
+            alpha *= 1.2f;
+        }
+        
+        g.setColour(layer.color.withAlpha(alpha));
         g.strokePath(swirlyPath, juce::PathStrokeType(1.5f));
     }
 
-    // Final metallic sheen overlay
-    // Final metallic sheen overlay - more subtle and uniform
+    // Final highlight for raised area
+    g.setGradientFill(juce::ColourGradient(
+        juce::Colours::white.withAlpha(0.05f),
+        raisedArea.getCentre(),
+        juce::Colours::transparentBlack,
+        raisedArea.getTopLeft(),
+        true));
+    g.fillRoundedRectangle(raisedArea, 8.0f);
+
+    // Final overall sheen
     juce::ColourGradient finalSheen(
         metalHighlight.withAlpha(0.01f),
         bounds.getCentreX(), bounds.getCentreY(),
         metalShadow.withAlpha(0.01f),
         bounds.getRight(), bounds.getBottom(),
-        true);  // Changed to radial gradient
+        true);
     
     g.setGradientFill(finalSheen);
     g.fillAll();
@@ -454,50 +526,61 @@ void QuackerVSTAudioProcessorEditor::paint(juce::Graphics& g)
 
 void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
 {
-    // Your existing control drawing code here
-    g.setColour(juce::Colour(232, 193, 185));  // Light rose gold
-    g.setFont(16.0f);
-
     const int dialSize = 150;
     const int spacing = 20;
     const int totalWidth = (dialSize * 4) + (spacing * 3);
     const int startX = (getWidth() - totalWidth) / 2;
     const int labelY = 210 + dialSize + 5;
 
-    g.drawText("RATE",
-               juce::Rectangle<int>(startX, labelY, dialSize, 20),
-               juce::Justification::centred);
-               
-    g.drawText("DEPTH",
-               juce::Rectangle<int>(startX + dialSize + spacing, labelY, dialSize, 20),
-               juce::Justification::centred);
-               
-    g.drawText("WAVE OFFSET",
-               juce::Rectangle<int>(startX + (dialSize + spacing) * 2, labelY, dialSize, 20),
-               juce::Justification::centred);
-               
-    g.drawText("MIX",
-               juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20),
-               juce::Justification::centred);
+    // Define colors for embossed effect
+    juce::Colour textColor = juce::Colour(232, 193, 185);  // Rose gold base
     
-    
+    // Function to draw embossed text
+    auto drawEmbossedText = [&](const juce::String& text, const juce::Rectangle<int>& bounds) {
+        g.setFont(16.0f);
+        
+        // Bottom highlight (creates depth)
+        g.setColour(juce::Colours::white.withAlpha(0.08f));
+        g.drawText(text, bounds.translated(0, 1), juce::Justification::centred, false);
+        
+        // Top shadow (creates inset effect)
+        g.setColour(juce::Colours::black.withAlpha(0.4f));
+        g.drawText(text, bounds.translated(0, -1), juce::Justification::centred, false);
+        
+        // Main text
+        g.setColour(textColor.withAlpha(0.8f));  // Slightly transparent to enhance inset effect
+        g.drawText(text, bounds, juce::Justification::centred, false);
+    };
+
+    // Draw all labels with the embossed style
+    drawEmbossedText("RATE",
+                     juce::Rectangle<int>(startX, labelY, dialSize, 20));
+               
+    drawEmbossedText("DEPTH",
+                     juce::Rectangle<int>(startX + dialSize + spacing, labelY, dialSize, 20));
+               
+    drawEmbossedText("WAVE OFFSET",
+                     juce::Rectangle<int>(startX + (dialSize + spacing) * 2, labelY, dialSize, 20));
+               
+    drawEmbossedText("MIX",
+                     juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20));
+
+    // Waveshaping controls text
     const int smallDialSize = dialSize * 0.75;
     const int waveshapeControlsWidth = smallDialSize * 2 + spacing;
     const int waveshapeStartX = (getWidth() - waveshapeControlsWidth) / 2;
     
-    g.drawText("SHAPE RATE",
-               juce::Rectangle<int>(waveshapeStartX,
-                                  waveshapeRateSlider.getBottom(),
-                                  smallDialSize,
-                                  20),
-               juce::Justification::centred);
+    drawEmbossedText("SHAPE RATE",
+                     juce::Rectangle<int>(waveshapeStartX,
+                                        waveshapeRateSlider.getBottom(),
+                                        smallDialSize,
+                                        20));
                
-    g.drawText("SHAPE DEPTH",
-               juce::Rectangle<int>(waveshapeStartX + smallDialSize + spacing,
-                                  waveshapeDepthSlider.getBottom(),
-                                  smallDialSize,
-                                  20),
-               juce::Justification::centred);
+    drawEmbossedText("SHAPE DEPTH",
+                     juce::Rectangle<int>(waveshapeStartX + smallDialSize + spacing,
+                                        waveshapeDepthSlider.getBottom(),
+                                        smallDialSize,
+                                        20));
 }
 
 void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
@@ -573,36 +656,37 @@ void QuackerVSTAudioProcessorEditor::resized()
     lfoSyncButton.setBounds(rateDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
     bypassButton.setBounds(mixDialCenterX - (buttonWidth / 2), buttonsY, buttonWidth, buttonHeight);
     
+    // Waveshaping controls section
     const int smallDialSize = dialSize * 0.75;
-    
-    // Waveshaping controls section (below main controls)
-    auto waveshapeArea = bounds.reduced(spacing);
     const int waveshapeControlsWidth = smallDialSize * 2 + spacing;
     const int waveshapeStartX = (getWidth() - waveshapeControlsWidth) / 2;
     
+    // Align waveshape dials with the combo boxes
+    const int waveshapeY = comboY;  // Align top with combobox
+    
     // Position waveshaping controls
     waveshapeRateSlider.setBounds(waveshapeStartX,
-                                 waveshapeArea.getY(),
+                                 waveshapeY,
                                  smallDialSize,
                                  smallDialSize);
                                  
     waveshapeDepthSlider.setBounds(waveshapeStartX + smallDialSize + spacing,
-                                  waveshapeArea.getY(),
+                                  waveshapeY,
                                   smallDialSize,
                                   smallDialSize);
                                   
-    // Position selector and button below the dials
+    // Position selector and button below the dials with updated spacing
     const int selectorWidth = 140;
     const int selectorHeight = 25;
+    const int selectorSpacing = spacing * 1.5;
     
     waveshapeWaveformSelector.setBounds(waveshapeStartX + (waveshapeControlsWidth - selectorWidth) / 2,
-                                      waveshapeArea.getY() + smallDialSize + spacing,
+                                      waveshapeY + smallDialSize + selectorSpacing,
                                       selectorWidth,
                                       selectorHeight);
                                       
     waveshapeEnableButton.setBounds(waveshapeStartX + (waveshapeControlsWidth - buttonWidth) / 2,
-                                   waveshapeArea.getY() + smallDialSize + spacing * 2 + selectorHeight,
+                                    waveshapeY + smallDialSize + selectorSpacing * 2 + (spacing - 5),
                                    buttonWidth,
                                    buttonHeight);
-    
 }
