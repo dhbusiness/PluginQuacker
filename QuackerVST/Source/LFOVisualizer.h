@@ -117,7 +117,9 @@ public:
         const float pointsPerPixel = 1.0f;
         const int numPoints = static_cast<int>(bounds.getWidth() * pointsPerPixel);
 
-        // First pass: collect points for both waveforms
+        std::vector<std::pair<float, float>> waveformPoints;
+
+        // Calculate points for the waveform
         for (int i = 0; i < numPoints; ++i)
         {
             float x = (static_cast<float>(i) / static_cast<float>(numPoints - 1)) * bounds.getWidth();
@@ -127,44 +129,26 @@ public:
             while (phase >= 1.0f) phase -= 1.0f;
             while (phase < 0.0f) phase += 1.0f;
 
-            // Calculate original waveform value
-            float originalValue = calculateWaveformValue(phase, currentWaveform);
+            // Get our base waveform value
+            float waveformValue = calculateWaveformValue(phase, currentWaveform);
             
-            // Calculate waveshaping modulation
-            float shapePhase = std::fmod(phase * waveshapeRate + currentPhase, 1.0f);
-            float shapingValue = calculateWaveformValue(shapePhase, waveshapeWaveform) * waveshapeDepth;
-            
-            // Apply waveshaping
-            float shapedValue = originalValue;
+            // If waveshaping is enabled, apply it
             if (waveshapeEnabled) {
-                // Convert to -1 to 1 range
-                float centered = originalValue * 2.0f - 1.0f;
-                // Apply waveshaping
-                shapedValue = centered + shapingValue * std::sin(centered * juce::MathConstants<float>::pi);
-                // Convert back to 0-1 range
-                shapedValue = juce::jlimit(0.0f, 1.0f, shapedValue * 0.5f + 0.5f);
+                float shapePhase = std::fmod(phase * waveshapeRate + currentPhase, 1.0f);
+                float shapingValue = calculateWaveformValue(shapePhase, waveshapeWaveform);
+                
+                // Apply waveshaping modulation
+                waveformValue = waveformValue + (shapingValue * waveshapeDepth);
+                // Limit to -1 to 1 range
+                waveformValue = juce::jlimit(-1.0f, 1.0f, waveformValue);
             }
 
-            float y1 = bounds.getCentreY() - (originalValue * depth * bounds.getHeight() * 0.4f);
-            float y2 = bounds.getCentreY() - (shapedValue * depth * bounds.getHeight() * 0.4f);
-            
-            originalPoints.push_back({x, y1});
-            shapedPoints.push_back({x, y2});
+            // Calculate y position
+            float y = bounds.getCentreY() - (waveformValue * depth * bounds.getHeight() * 0.4f);
+            waveformPoints.push_back({x, y});
         }
 
-        // Draw original waveform with reduced opacity when waveshaping is enabled
-        if (waveshapeEnabled) {
-            g.setOpacity(0.3f);
-        }
-
-        // Draw original waveform
-        drawWaveform(g, originalPoints, juce::Colour(19, 224, 139));
-
-        // Draw shaped waveform if enabled
-        if (waveshapeEnabled) {
-            g.setOpacity(1.0f);
-            drawWaveform(g, shapedPoints, juce::Colour(232, 193, 185));
-        }
+        drawDynamicWaveform(g, waveformPoints, juce::Colour(19, 224, 139));
 
 
         // Draw border LAST, using the ORIGINAL bounds
@@ -172,6 +156,51 @@ public:
         g.drawRect(originalBounds, 1.0f); // Use originalBounds instead of bounds
     }
 
+    void drawDynamicWaveform(juce::Graphics& g,
+                            const std::vector<std::pair<float, float>>& points,
+                            juce::Colour baseColor)
+    {
+        auto bounds = getLocalBounds().toFloat();
+        float centerY = bounds.getCentreY();
+        
+        // Our base teal color
+        juce::Colour mainTeal = juce::Colour(19, 224, 139);
+        juce::Colour brightTeal = mainTeal.brighter(0.2f);
+        
+        for (size_t i = 0; i < points.size() - 1; ++i) {
+            float x1 = points[i].first;
+            float y1 = points[i].second;
+            float x2 = points[i + 1].first;
+            float y2 = points[i + 1].second;
+            
+            // Calculate how far we are from center (normalized 0-1)
+            float distanceFromCenter = std::abs(y1 - centerY);
+            float normalizedDistance = juce::jlimit(0.0f, 1.0f,
+                distanceFromCenter / (bounds.getHeight() * 0.4f));
+            
+            // Create gradient based on distance from center
+            juce::Colour lineColor = normalizedDistance > 0.5f ?
+                brightTeal : mainTeal;
+            
+            // Outer glow
+            g.setColour(lineColor.withAlpha(0.15f));
+            g.drawLine(x1, y1, x2, y2, 6.0f);
+            
+            // Middle glow
+            g.setColour(lineColor.withAlpha(0.3f));
+            g.drawLine(x1, y1, x2, y2, 3.5f);
+            
+            // Core line
+            g.setColour(lineColor.withAlpha(0.95f));
+            g.drawLine(x1, y1, x2, y2, 2.0f);
+            
+            // Bright center
+            g.setColour(lineColor.brighter(0.2f).withAlpha(0.8f));
+            g.drawLine(x1, y1, x2, y2, 0.5f);
+        }
+    };
+
+    
     void resized() override {}
 
 
@@ -319,9 +348,13 @@ private:
     }
     
     
-    void drawWaveform(juce::Graphics& g, const std::vector<std::pair<float, float>>& points,
+    void drawWaveform(juce::Graphics& g,
+                      const std::vector<std::pair<float, float>>& points,
                       juce::Colour baseColor)
     {
+        auto bounds = getLocalBounds().toFloat();
+        float centerY = bounds.getCentreY();
+        
         // Outer glow
         g.setColour(baseColor.withAlpha(0.15f));
         drawWaveformPath(g, points, 6.0f);
