@@ -15,7 +15,7 @@ bool QuackerVSTAudioProcessorEditor::backgroundGenerated = false;
 
 //==============================================================================
 QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), presetComponent(p.getPresetManager())  // Initialize PresetComponent
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -253,6 +253,8 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoWaveformBox.addMouseListener(this, false);
     lfoNoteDivisionBox.addMouseListener(this, false);
 
+    
+    addAndMakeVisible(presetComponent);
     
     
 }
@@ -633,6 +635,10 @@ void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
 void QuackerVSTAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
+    
+    // Position PresetComponent at the top
+    const int presetHeight = 40;
+    presetComponent.setBounds(bounds.removeFromTop(presetHeight).reduced(8, 4));
     
     // Reserve top section for visualizer
     auto visualizerBounds = bounds.removeFromTop(200);

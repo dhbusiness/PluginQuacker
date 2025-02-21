@@ -16,7 +16,7 @@
 #include "PerlinNoise.h"
 #include "CustomComboBox.h"
 #include "ArrowNavigationComboBox.h"
-
+#include "PresetComponent.h"
 
 //==============================================================================
 /**
@@ -31,7 +31,7 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
-    void timerCallback() override; //Override this function from juce::Timer to modify in cpp
+    void timerCallback() override;
     void mouseDown(const juce::MouseEvent& event) override;
 
 private:
@@ -51,6 +51,9 @@ private:
     
     juce::Slider mixSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
+    
+    // Add PresetComponent
+    PresetComponent presetComponent; 
     
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoRateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoDepthAttachment;

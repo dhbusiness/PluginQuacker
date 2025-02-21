@@ -25,7 +25,14 @@
       <FILE id="nJO9T7" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="DZsHWq" name="WaveshapeLFO.h" compile="0" resource="0" file="Source/WaveshapeLFO.h"/>
+      <FILE id="hRExk5" name="PresetManager.cpp" compile="1" resource="0"
+            file="Source/PresetManager.cpp"/>
+      <FILE id="MEblX6" name="PresetManager.h" compile="0" resource="0" file="Source/PresetManager.h"/>
       <FILE id="egRPVE" name="TremoloLFO.cpp" compile="1" resource="0" file="Source/TremoloLFO.cpp"/>
+      <FILE id="Zy7nca" name="PresetComponent.cpp" compile="1" resource="0"
+            file="Source/PresetComponent.cpp"/>
+      <FILE id="NfwSa9" name="PresetComponent.h" compile="0" resource="0"
+            file="Source/PresetComponent.h"/>
       <FILE id="rEkgTm" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>

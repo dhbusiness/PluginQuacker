@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "TremoloLFO.h"
+#include "PresetManager.h"
 
 class QuackerVSTAudioProcessor : public juce::AudioProcessor {
 public:
@@ -46,6 +47,9 @@ public:
     bool isPlaying() const { return currentlyPlaying; }
     bool hasAudioInput() const { return audioInputDetected; }
     bool isLfoWaitingForReset() const { return lfo.isWaitingForReset(); }
+    
+    PresetManager& getPresetManager() { return *presetManager; }
+    void loadFactoryPresets();
 
 private:
     // DC Filter components
@@ -60,6 +64,8 @@ private:
     juce::HeapBlock<float> lfoValuesBuffer;
     
     bool wasInSync = false;
+    
+    std::unique_ptr<PresetManager> presetManager;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(QuackerVSTAudioProcessor)
 };

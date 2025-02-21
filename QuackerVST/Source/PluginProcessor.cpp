@@ -23,6 +23,8 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
 #endif
 apvts(*this, nullptr, "Parameters", createParameters())
 {
+    presetManager = std::make_unique<PresetManager>(apvts);
+    loadFactoryPresets();
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
@@ -498,25 +500,24 @@ juce::AudioProcessorEditor* QuackerVSTAudioProcessor::createEditor()
 }
 
 //==============================================================================
-void QuackerVSTAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+
+void QuackerVSTAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
-void QuackerVSTAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void QuackerVSTAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState.get() != nullptr)
+    {
         if (xmlState->hasTagName(apvts.state.getType()))
+        {
             apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+        }
+    }
 }
 
 //==============================================================================
@@ -530,3 +531,37 @@ double QuackerVSTAudioProcessor::getCurrentBPM() const
 {
     return currentBPM;
 }
+
+void QuackerVSTAudioProcessor::loadFactoryPresets()
+{
+    // Clear any previous factory presets
+    presetManager->clearFactoryPresets();
+
+    // --- Create the "Default" preset ---
+    // Set parameters to their default values.
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(1.0f)); // Default: 1 Hz
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.5f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(0.0f); // Sine
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    presetManager->savePreset("Default", "Factory");
+
+    // --- Create the "Classic Tremolo" preset for testing ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(5.0f)); // 5 Hz
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.8f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(0.0f); // Sine (or adjust as needed)
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    presetManager->savePreset("Classic Tremolo", "Factory");
+
+    // Finally, load the Default preset so that its state is applied.
+    presetManager->loadPreset("Default");
+}
+
+
