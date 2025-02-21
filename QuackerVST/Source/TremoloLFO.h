@@ -23,7 +23,18 @@ public:
         SawtoothDown,
         SoftSquare,
         FenderStyle,
-        WurlitzerStyle
+        WurlitzerStyle,
+        VoxStyle,
+        MagnatoneStyle,
+        PulseDecay,
+        BouncingBall,
+        MultiSine,
+        OpticalStyle,
+        TwinPeaks,
+        SmoothRandom,
+        GuitarPick,
+        VintageChorus,
+        SlowGear
     };
 
     TremoloLFO();
@@ -152,4 +163,11 @@ private:
     
     WaveshapeLFO waveshaper;
     float applyWaveshaping(float input);
+    
+    // Cache for complex waveform calculations
+    struct WaveformCache {
+        double lastPhase = -1.0;
+        double cachedValue = 0.0;
+    };
+    WaveformCache waveformCache;
 };

@@ -21,7 +21,18 @@ public:
         SawtoothDown,
         SoftSquare,
         FenderStyle,
-        WurlitzerStyle
+        WurlitzerStyle,
+        VoxStyle,
+        MagnatoneStyle,
+        PulseDecay,
+        BouncingBall,
+        MultiSine,
+        OpticalStyle,
+        TwinPeaks,
+        SmoothRandom,
+        GuitarPick,
+        VintageChorus,
+        SlowGear
     };
 
     WaveshapeLFO();
@@ -59,6 +70,14 @@ private:
     float lastOutputValue = 0.0f;
     
     juce::HeapBlock<float> waveshapeBuffer;
+    
+    // Cache for complex waveform calculations
+    struct WaveformCache {
+        double lastPhase = -1.0;
+        double cachedValue = 0.0;
+    };
+    WaveformCache waveformCache;
+
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WaveshapeLFO)
 };

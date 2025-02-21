@@ -66,11 +66,22 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     waveformSelector.getComboBox().addItem("Sine", 1);
     waveformSelector.getComboBox().addItem("Square", 2);
     waveformSelector.getComboBox().addItem("Triangle", 3);
-    waveformSelector.getComboBox().addItem("Sawtooth Up",4);
+    waveformSelector.getComboBox().addItem("Sawtooth Up", 4);
     waveformSelector.getComboBox().addItem("Sawtooth Down", 5);
     waveformSelector.getComboBox().addItem("Soft Square", 6);
     waveformSelector.getComboBox().addItem("Fender Style", 7);
     waveformSelector.getComboBox().addItem("Wurlitzer Style", 8);
+    waveformSelector.getComboBox().addItem("Vox Style", 9);
+    waveformSelector.getComboBox().addItem("Magnatone Style", 10);
+    waveformSelector.getComboBox().addItem("Pulse Decay", 11);
+    waveformSelector.getComboBox().addItem("Bouncing Ball", 12);
+    waveformSelector.getComboBox().addItem("Multi Sine", 13);
+    waveformSelector.getComboBox().addItem("Optical Style", 14);
+    waveformSelector.getComboBox().addItem("Twin Peaks", 15);
+    waveformSelector.getComboBox().addItem("Smooth Random", 16);
+    waveformSelector.getComboBox().addItem("Guitar Pick", 17);
+    waveformSelector.getComboBox().addItem("Vintage Chorus", 18);
+    waveformSelector.getComboBox().addItem("Slow Gear", 19);
     addAndMakeVisible(waveformSelector);
 
 
@@ -163,6 +174,18 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     waveshapeWaveformSelector.getComboBox().addItem("Soft Square", 6);
     waveshapeWaveformSelector.getComboBox().addItem("Fender Style", 7);
     waveshapeWaveformSelector.getComboBox().addItem("Wurlitzer Style", 8);
+    waveshapeWaveformSelector.getComboBox().addItem("Vox Style", 9);
+    waveshapeWaveformSelector.getComboBox().addItem("Magnatone Style", 10);
+    waveshapeWaveformSelector.getComboBox().addItem("Pulse Decay", 11);
+    waveshapeWaveformSelector.getComboBox().addItem("Bouncing Ball", 12);
+    waveshapeWaveformSelector.getComboBox().addItem("Multi Sine", 13);
+    waveshapeWaveformSelector.getComboBox().addItem("Optical Style", 14);
+    waveshapeWaveformSelector.getComboBox().addItem("Twin Peaks", 15);
+    waveshapeWaveformSelector.getComboBox().addItem("Smooth Random", 16);
+    waveshapeWaveformSelector.getComboBox().addItem("Guitar Pick", 17);
+    waveshapeWaveformSelector.getComboBox().addItem("Vintage Chorus", 18);
+    waveshapeWaveformSelector.getComboBox().addItem("Slow Gear", 19);
+    addAndMakeVisible(waveformSelector);
     addAndMakeVisible(waveshapeWaveformSelector);
 
     waveshapeEnableButton.setButtonText("SHAPE");

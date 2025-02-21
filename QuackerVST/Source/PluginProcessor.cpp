@@ -59,7 +59,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
             "Sawtooth Down",
             "Soft Square",
             "Fender Style",
-            "Wurlitzer Style"
+            "Wurlitzer Style",
+            "Vox Style",
+            "Magnatone Style",
+            "Pulse Decay",
+            "Bouncing Ball",
+            "Multi Sine",
+            "Optical Style",
+            "Twin Peaks",
+            "Smooth Random",
+            "Guitar Pick",
+            "Vintage Chorus",
+            "Slow Gear"
         },
         0  // default to Sine
     ));
@@ -117,13 +128,32 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
     ));
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "waveshapeWaveform", "Waveshape Waveform",
-        juce::StringArray{"Sine", "Square", "Triangle", "Sawtooth Up",
-                          "Sawtooth Down", "Soft Square", "Fender Style",
-                          "Wurlitzer Style"},
+        "waveshapeWaveform",
+        "Waveshape Waveform",
+        juce::StringArray{
+            "Sine",
+            "Square",
+            "Triangle",
+            "Sawtooth Up",
+            "Sawtooth Down",
+            "Soft Square",
+            "Fender Style",
+            "Wurlitzer Style",
+            "Vox Style",
+            "Magnatone Style",
+            "Pulse Decay",
+            "Bouncing Ball",
+            "Multi Sine",
+            "Optical Style",
+            "Twin Peaks",
+            "Smooth Random",
+            "Guitar Pick",
+            "Vintage Chorus",
+            "Slow Gear"
+        },
         0
     ));
-
+    
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         "waveshapeEnabled", "Waveshape Enabled",
         false

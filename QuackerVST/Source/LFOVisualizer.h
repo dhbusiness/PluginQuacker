@@ -310,18 +310,18 @@ private:
             case 2: // Triangle
                 return 2.0f * (phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f) - 1.0f;
                 
-            case 3: // Sawtooth
+            case 3: // Sawtooth Up
                 return 2.0f * phase - 1.0f;
                 
-            case 4: // Ramp Down
+            case 4: // Sawtooth Down
                 return 1.0f - (2.0f * phase);
                 
             case 5: // Soft Square
-                {
-                    const float sharpness = 10.0f;
-                    float centered = phase * 2.0f - 1.0f;
-                    return 2.0f * (1.0f / (1.0f + std::exp(-sharpness * centered))) - 1.0f;
-                }
+            {
+                const float sharpness = 10.0f;
+                float centered = phase * 2.0f - 1.0f;
+                return 2.0f * (1.0f / (1.0f + std::exp(-sharpness * centered))) - 1.0f;
+            }
                 
             case 6: // FenderStyle
             {
@@ -332,15 +332,150 @@ private:
                 
                 float value = (raw * 0.4f) + 0.5f;
                 value = std::pow(value, 1.08f);
-                return (value * 2.0f) - 1.0f; // Convert to -1 to 1 for visualizer
+                return (value * 2.0f) - 1.0f;
             }
+
             case 7: // WurlitzerStyle
-                {
-                    double angle = phase * 2.0 * juce::MathConstants<float>::pi;
-                    float sineComponent = std::sin(angle);
-                    float triangleComponent = 2.0f * std::abs(2.0f * (phase - 0.5f)) - 1.0f;
-                    return 0.6f * sineComponent + 0.4f * triangleComponent;
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float sineComponent = std::sin(angle);
+                float triangleComponent = 2.0f * std::abs(2.0f * (phase - 0.5f)) - 1.0f;
+                return 0.6f * sineComponent + 0.4f * triangleComponent;
+            }
+
+            case 8: // VoxStyle
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                double bias = 0.3;
+                float output = std::sin(angle + bias * std::sin(2.0 * angle)) * 0.5f + 0.5f;
+                output += 0.1f * std::sin(3.0 * angle);
+                return (output * 2.0f) - 1.0f;
+            }
+
+            case 9: // MagnatoneStyle
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float sine = std::sin(angle);
+                float parabolic = 1.0f - std::pow(2.0f * phase - 1.0f, 2.0f);
+                return (0.7f * sine + 0.3f * parabolic);
+            }
+
+            case 10: // PulseDecay
+            {
+                float output;
+                const float decayRate = 4.0f;
+                output = std::exp(-decayRate * phase);
+                if (phase < 0.1f)
+                    output = 1.0f - (phase * 10.0f);
+                return (output * 2.0f) - 1.0f;
+            }
+
+            case 11: // BouncingBall
+            {
+                float t = phase;
+                float bounce = std::abs(std::sin(std::pow(t * juce::MathConstants<float>::pi, 0.8f)));
+                return (std::pow(bounce, 2.0f) * 2.0f) - 1.0f;
+            }
+
+            case 12: // MultiSine
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float output = std::sin(angle) * 0.5f;
+                output += std::sin(2.0 * angle) * 0.25f;
+                output += std::sin(3.0 * angle) * 0.125f;
+                return output;
+            }
+
+            case 13: // OpticalStyle
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float response = std::sin(angle);
+                if (response < 0)
+                    response = response * 0.8f;
+                response += 0.15f * std::sin(2.0 * angle);
+                response = response * 0.5f + 0.5f;
+                response = std::pow(response, 1.2f);
+                return (response * 2.0f) - 1.0f;
+            }
+
+            case 14: // TwinPeaks
+            {
+                float phase1 = phase * 2.0f;
+                float phase2 = phase1 - 0.5f;
+                if (phase2 < 0) phase2 += 2.0f;
+                
+                float peak1 = std::exp(-std::pow(phase1 - 0.5f, 2) * 16.0f);
+                float peak2 = std::exp(-std::pow(phase2 - 0.5f, 2) * 16.0f);
+                
+                return ((peak1 + peak2 * 0.8f) * 0.7f * 2.0f) - 1.0f;
+            }
+
+            case 15: // SmoothRandom
+            {
+                // First check cache before any calculations
+                if (std::abs(phase - waveformCache.lastPhase) < 0.0001f) {
+                    return waveformCache.cachedValue;
                 }
+                
+                // Calculate the base waveform
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float f1 = std::sin(angle);
+                float f2 = std::sin(angle * 1.47f) * 0.5f;
+                float f3 = std::sin(angle * 2.39f) * 0.25f;
+                float f4 = std::sin(angle * 3.17f) * 0.125f;
+                
+                // Calculate the combined output and normalize to -1 to 1 range
+                // Note that unlike TremoloLFO, the visualizer expects -1 to 1 range
+                float output = (f1 + f2 + f3 + f4) * 0.4f;
+                output = juce::jlimit(-1.0f, 1.0f, output);
+                
+                // Cache the final, limited value
+                waveformCache.lastPhase = phase;
+                waveformCache.cachedValue = output;
+                
+                return output;
+            }
+
+            case 16: // GuitarPick
+            {
+                const float attackTime = 0.05f;
+                const float decayTime = 0.3f;
+                float output;
+                
+                if (phase < attackTime) {
+                    output = phase / attackTime;
+                } else {
+                    float decayPhase = (phase - attackTime) / decayTime;
+                    float decay = std::exp(-decayPhase * 3.0f);
+                    float sustain = 0.2f;
+                    output = sustain + (1.0f - sustain) * decay;
+                }
+                return (output * 2.0f) - 1.0f;
+            }
+
+            case 17: // VintageChorus
+            {
+                double angle = phase * 2.0 * juce::MathConstants<float>::pi;
+                float primary = std::sin(angle);
+                float secondary = std::sin(angle * 0.5f) * 0.3f;
+                float harmonics = std::sin(angle * 3.0f) * 0.1f;
+                
+                return primary + secondary + harmonics;
+            }
+
+            case 18: // SlowGear
+            {
+                float swell = 1.0f - std::exp(-phase * 4.0f);
+                float decay = std::exp(-(phase - 0.7f) * 8.0f);
+                float output;
+                
+                if (phase < 0.7f) {
+                    output = swell;
+                } else {
+                    output = swell * decay;
+                }
+                return (output * 2.0f) - 1.0f;
+            }
                 
             default:
                 return 0.0f;
@@ -401,6 +536,12 @@ private:
     float waveshapeRate = 1.0f;
     int waveshapeWaveform = 0;
     bool waveshapeEnabled = false;
+    
+    struct WaveformCache {
+        float lastPhase = -1.0f;
+        float cachedValue = 0.0f;
+    };
+    WaveformCache waveformCache;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LFOVisualizer)
 };
