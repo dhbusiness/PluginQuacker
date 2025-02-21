@@ -378,50 +378,37 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     lfo.setDepth(depthParam->load());
     lfo.setPhaseOffset(phaseOffsetParam->load());
 
-    static bool wasInSync = false;
     bool isInSync = syncParam->load() > 0.5f;
 
-    // Handle sync state changes
     if (isInSync != wasInSync) {
         if (isInSync) {
-            // Switching TO sync mode - store current manual rate
+            // Switching TO sync mode
             float currentRate = rateParam->load();
-            lfo.storeManualRate(currentRate);  // Store the current rate before switching to sync
-            
-            // Calculate initial sync frequency
+            lfo.storeManualRate(currentRate);
             const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
             double division = divisions[static_cast<int>(divisionParam->load())];
             double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
-            
-            // Apply high-frequency compression
             if (syncedFreq > 15.0) {
                 syncedFreq = 15.0 + (std::log10(syncedFreq - 14.0) * 5.0);
             }
             syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
-            
-            // Update the rate parameter to show synced value
             if (auto* rateParameter = apvts.getParameter("lfoRate")) {
                 rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(syncedFreq));
             }
-            
             lfo.setSyncMode(true, division);
             lfo.setRate(static_cast<float>(syncedFreq));
-        }
-        else {
-            // Switching FROM sync mode - restore the previous manual rate
+        } else {
+            // Switching FROM sync mode
             float manualRate = lfo.getLastManualRate();
-            
-            // Update the rate parameter with the stored manual rate
             if (auto* rateParameter = apvts.getParameter("lfoRate")) {
                 rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(manualRate));
             }
-            
             lfo.setSyncMode(false);
             lfo.setRate(manualRate);
         }
     }
-    
     wasInSync = isInSync;
+
 
     // Regular parameter handling
     if (isInSync) {

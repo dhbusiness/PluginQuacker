@@ -58,6 +58,8 @@ private:
     bool currentlyPlaying = false;
     bool audioInputDetected = false;
     juce::HeapBlock<float> lfoValuesBuffer;
+    
+    bool wasInSync = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(QuackerVSTAudioProcessor)
 };
