@@ -16,8 +16,8 @@
 #include "CustomToggle.h"
 #include "ArrowNavigationComboBox.h"  // Added this include
 
+
 class PresetComponent : public juce::Component,
-                       public juce::Button::Listener,
                        public juce::ComboBox::Listener
 {
 public:
@@ -26,30 +26,44 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
-
-    // Button::Listener implementation
-    void buttonClicked(juce::Button* button) override;
-
-    // ComboBox::Listener implementation
     void comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged) override;
-
-    // Update the preset list
     void updatePresetList();
 
 private:
-    // Reference to our PresetManager
     PresetManager& presetManager;
-
-    // UI Components
     ArrowNavigationComboBox presetSelector;
-    juce::TextButton saveButton;
     
-    // Popup menu for saving presets
+    // Styling constants
+    const float cornerRadius = 3.0f;  // Reduced corner radius for more minimal look
+    const juce::Colour textColour = juce::Colour(232, 193, 185).withAlpha(0.8f);
+    const juce::Colour backgroundColour = juce::Colours::black.withAlpha(0.2f);
+    const juce::Colour borderColour = juce::Colours::white.withAlpha(0.1f);
+    
     void showSavePresetDialog();
-
-
-    // Helper methods
     void loadSelectedPreset();
 
+    
+    class PresetSelectorLookAndFeel : public juce::LookAndFeel_V4
+    {
+    public:
+        void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+                         int buttonX, int buttonY, int buttonW, int buttonH,
+                         juce::ComboBox& box) override
+        {
+            // Draw nothing - this gives us a completely transparent background
+        }
+
+        void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
+        {
+            // Position the text in the center of the entire combo box
+            label.setBounds(0, 0, box.getWidth(), box.getHeight());
+            label.setJustificationType(juce::Justification::centred);
+        }
+    };
+
+    private:
+        
+        PresetSelectorLookAndFeel presetLookAndFeel;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetComponent)
 };

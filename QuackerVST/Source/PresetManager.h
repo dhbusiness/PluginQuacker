@@ -53,6 +53,7 @@ public:
     
     juce::StringArray getFactoryPresetNames() const;
     juce::StringArray getUserPresetNames() const;
+    juce::String getCurrentPresetName() const { return currentPresetName; }
     
     
     
@@ -67,7 +68,7 @@ private:
     bool savePresetToFile(const Preset& preset);
     juce::String generateSafeFileName(const juce::String& name);
     
-
+    juce::String currentPresetName = "Default";
 
  
     

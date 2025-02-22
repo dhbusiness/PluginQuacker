@@ -85,14 +85,31 @@ public:
 
         leftArrow->onClick = [this]() {
             int currentIndex = comboBox.getSelectedItemIndex();
-            if (currentIndex > 0)
-                comboBox.setSelectedItemIndex(currentIndex - 1);
+            // Find previous valid (non-utility) item
+            while (currentIndex > 0) {
+                currentIndex--;
+                if (!comboBox.getItemText(currentIndex).contains("...") &&
+                    !comboBox.getItemText(currentIndex).contains("Open Preset") &&
+                    !comboBox.getItemText(currentIndex).startsWith("-")) {
+                    comboBox.setSelectedItemIndex(currentIndex);
+                    break;
+                }
+            }
         };
 
         rightArrow->onClick = [this]() {
             int currentIndex = comboBox.getSelectedItemIndex();
-            if (currentIndex < comboBox.getNumItems() - 1)
-                comboBox.setSelectedItemIndex(currentIndex + 1);
+            int numItems = comboBox.getNumItems();
+            // Find next valid (non-utility) item
+            while (currentIndex < numItems - 1) {
+                currentIndex++;
+                if (!comboBox.getItemText(currentIndex).contains("...") &&
+                    !comboBox.getItemText(currentIndex).contains("Open Preset") &&
+                    !comboBox.getItemText(currentIndex).startsWith("-")) {
+                    comboBox.setSelectedItemIndex(currentIndex);
+                    break;
+                }
+            }
         };
     }
 

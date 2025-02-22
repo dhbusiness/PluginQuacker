@@ -14,85 +14,73 @@
 PresetComponent::PresetComponent(PresetManager& pm)
     : presetManager(pm)
 {
-    // Initialize and style the preset selector
-    presetSelector.getComboBox().addListener(this);
-    presetSelector.getComboBox().setTextWhenNothingSelected("Select Preset");
+    // Get reference to the combo box
+    auto& combo = presetSelector.getComboBox();
+    
+    // Apply our custom LookAndFeel just to this combo box
+    combo.setLookAndFeel(&presetLookAndFeel);
+    
+    combo.addListener(this);
+    combo.setTextWhenNothingSelected("Default");
+    combo.setJustificationType(juce::Justification::centred);
+    
+    // Keep only the essential colors, removing backgrounds
+    combo.setColour(juce::ComboBox::textColourId, juce::Colour(232, 193, 185));
+    
+    // Set a nice font
+    //combo.setFont(juce::Font(16.0f));
+    
     addAndMakeVisible(presetSelector);
-
-    // Initialize and style the save button
-    saveButton.setButtonText("Save");
-    saveButton.addListener(this);
-    saveButton.setColour(juce::TextButton::buttonColourId, juce::Colour(19, 224, 139).withAlpha(0.2f));
-    saveButton.setColour(juce::TextButton::textColourOffId, juce::Colour(232, 193, 185));
-    addAndMakeVisible(saveButton);
-
-
-
-    // Initial population of the preset list
     updatePresetList();
 }
 
 PresetComponent::~PresetComponent()
 {
+    presetSelector.getComboBox().setLookAndFeel(nullptr);
     presetSelector.getComboBox().removeListener(this);
-    saveButton.removeListener(this);
 }
 
 void PresetComponent::paint(juce::Graphics& g)
 {
-    // Background with a slight gradient
-    auto bounds = getLocalBounds().toFloat();
-    
-    g.setGradientFill(juce::ColourGradient(
-        juce::Colours::black.withAlpha(0.7f),
-        bounds.getTopLeft(),
-        juce::Colours::black.withAlpha(0.5f),
-        bounds.getBottomLeft(),
-        false));
-    
-    g.fillRoundedRectangle(bounds, 6.0f);
+    // We've removed the background gradient completely
+    // Only keeping the subtle separator lines
 
-    // Add a subtle border
-    g.setColour(juce::Colour(171, 136, 132).withAlpha(0.5f));
-    g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
 }
 
 void PresetComponent::resized()
 {
-    auto bounds = getLocalBounds().reduced(4);
-    const int buttonWidth = 60;
-    const int spacing = 4;
-
-    // Layout the components
-    presetSelector.setBounds(bounds.removeFromLeft(bounds.getWidth() - (buttonWidth * 2 + spacing * 2)));
-    bounds.removeFromLeft(spacing);
-    saveButton.setBounds(bounds.removeFromLeft(buttonWidth));
-    bounds.removeFromLeft(spacing);
-
+    auto bounds = getLocalBounds();
+    
+    // Add horizontal margins but keep full height
+    const int horizontalMargin = bounds.getWidth() * 0.35; // 35% margin on each side
+    bounds.reduce(horizontalMargin, 0);
+    
+    presetSelector.setBounds(bounds);
 }
 
-void PresetComponent::buttonClicked(juce::Button* button)
-{
-    if (button == &saveButton)
-    {
-        showSavePresetDialog();
-    }
-}
 
 void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
 {
     if (comboBoxThatHasChanged == &presetSelector.getComboBox())
     {
-        auto selectedPreset = presetSelector.getComboBox().getText();
-        if (selectedPreset == "Directory")
+        auto selectedItem = presetSelector.getComboBox().getText();
+        
+        if (selectedItem == "Save Current...")
         {
-            // Open the directory containing the presets
+            showSavePresetDialog();
+            // Reset selection to previous preset after showing dialog
+            presetSelector.getComboBox().setText(presetManager.getCurrentPresetName(),
+                juce::dontSendNotification);
+        }
+        else if (selectedItem == "Open Preset Folder")
+        {
             juce::File presetDir = presetManager.getCurrentPresetDirectory();
             if (presetDir.exists())
-                presetDir.revealToUser(); // This will open the folder in the OS file explorer
-            
-            // Optionally, reset the selection back to "Default"
-            presetSelector.getComboBox().setText("Default", juce::dontSendNotification);
+                presetDir.revealToUser();
+                
+            // Reset selection
+            presetSelector.getComboBox().setText(presetManager.getCurrentPresetName(),
+                juce::dontSendNotification);
         }
         else
         {
@@ -101,44 +89,46 @@ void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
     }
 }
 
-
 void PresetComponent::updatePresetList()
 {
     auto& combo = presetSelector.getComboBox();
     combo.clear();
     int index = 1;
 
-    // Factory Presets: Ensure "Default" is at the top.
+    // Add Factory Presets section
     auto factoryPresets = presetManager.getFactoryPresetNames();
-    if (factoryPresets.contains("Default"))
+    if (!factoryPresets.isEmpty())
     {
         combo.addSectionHeading("Factory Presets");
-        combo.addItem("Default", index++);
-        factoryPresets.removeString("Default");
+        // Ensure "Default" is first if it exists
+        if (factoryPresets.contains("Default"))
+        {
+            combo.addItem("Default", index++);
+            factoryPresets.removeString("Default");
+        }
         for (const auto& preset : factoryPresets)
+        {
             combo.addItem(preset, index++);
-    }
-    else if (factoryPresets.size() > 0)
-    {
-        combo.addSectionHeading("Factory Presets");
-        for (const auto& preset : factoryPresets)
-            combo.addItem(preset, index++);
+        }
     }
 
-    // User Presets (if any)
+    // Add User Presets section
     auto userPresets = presetManager.getUserPresetNames();
-    if (userPresets.size() > 0)
+    if (!userPresets.isEmpty())
     {
         combo.addSectionHeading("User Presets");
         for (const auto& preset : userPresets)
+        {
             combo.addItem(preset, index++);
+        }
     }
 
-    // Add the Directory option at the end.
-    combo.addSectionHeading("Extras");
-    combo.addItem("Directory", index++);
+    // Add Utility section
+    combo.addSectionHeading("Utility");
+    combo.addItem("Save Current...", index++);
+    combo.addItem("Open Preset Folder", index++);
 
-    // Set default selection to "Default"
+    // Set initial selection to "Default" if it exists
     combo.setText("Default", juce::dontSendNotification);
 }
 

@@ -83,11 +83,10 @@ bool PresetManager::loadPreset(const juce::String& name)
     auto it = presets.find(name);
     if (it != presets.end())
     {
-        // Found the preset, load it
         apvts.replaceState(it->second->state);
+        currentPresetName = name;
         return true;
     }
-    
     return false;
 }
 
