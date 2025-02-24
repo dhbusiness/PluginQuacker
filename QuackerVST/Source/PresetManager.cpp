@@ -77,13 +77,14 @@ bool PresetManager::savePreset(const juce::String& name, const juce::String& cat
     
     return false;
 }
-
 bool PresetManager::loadPreset(const juce::String& name)
 {
     auto it = presets.find(name);
     if (it != presets.end())
     {
-        apvts.replaceState(it->second->state);
+        // Create a deep copy of the preset state to avoid modifying the stored version.
+        juce::ValueTree presetCopy = it->second->state.createCopy();
+        apvts.replaceState(presetCopy);
         currentPresetName = name;
         return true;
     }

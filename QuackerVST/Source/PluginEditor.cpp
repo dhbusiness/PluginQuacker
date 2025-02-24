@@ -19,12 +19,12 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (800, 650);
+    setSize (800, 700);
 
     // Generate background only if it hasn't been generated yet
     if (!backgroundGenerated)
     {
-        generateBackgroundPattern(800, 650);
+        generateBackgroundPattern(800, 700);
         backgroundGenerated = true;
     }
     
@@ -348,7 +348,7 @@ void QuackerVSTAudioProcessorEditor::generateBackgroundPattern(int width, int he
     auto bounds = juce::Rectangle<float>(0, 0, width, height);
     
     // Define the raised area for waveshaping section
-    const int waveshapeY = 395;  // Adjusted Y position to match controls
+    const int waveshapeY = 445;  // Adjusted Y position to match controls
     const int waveshapeHeight = 250;  // Reduced height to match control area
     const int waveshapeMargin = 260;   // Increased margin for better centering
     juce::Rectangle<float> raisedArea(waveshapeMargin,
@@ -579,16 +579,16 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
 
     // Draw all labels with the embossed style
     drawEmbossedText("RATE",
-                     juce::Rectangle<int>(startX, labelY, dialSize, 20));
+                     juce::Rectangle<int>(startX, lfoRateSlider.getBottom() + 4, dialSize, 20));
                
     drawEmbossedText("DEPTH",
-                     juce::Rectangle<int>(startX + dialSize + spacing, labelY, dialSize, 20));
+                     juce::Rectangle<int>(startX + dialSize + spacing, lfoDepthSlider.getBottom() + 4, dialSize, 20));
                
     drawEmbossedText("WAVE OFFSET",
-                     juce::Rectangle<int>(startX + (dialSize + spacing) * 2, labelY, dialSize, 20));
+                     juce::Rectangle<int>(startX + (dialSize + spacing) * 2, lfoPhaseOffsetSlider.getBottom() + 4, dialSize, 20));
                
     drawEmbossedText("MIX",
-                     juce::Rectangle<int>(startX + (dialSize + spacing) * 3, labelY, dialSize, 20));
+                     juce::Rectangle<int>(startX + (dialSize + spacing) * 3, mixSlider.getBottom() + 4, dialSize, 20));
 
     // Waveshaping controls text
     const int smallDialSize = dialSize * 0.75;
@@ -635,15 +635,27 @@ void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
 void QuackerVSTAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
-    
-    // Position PresetComponent at the top
+        
+    // First, let's establish our key measurements
     const int presetHeight = 40;
-    presetComponent.setBounds(bounds.removeFromTop(presetHeight).reduced(8, 4));
-    
-    // Reserve top section for visualizer
-    auto visualizerBounds = bounds.removeFromTop(200);
-    visualizerBounds.reduce(10, 10);
-    lfoVisualizer.setBounds(visualizerBounds);
+    const int visualizerHeight = 200;
+    const int visualizerMargin = 10;
+        
+    // Instead of calculating a large margin, let's determine exactly where we want
+    // the preset manager to sit. We want it centered in the space above the visualizer.
+    const int desiredSpaceAboveVisualizer = 20;  // Total space we want above visualizer
+    const int topMargin = (desiredSpaceAboveVisualizer - presetHeight) / 2;  // Center the preset in this space
+        
+    // Position PresetComponent
+    auto presetBounds = bounds.removeFromTop(topMargin + presetHeight);
+    presetComponent.setBounds(presetBounds.removeFromBottom(presetHeight).reduced(8, 4));
+        
+    // Add the remaining margin before the visualizer
+    bounds.removeFromTop(topMargin);
+        
+    // Position visualizer
+    auto visualizerBounds = bounds.removeFromTop(visualizerHeight + (visualizerMargin * 2));
+    lfoVisualizer.setBounds(visualizerBounds.reduced(visualizerMargin));
     
     // Calculate sizes for uniform dials
     const int dialSize = 150;
@@ -664,7 +676,7 @@ void QuackerVSTAudioProcessorEditor::resized()
     mixSlider.setBounds(startX + (dialSize + spacing) * 3, startY, dialSize, dialSize);
 
     // ComboBox dimensions
-    const int comboBoxWidth = 140;
+    const int comboBoxWidth = 180;
     const int comboBoxHeight = 25;
     const int comboY = startY + dialSize + spacing + 25;
 
@@ -705,7 +717,7 @@ void QuackerVSTAudioProcessorEditor::resized()
                                   smallDialSize);
                                   
     // Position selector and button below the dials with updated spacing
-    const int selectorWidth = 140;
+    const int selectorWidth = 180;
     const int selectorHeight = 25;
     const int selectorSpacing = spacing * 1.5;
     
