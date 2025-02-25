@@ -160,40 +160,32 @@ void PresetComponent::updatePresetList()
 
 void PresetComponent::showSavePresetDialog()
 {
-    // Create a custom alert window for saving presets
-    auto* window = new juce::AlertWindow("Save Preset",
-                                           "Enter a name for your preset:",
-                                           juce::MessageBoxIconType::NoIcon);
-    
-    // Add a text editor for the preset name
-    window->addTextEditor("presetName", "", "Preset Name:");
-    
-    // Add buttons
-    window->addButton("Save", 1);
-    window->addButton("Cancel", 0);
+    auto fileChooser = std::make_shared<juce::FileChooser>(
+        "Save Preset",
+        presetManager.getCurrentPresetDirectory(),
+        "*.xml"
+    );
 
-    // Show the window asynchronously
-    window->enterModalState(true, juce::ModalCallbackFunction::create(
-        [this, window](int result)
+    fileChooser->launchAsync(juce::FileBrowserComponent::saveMode, [this, fileChooser](const juce::FileChooser& fc)
+    {
+        juce::File file = fc.getResult();
+        if (file != juce::File{})  // Ensure the user selected a file
         {
-            if (result == 1) // Save button was clicked
+            juce::String presetName = file.getFileNameWithoutExtension();
+            if (presetName.isNotEmpty())
             {
-                juce::String presetName = window->getTextEditorContents("presetName");
-                if (presetName.isNotEmpty())
+                if (presetManager.savePreset(presetName))
                 {
-                    if (presetManager.savePreset(presetName))
-                    {
-                        updatePresetList();
-                        // Set the combo box text to the newly saved preset's name
-                        presetSelector.getComboBox().setText(presetName, juce::dontSendNotification);
-                        // Load the new preset so that the * is not present
-                        presetManager.loadPreset(presetName);
-                    }
+                    updatePresetList();
+                    presetSelector.getComboBox().setText(presetName, juce::dontSendNotification);
+                    presetManager.loadPreset(presetName);
                 }
             }
-            delete window; // Clean up the window
-        }));
+        }
+    });
 }
+
+
 
 
 
