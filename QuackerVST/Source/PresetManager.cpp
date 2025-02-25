@@ -85,10 +85,24 @@ bool PresetManager::loadPreset(const juce::String& name)
     {
         // Create a deep copy of the preset state to avoid modifying the stored version.
         juce::ValueTree presetCopy = it->second->state.createCopy();
+        
+        // Replace the entire state with the preset's state
         apvts.replaceState(presetCopy);
+        
+        // Update the current preset name
         currentPresetName = name;
-        // Save a clean copy for later comparison.
+        
+        // Save a clean copy for later comparison (used for detecting modifications)
         cleanPresetState = presetCopy.createCopy();
+        
+        // Apply parameters in the correct order to ensure proper sync behavior
+        applyParametersInCorrectOrder();
+        
+        // Call the callback if it's been set
+        if (onPresetLoaded) {
+            onPresetLoaded();
+        }
+        
         return true;
     }
     return false;
@@ -228,4 +242,38 @@ juce::StringArray PresetManager::getUserPresetNames() const
     return names;
 }
 
+juce::String PresetManager::getPresetCategory(const juce::String& presetName) const
+{
+    auto it = presets.find(presetName);
+    if (it != presets.end())
+    {
+        return it->second->category;
+    }
+    return "User"; // Default to User category if not found
+}
 
+void PresetManager::applyParametersInCorrectOrder()
+{
+    // Get raw parameter values
+    auto* syncParam = apvts.getRawParameterValue("lfoSync");
+    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
+    auto* rateParam = apvts.getRawParameterValue("lfoRate");
+    
+    // First, ensure sync parameter is set
+    bool isInSync = syncParam->load() > 0.5f;
+    if (auto* sync = apvts.getParameter("lfoSync")) {
+        sync->setValueNotifyingHost(isInSync ? 1.0f : 0.0f);
+    }
+    
+    // Set division parameter
+    if (auto* division = apvts.getParameter("lfoNoteDivision")) {
+        // For a choice parameter with 6 options (0-5), we must normalize to 0-1
+        float normalizedValue = divisionParam->load() / 5.0f;
+        division->setValueNotifyingHost(normalizedValue);
+    }
+    
+    // Set rate parameter
+    if (auto* rate = apvts.getParameter("lfoRate")) {
+        rate->setValueNotifyingHost(rate->convertTo0to1(rateParam->load()));
+    }
+}

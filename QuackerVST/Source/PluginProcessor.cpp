@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Presets.h"
 
 //==============================================================================
 QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
@@ -24,7 +25,10 @@ QuackerVSTAudioProcessor::QuackerVSTAudioProcessor()
 apvts(*this, nullptr, "Parameters", createParameters())
 {
     presetManager = std::make_unique<PresetManager>(apvts);
-    loadFactoryPresets();
+    presetManager->setPresetLoadedCallback([this]() {
+        syncParametersAfterPresetLoad();
+    });
+    QuackerPresets::loadAllFactoryPresets(*this);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
@@ -532,36 +536,32 @@ double QuackerVSTAudioProcessor::getCurrentBPM() const
     return currentBPM;
 }
 
-void QuackerVSTAudioProcessor::loadFactoryPresets()
-{
-    // Clear any previous factory presets
-    presetManager->clearFactoryPresets();
 
-    // --- Create the "Default" preset ---
-    // Set parameters to their default values.
-    if (auto* rateParam = apvts.getParameter("lfoRate"))
-        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(1.0f)); // Default: 1 Hz
-    if (auto* depthParam = apvts.getParameter("lfoDepth"))
-        depthParam->setValueNotifyingHost(0.5f);
-    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
-        waveformParam->setValueNotifyingHost(0.0f); // Sine
-    if (auto* mixParam = apvts.getParameter("mix"))
-        mixParam->setValueNotifyingHost(1.0f);
-    presetManager->savePreset("Default", "Factory");
-
-    // --- Create the "Classic Tremolo" preset for testing ---
-    if (auto* rateParam = apvts.getParameter("lfoRate"))
-        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(5.0f)); // 5 Hz
-    if (auto* depthParam = apvts.getParameter("lfoDepth"))
-        depthParam->setValueNotifyingHost(0.8f);
-    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
-        waveformParam->setValueNotifyingHost(0.0f); // Sine (or adjust as needed)
-    if (auto* mixParam = apvts.getParameter("mix"))
-        mixParam->setValueNotifyingHost(1.0f);
-    presetManager->savePreset("Classic Tremolo", "Factory");
-
-    // Finally, load the Default preset so that its state is applied.
-    presetManager->loadPreset("Default");
+void QuackerVSTAudioProcessor::applyParametersInOrder() {
+    // Get raw parameter values
+    auto* syncParam = apvts.getRawParameterValue("lfoSync");
+    auto* divisionParam = apvts.getRawParameterValue("lfoNoteDivision");
+    auto* rateParam = apvts.getRawParameterValue("lfoRate");
+    auto* depthParam = apvts.getRawParameterValue("lfoDepth");
+    auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
+    auto* phaseOffsetParam = apvts.getRawParameterValue("lfoPhaseOffset");
+    
+    // First handle sync state to ensure proper rate calculation
+    bool isInSync = syncParam->load() > 0.5f;
+    
+    // Set sync mode first
+    lfo.setSyncMode(isInSync, static_cast<int>(divisionParam->load()));
+    
+    // Then set other parameters
+    lfo.setWaveform(static_cast<TremoloLFO::Waveform>(static_cast<int>(waveformParam->load())));
+    lfo.setDepth(depthParam->load());
+    lfo.setPhaseOffset(phaseOffsetParam->load());
+    lfo.setRate(rateParam->load());
 }
 
-
+void QuackerVSTAudioProcessor::syncParametersAfterPresetLoad()
+{
+    // Force a complete refresh by temporarily flipping wasInSync
+    // This ensures the next processBlock call will apply all parameters correctly
+    wasInSync = !apvts.getRawParameterValue("lfoSync")->load() > 0.5f;
+}

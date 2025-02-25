@@ -118,25 +118,73 @@ void PresetComponent::updatePresetList()
     combo.clear();
     int index = 1;
 
+    // Collect all factory and user presets
+    juce::StringArray factoryPresets;
+    std::map<juce::String, juce::StringArray> factorySubcategories;
+    juce::StringArray userPresets;
+
+    // Get all preset names
+    auto allPresets = presetManager.getPresetNames();
+    
+    // Categorize presets based on their category
+    for (const auto& presetName : allPresets)
+    {
+        juce::String category = presetManager.getPresetCategory(presetName);
+        
+        // Check if this is a factory preset
+        if (category == "Factory")
+        {
+            // Standard factory preset
+            factoryPresets.add(presetName);
+        }
+        else if (category.startsWith("Factory/"))
+        {
+            // Factory preset with subcategory
+            juce::String subcategory = category.substring(8); // Remove "Factory/" prefix
+            
+            // Add to the appropriate subcategory array
+            if (!factorySubcategories.count(subcategory))
+                factorySubcategories[subcategory] = juce::StringArray();
+                
+            factorySubcategories[subcategory].add(presetName);
+        }
+        else
+        {
+            // User preset
+            userPresets.add(presetName);
+        }
+    }
+
     // Add Factory Presets section
-    auto factoryPresets = presetManager.getFactoryPresetNames();
-    if (!factoryPresets.isEmpty())
+    if (!factoryPresets.isEmpty() || !factorySubcategories.empty())
     {
         combo.addSectionHeading("Factory Presets");
+        
+        // Add standard factory presets first
         // Ensure "Default" is first if it exists
         if (factoryPresets.contains("Default"))
         {
             combo.addItem("Default", index++);
             factoryPresets.removeString("Default");
         }
+        
+        // Add remaining standard factory presets
         for (const auto& preset : factoryPresets)
         {
             combo.addItem(preset, index++);
         }
+        
+        // Add presets from each factory subcategory
+        for (const auto& [subcategory, presets] : factorySubcategories)
+        {
+            for (const auto& preset : presets)
+            {
+                combo.addItem(preset, index++);
+            }
+        }
     }
 
     // Add User Presets section
-    auto userPresets = presetManager.getUserPresetNames();
     if (!userPresets.isEmpty())
     {
         combo.addSectionHeading("User Presets");

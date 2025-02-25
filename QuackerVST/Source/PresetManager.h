@@ -60,6 +60,13 @@ public:
     
     juce::String getModifiedDisplayName() const;
     
+    juce::String getPresetCategory(const juce::String& presetName) const;
+    
+    void applyParametersInCorrectOrder();
+    
+    using PresetLoadedCallback = std::function<void()>;
+    void setPresetLoadedCallback(PresetLoadedCallback callback) { onPresetLoaded = callback; }
+    
 private:
     juce::AudioProcessorValueTreeState& apvts;
     juce::File presetDirectory;
@@ -76,6 +83,8 @@ private:
     // Store a clean copy of the preset state when a preset is loaded.
     // This is used to determine if the preset has been modified.
     juce::ValueTree cleanPresetState;
+    
+    PresetLoadedCallback onPresetLoaded;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetManager)
 };

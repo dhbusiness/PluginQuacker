@@ -31,11 +31,11 @@
       <FILE id="egRPVE" name="TremoloLFO.cpp" compile="1" resource="0" file="Source/TremoloLFO.cpp"/>
       <FILE id="Zy7nca" name="PresetComponent.cpp" compile="1" resource="0"
             file="Source/PresetComponent.cpp"/>
-      <FILE id="S1ZCps" name="MinimalComboBoxLookAndFeel.h" compile="0" resource="0"
-            file="Source/MinimalComboBoxLookAndFeel.h"/>
       <FILE id="NfwSa9" name="PresetComponent.h" compile="0" resource="0"
             file="Source/PresetComponent.h"/>
       <FILE id="rEkgTm" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
+      <FILE id="NvoZKP" name="Presets.h" compile="0" resource="0" file="Source/Presets.h"/>
+      <FILE id="Yga3QB" name="Presets.cpp" compile="1" resource="0" file="Source/Presets.cpp"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>

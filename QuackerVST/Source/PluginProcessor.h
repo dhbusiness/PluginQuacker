@@ -50,7 +50,10 @@ public:
     
     PresetManager& getPresetManager() { return *presetManager; }
     void loadFactoryPresets();
+    void applyParametersInOrder();
 
+    void syncParametersAfterPresetLoad();
+    
 private:
     // DC Filter components
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>,
