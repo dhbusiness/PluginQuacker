@@ -27,11 +27,11 @@ PresetComponent::PresetComponent(PresetManager& pm)
     // Keep only the essential colors, removing backgrounds
     combo.setColour(juce::ComboBox::textColourId, juce::Colour(232, 193, 185));
     
-    // Set a nice font
-    //combo.setFont(juce::Font(16.0f));
-    
     addAndMakeVisible(presetSelector);
     updatePresetList();
+
+    // Start a timer to update the preset name display every 100ms
+    startTimer(100);
 }
 
 PresetComponent::~PresetComponent()
@@ -42,9 +42,27 @@ PresetComponent::~PresetComponent()
 
 void PresetComponent::paint(juce::Graphics& g)
 {
-    // We've removed the background gradient completely
-    // Only keeping the subtle separator lines
+    // Optionally, draw a background or borders here.
+    
+    // Draw the combo box normally (its text remains unmodified).
+    // Then, if the current preset is modified, overlay an asterisk.
+    if (presetManager.isPresetModified())
+    {
+        // Get the bounds of the combo box
+        auto comboBounds = presetSelector.getComboBox().getBounds();
 
+        // Adjust horizontal offset: starWidth is the width of the asterisk area, and offsetX is how far from the right edge.
+        int starWidth = 12;
+        int offsetX = comboBounds.getRight() - starWidth + 277.5;
+        
+        // Create a rectangle for the asterisk
+        juce::Rectangle<int> starBounds(offsetX, comboBounds.getY(), starWidth, comboBounds.getHeight());
+        
+        juce::Colour textColor = juce::Colour(232, 193, 185);  // Rose gold base
+        g.setColour(textColor); // Color of the asterisk.
+        g.setFont(16.0f); // Font size for the asterisk.
+        g.drawFittedText("*", starBounds, juce::Justification::centred, 1);
+    }
 }
 
 void PresetComponent::resized()
@@ -58,6 +76,10 @@ void PresetComponent::resized()
     presetSelector.setBounds(bounds);
 }
 
+void PresetComponent::timerCallback()
+{
+    repaint();
+}
 
 void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
 {
@@ -69,7 +91,7 @@ void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
         {
             showSavePresetDialog();
             // Reset selection to previous preset after showing dialog
-            presetSelector.getComboBox().setText(presetManager.getCurrentPresetName(),
+            presetSelector.getComboBox().setText(presetManager.getDisplayedPresetName(),
                 juce::dontSendNotification);
         }
         else if (selectedItem == "Open Preset Folder")
@@ -79,7 +101,7 @@ void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
                 presetDir.revealToUser();
                 
             // Reset selection
-            presetSelector.getComboBox().setText(presetManager.getCurrentPresetName(),
+            presetSelector.getComboBox().setText(presetManager.getDisplayedPresetName(),
                 juce::dontSendNotification);
         }
         else
@@ -88,6 +110,7 @@ void PresetComponent::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
         }
     }
 }
+
 
 void PresetComponent::updatePresetList()
 {
@@ -139,8 +162,8 @@ void PresetComponent::showSavePresetDialog()
 {
     // Create a custom alert window for saving presets
     auto* window = new juce::AlertWindow("Save Preset",
-                                       "Enter a name for your preset:",
-                                       juce::MessageBoxIconType::NoIcon);
+                                           "Enter a name for your preset:",
+                                           juce::MessageBoxIconType::NoIcon);
     
     // Add a text editor for the preset name
     window->addTextEditor("presetName", "", "Preset Name:");
@@ -151,7 +174,8 @@ void PresetComponent::showSavePresetDialog()
 
     // Show the window asynchronously
     window->enterModalState(true, juce::ModalCallbackFunction::create(
-        [this, window](int result) {
+        [this, window](int result)
+        {
             if (result == 1) // Save button was clicked
             {
                 juce::String presetName = window->getTextEditorContents("presetName");
@@ -160,15 +184,17 @@ void PresetComponent::showSavePresetDialog()
                     if (presetManager.savePreset(presetName))
                     {
                         updatePresetList();
-                        presetSelector.getComboBox().setSelectedId(
-                            presetSelector.getComboBox().getNumItems(),
-                            juce::sendNotification);
+                        // Set the combo box text to the newly saved preset's name
+                        presetSelector.getComboBox().setText(presetName, juce::dontSendNotification);
+                        // Load the new preset so that the * is not present
+                        presetManager.loadPreset(presetName);
                     }
                 }
             }
             delete window; // Clean up the window
         }));
 }
+
 
 
 void PresetComponent::loadSelectedPreset()

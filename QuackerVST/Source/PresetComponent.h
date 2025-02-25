@@ -16,9 +16,9 @@
 #include "CustomToggle.h"
 #include "ArrowNavigationComboBox.h"  // Added this include
 
-
 class PresetComponent : public juce::Component,
-                       public juce::ComboBox::Listener
+                        public juce::ComboBox::Listener,
+                        public juce::Timer
 {
 public:
     PresetComponent(PresetManager& pm);
@@ -28,6 +28,9 @@ public:
     void resized() override;
     void comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged) override;
     void updatePresetList();
+
+    // Timer callback to update the displayed preset name
+    void timerCallback() override;
 
 private:
     PresetManager& presetManager;
@@ -42,13 +45,12 @@ private:
     void showSavePresetDialog();
     void loadSelectedPreset();
 
-    
     class PresetSelectorLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
         void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
-                         int buttonX, int buttonY, int buttonW, int buttonH,
-                         juce::ComboBox& box) override
+                          int buttonX, int buttonY, int buttonW, int buttonH,
+                          juce::ComboBox& box) override
         {
             // Draw nothing - this gives us a completely transparent background
         }
@@ -61,9 +63,8 @@ private:
         }
     };
 
-    private:
-        
-        PresetSelectorLookAndFeel presetLookAndFeel;
+private:
+    PresetSelectorLookAndFeel presetLookAndFeel;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetComponent)
 };

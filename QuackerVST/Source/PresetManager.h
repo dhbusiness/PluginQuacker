@@ -7,7 +7,6 @@
 
   ==============================================================================
 */
-
 #pragma once
 #include <JuceHeader.h>
 
@@ -55,7 +54,11 @@ public:
     juce::StringArray getUserPresetNames() const;
     juce::String getCurrentPresetName() const { return currentPresetName; }
     
+    // New functions for modified preset display
+    bool isPresetModified() const;
+    juce::String getDisplayedPresetName() const;
     
+    juce::String getModifiedDisplayName() const;
     
 private:
     juce::AudioProcessorValueTreeState& apvts;
@@ -69,8 +72,10 @@ private:
     juce::String generateSafeFileName(const juce::String& name);
     
     juce::String currentPresetName = "Default";
-
- 
+    
+    // Store a clean copy of the preset state when a preset is loaded.
+    // This is used to determine if the preset has been modified.
+    juce::ValueTree cleanPresetState;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetManager)
 };

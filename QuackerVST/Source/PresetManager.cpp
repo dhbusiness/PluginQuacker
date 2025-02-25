@@ -77,6 +77,7 @@ bool PresetManager::savePreset(const juce::String& name, const juce::String& cat
     
     return false;
 }
+
 bool PresetManager::loadPreset(const juce::String& name)
 {
     auto it = presets.find(name);
@@ -86,11 +87,33 @@ bool PresetManager::loadPreset(const juce::String& name)
         juce::ValueTree presetCopy = it->second->state.createCopy();
         apvts.replaceState(presetCopy);
         currentPresetName = name;
+        // Save a clean copy for later comparison.
+        cleanPresetState = presetCopy.createCopy();
         return true;
     }
     return false;
 }
 
+bool PresetManager::isPresetModified() const
+{
+    // Retrieve the current state via copyState() to capture all modifications.
+    juce::ValueTree currentState = apvts.copyState();
+    return !currentState.isEquivalentTo(cleanPresetState);
+}
+
+juce::String PresetManager::getDisplayedPresetName() const
+{
+    return currentPresetName;
+}
+
+juce::String PresetManager::getModifiedDisplayName() const
+{
+    // Compare the current state (using copyState() to capture UI changes)
+    juce::ValueTree currentState = apvts.copyState();
+    if (!currentState.isEquivalentTo(cleanPresetState))
+        return currentPresetName + "*";
+    return currentPresetName;
+}
 
 void PresetManager::initializeDefaultPresets()
 {
