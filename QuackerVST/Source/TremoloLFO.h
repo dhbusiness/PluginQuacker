@@ -53,42 +53,24 @@ public:
     void setBPM(double bpm);
 
     // Convert BPM and note division to equivalent frequency
-    static double bpmToFrequency(double bpm, double noteDivisionIndex) {
-        // Convert from division index to actual multiplier
-        double divisionMultiplier;
-        
-        // Based on your code, it appears these values would work:
-        // 0.0 -> 0.25 (whole note - one cycle every 4 beats)
-        // 1.0 -> 0.5 (half note - one cycle every 2 beats)
-        // 2.0 -> 1.0 (quarter note - one cycle per beat)
-        // 3.0 -> 2.0 (eighth note - two cycles per beat)
-        // 4.0 -> 4.0 (sixteenth note - four cycles per beat)
-        // 5.0 -> 8.0 (thirty-second note - eight cycles per beat)
-        
-        switch (int(noteDivisionIndex)) {
-            case 0: divisionMultiplier = 0.25; break; // 1/1 (whole note)
-            case 1: divisionMultiplier = 0.5; break;  // 1/2 (half note)
-            case 2: divisionMultiplier = 1.0; break;  // 1/4 (quarter note)
-            case 3: divisionMultiplier = 2.0; break;  // 1/8 (eighth note)
-            case 4: divisionMultiplier = 4.0; break;  // 1/16 (sixteenth note)
-            case 5: divisionMultiplier = 8.0; break;  // 1/32 (thirty-second note)
-            default: divisionMultiplier = 1.0; break; // Default to quarter note
-        }
+    static double bpmToFrequency(double bpm, double noteDivision) {
+        // BPM represents beats per minute
+        // noteDivision represents the fraction of a beat (e.g., 0.25 = quarter note)
         
         // First calculate cycles per minute
-        double cyclesPerMinute = (bpm * divisionMultiplier);
+        double cyclesPerMinute = (bpm * noteDivision);
         
         // Convert to Hz (cycles per second)
         double frequencyHz = cyclesPerMinute / 60.0;
         
         // Apply a scaling factor to keep higher divisions within a musical range
         // This helps prevent excessive rates at high BPMs with small divisions
-        if (divisionMultiplier > 2.0) { // For divisions faster than 1/8 note
+        if (noteDivision > 2.0) { // For divisions faster than 1/8 note
             frequencyHz *= 0.75; // Reduce the frequency to keep it more musical
         }
         
         return frequencyHz;
-    }
+    };
 
     // Get the current effective frequency, whether synced or not
     double getCurrentEffectiveRate() const {
