@@ -224,6 +224,18 @@ void HierarchicalPresetMenu::updatePresetDisplay()
 
 void HierarchicalPresetMenu::showRootMenu()
 {
+    // Get current time
+    juce::Time currentTime = juce::Time::getCurrentTime();
+    
+    
+    // Only scan if it's been more than 2 seconds since last scan
+    if ((currentTime - lastScanTime).inSeconds() > 2)
+    {
+        presetManager.scanForPresets();
+        lastScanTime = currentTime;
+    }
+    
+    // Now create and populate the menu with the freshly scanned presets
     juce::PopupMenu menu;
     menuIDToPresetMap.clear();
     nextMenuID = PresetIDOffset;

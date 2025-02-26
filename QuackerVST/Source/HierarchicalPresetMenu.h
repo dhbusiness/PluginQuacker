@@ -83,5 +83,7 @@ private:
     int nextMenuID = PresetIDOffset;
     TransparentButtonLookAndFeel transparentButtonLookAndFeel;
     
+    juce::Time lastScanTime;   
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HierarchicalPresetMenu)
 };
