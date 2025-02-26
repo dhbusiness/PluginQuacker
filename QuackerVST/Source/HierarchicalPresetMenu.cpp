@@ -91,15 +91,7 @@ HierarchicalPresetMenu::~HierarchicalPresetMenu()
 void HierarchicalPresetMenu::paint(juce::Graphics& g)
 {
     // Draw nothing for the background/border
-    
-    // Only show modification indicator if needed
-    if (isModified)
-    {
-        auto bounds = getLocalBounds();
-        g.setFont(14.0f);
-        g.setColour(textColour);
-        g.drawText("*", bounds.removeFromRight(15), juce::Justification::centred);
-    }
+
 }
 
 void HierarchicalPresetMenu::resized()
@@ -223,7 +215,11 @@ void HierarchicalPresetMenu::updatePresetDisplay()
     currentDisplayName = presetManager.getDisplayedPresetName();
     isModified = presetManager.isPresetModified();
     
-    mainButton.setButtonText(currentDisplayName);
+    // Set the button text with an asterisk if the preset is modified
+    if (isModified)
+        mainButton.setButtonText("* " + currentDisplayName + " *");
+    else
+        mainButton.setButtonText(currentDisplayName);
 }
 
 void HierarchicalPresetMenu::showRootMenu()
