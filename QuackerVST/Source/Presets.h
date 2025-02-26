@@ -28,4 +28,9 @@ namespace QuackerPresets {
     void loadSubtleTexturesPresets(QuackerVSTAudioProcessor& processor);
     void loadWaveshapingPresets(QuackerVSTAudioProcessor& processor);
     void loadCreativePresets(QuackerVSTAudioProcessor& processor);
+    void loadSynthPresets(QuackerVSTAudioProcessor& processor);
+    void loadGuitarPresets(QuackerVSTAudioProcessor& processor);
+    void loadVocalPresets(QuackerVSTAudioProcessor& processor);
+    void loadExperimentalPresets(QuackerVSTAudioProcessor& processor);
+    void loadAmbiencePresets(QuackerVSTAudioProcessor& processor);
 }

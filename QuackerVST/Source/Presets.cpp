@@ -22,6 +22,13 @@ void QuackerPresets::loadAllFactoryPresets(QuackerVSTAudioProcessor& processor) 
     loadSubtleTexturesPresets(processor);
     loadWaveshapingPresets(processor);
     loadCreativePresets(processor);
+    loadSynthPresets(processor);
+    loadGuitarPresets(processor);
+    loadVocalPresets(processor);
+    loadExperimentalPresets(processor);
+    loadAmbiencePresets(processor);
+    
+    
     
     // Always finish by loading the default preset
     processor.getPresetManager().loadPreset("Default");
@@ -274,7 +281,58 @@ void QuackerPresets::loadRhythmicPresets(QuackerVSTAudioProcessor& processor) {
     if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
         waveshapeEnabledParam->setValueNotifyingHost(false);
     presetManager.savePreset("Twin Peaks Rhythm", "Factory/Rhythmic");
+    
+    // --- Dotted Eighth Delay ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(3)); // 1/8 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(4.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.8f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(16)); // Guitar Pick
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(33.0f)); // Dotted timing effect
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.7f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Dotted Eighth Pattern", "Factory/Rhythmic");
+    
+    // --- Trap Hi-Hat ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(4)); // 1/16 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(8.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.8f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(10)); // Pulse Decay
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(30.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.9f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(2.0f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.4f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Trap Hi-Hat", "Factory/Rhythmic");
 }
+
 
 void QuackerPresets::loadSpecialEffectsPresets(QuackerVSTAudioProcessor& processor) {
     auto& apvts = processor.apvts;
@@ -375,6 +433,52 @@ void QuackerPresets::loadSpecialEffectsPresets(QuackerVSTAudioProcessor& process
     if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
         waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(1)); // Square
     presetManager.savePreset("Motor Drive", "Factory/Special Effects");
+    
+    // --- Record Scratch ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(20.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.9f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(3)); // Sawtooth Up
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(6.0f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.6f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Record Scratch", "Factory/Special Effects");
+    
+    // --- Sci-Fi Teleporter ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(12.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(1.0f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(180.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(24.0f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.7f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(12)); // Multi Sine
+    presetManager.savePreset("Sci-Fi Teleporter", "Factory/Special Effects");
 }
 
 void QuackerPresets::loadSubtleTexturesPresets(QuackerVSTAudioProcessor& processor) {
@@ -680,4 +784,605 @@ void QuackerPresets::loadCreativePresets(QuackerVSTAudioProcessor& processor) {
     if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
         waveshapeEnabledParam->setValueNotifyingHost(false);
     presetManager.savePreset("Stereo Spread", "Factory/Creative");
+    
+    // --- Vinyl Degradation ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(2.2f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.3f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.5f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.5f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.15f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Vinyl Degradation", "Factory/Creative");
+    
+    // --- DJ Transitions ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(2)); // 1/4 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(2.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.8f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(3)); // Sawtooth Up
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("DJ Transitions", "Factory/Creative");
 }
+
+
+// New Synth-Focused Presets
+void QuackerPresets::loadSynthPresets(QuackerVSTAudioProcessor& processor) {
+    auto& apvts = processor.apvts;
+    auto& presetManager = processor.getPresetManager();
+    
+    // --- Pad Breathing ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.3f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.4f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(18)); // Slow Gear
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.85f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.1f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.2f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(0)); // Sine
+    presetManager.savePreset("Pad Breathing", "Factory/Synth");
+    
+    // --- Acid Wobble ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(3)); // 1/8 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(4.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.9f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(4)); // Sawtooth Down
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(2.5f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.4f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(5)); // Soft Square
+    presetManager.savePreset("Acid Wobble", "Factory/Synth");
+    
+    // --- Analog Drift ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.05f)); // Very slow
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.15f); // Subtle
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.7f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.02f)); // Super slow
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.1f); // Very subtle
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Analog Drift", "Factory/Synth");
+    
+    // --- Progressive Trance Gate ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(4)); // 1/16 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(8.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(1.0f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(1)); // Square
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(45.0f)); // Slight offset for rhythmic feel
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Progressive Trance Gate", "Factory/Synth");
+    
+    // --- Arpeggiator Helper ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(4)); // 1/16 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(8.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.6f); // Not fully cutting notes
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(16)); // Guitar Pick
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.85f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Arpeggiator Helper", "Factory/Synth");
+}
+
+// Guitar-Focused Presets
+void QuackerPresets::loadGuitarPresets(QuackerVSTAudioProcessor& processor) {
+    auto& apvts = processor.apvts;
+    auto& presetManager = processor.getPresetManager();
+    
+    // --- Surf Rock ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(7.2f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.85f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(6)); // Fender Style
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Surf Rock", "Factory/Guitar");
+    
+    // --- Rockabilly Slapback ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(5.8f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.7f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(2)); // Triangle
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.9f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(1.2f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.3f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(7)); // Wurlitzer Style
+    presetManager.savePreset("Rockabilly Slapback", "Factory/Guitar");
+    
+    // --- Blues Driver ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(3.5f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.6f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(13)); // Optical Style
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.85f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Blues Driver", "Factory/Guitar");
+    
+    // --- Floyd Pulse ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.8f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.5f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(0)); // Sine
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.75f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.4f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.25f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(0)); // Sine
+    presetManager.savePreset("Floyd Pulse", "Factory/Guitar");
+    
+    // --- Finger Tapper ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(2.5f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.95f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(16)); // Guitar Pick
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Finger Tapper", "Factory/Guitar");
+}
+
+// Vocal Processing Presets
+void QuackerPresets::loadVocalPresets(QuackerVSTAudioProcessor& processor) {
+    auto& apvts = processor.apvts;
+    auto& presetManager = processor.getPresetManager();
+    
+    // --- Vocal Chop ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(3)); // 1/8 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(4.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.9f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(1)); // Square
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Vocal Chop", "Factory/Vocal");
+    
+    // --- Glottal Vibrato ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(5.5f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.4f); // Subtle
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(0)); // Sine
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.7f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Glottal Vibrato", "Factory/Vocal");
+    
+    // --- Radio Voice ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(8.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.35f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.6f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(15.0f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.2f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Radio Voice", "Factory/Vocal");
+    
+    // --- Backing Vocals ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.85f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.3f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(18)); // Slow Gear
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(180.0f)); // Full phase offset for stereo spreading
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.55f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Backing Vocals", "Factory/Vocal");
+}
+
+// Experimental Presets
+void QuackerPresets::loadExperimentalPresets(QuackerVSTAudioProcessor& processor) {
+    auto& apvts = processor.apvts;
+    auto& presetManager = processor.getPresetManager();
+    
+    // --- Broken Circuit ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(12.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(1.0f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(1)); // Square
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(30.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(22.0f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.5f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Broken Circuit", "Factory/Experimental");
+    
+    // --- Quantum Fluctuations ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.02f)); // Extremely slow
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.7f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.8f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(15.0f)); // Fast
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.3f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Quantum Fluctuations", "Factory/Experimental");
+    
+    // --- Poly-Rhythmic Chaos ---
+    // First, set sync mode
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(true);
+    // Then set division
+    if (auto* divisionParam = apvts.getParameter("lfoNoteDivision"))
+        divisionParam->setValueNotifyingHost(divisionParam->convertTo0to1(3)); // 1/8 note
+    // THEN set other parameters
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(4.0f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.9f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(2)); // Triangle
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(1.0f);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(5.33f)); // Non-integer ratio for polyrhythmic effect
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.5f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(2)); // Triangle
+    presetManager.savePreset("Poly-Rhythmic Chaos", "Factory/Experimental");
+    
+    // --- Digital Deconstruction ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(7.7f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.85f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(3)); // Sawtooth Up
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(15.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.9f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(1.7f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.6f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(4)); // Sawtooth Down
+    presetManager.savePreset("Digital Deconstruction", "Factory/Experimental");
+    
+    // --- Probability Waves ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(3.3f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.75f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(90.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.85f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(6.5f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.4f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(12)); // Multi Sine
+    presetManager.savePreset("Probability Waves", "Factory/Experimental");
+}
+
+// Ambience and Soundscapes Presets
+void QuackerPresets::loadAmbiencePresets(QuackerVSTAudioProcessor& processor) {
+    auto& apvts = processor.apvts;
+    auto& presetManager = processor.getPresetManager();
+    
+    // --- Ocean Waves ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.25f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.45f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(0)); // Sine
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.7f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.7f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.3f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Ocean Waves", "Factory/Ambience");
+    
+    // --- Wind Through Trees ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.4f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.35f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(15)); // Smooth Random
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(45.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.6f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(1.2f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.25f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(15)); // Smooth Random
+    presetManager.savePreset("Wind Through Trees", "Factory/Ambience");
+    
+    // --- Distant Thunder ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.15f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.6f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(10)); // Pulse Decay
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.8f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Distant Thunder", "Factory/Ambience");
+    
+    // --- Heartbeat ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(1.2f));
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.7f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(14)); // Twin Peaks
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(0.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.9f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(false);
+    presetManager.savePreset("Heartbeat", "Factory/Ambience");
+    
+    // --- Aurora Borealis ---
+    if (auto* rateParam = apvts.getParameter("lfoRate"))
+        rateParam->setValueNotifyingHost(rateParam->convertTo0to1(0.08f)); // Very slow
+    if (auto* depthParam = apvts.getParameter("lfoDepth"))
+        depthParam->setValueNotifyingHost(0.5f);
+    if (auto* waveformParam = apvts.getParameter("lfoWaveform"))
+        waveformParam->setValueNotifyingHost(waveformParam->convertTo0to1(12)); // Multi Sine
+    if (auto* phaseOffsetParam = apvts.getParameter("lfoPhaseOffset"))
+        phaseOffsetParam->setValueNotifyingHost(phaseOffsetParam->convertTo0to1(90.0f));
+    if (auto* mixParam = apvts.getParameter("mix"))
+        mixParam->setValueNotifyingHost(0.65f);
+    if (auto* syncParam = apvts.getParameter("lfoSync"))
+        syncParam->setValueNotifyingHost(false);
+    if (auto* waveshapeEnabledParam = apvts.getParameter("waveshapeEnabled"))
+        waveshapeEnabledParam->setValueNotifyingHost(true);
+    if (auto* waveshapeRateParam = apvts.getParameter("waveshapeRate"))
+        waveshapeRateParam->setValueNotifyingHost(waveshapeRateParam->convertTo0to1(0.2f));
+    if (auto* waveshapeDepthParam = apvts.getParameter("waveshapeDepth"))
+        waveshapeDepthParam->setValueNotifyingHost(0.4f);
+    if (auto* waveshapeWaveformParam = apvts.getParameter("waveshapeWaveform"))
+        waveshapeWaveformParam->setValueNotifyingHost(waveshapeWaveformParam->convertTo0to1(0)); // Sine
+    presetManager.savePreset("Aurora Borealis", "Factory/Ambience");
+}
+
+
+
+
+
+    
+
