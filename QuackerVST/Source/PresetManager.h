@@ -116,6 +116,9 @@ private:
     void createPresetDirectory();
     void loadPresetFromFile(const juce::File& file);
     bool savePresetToFile(const Preset& preset);
+    void scanDirectory(const juce::File& directory, const juce::String& categoryPrefix);
+    juce::String determineCategory(const juce::File& file);
+    bool savePresetToFile(const Preset& preset, const juce::File& presetFile);
     juce::String generateSafeFileName(const juce::String& name);
     
     juce::String currentPresetName = "Default";

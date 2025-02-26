@@ -13,9 +13,29 @@
 PresetManager::PresetManager(juce::AudioProcessorValueTreeState& apvts)
     : apvts(apvts)
 {
-    // Set up preset directory in the user's documents folder
-    juce::File documentsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
-    presetDirectory = documentsDir.getChildFile("Quacker/Presets");
+    // Set up preset directory in the user's application data folder
+    // This ensures the plugin always has write permissions
+    
+#if JUCE_MAC
+    // On macOS, use ~/Library/Application Support
+    juce::File appSupportDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+    juce::File companyDir = appSupportDir.getChildFile("DeividsHvostovsDSP");
+    juce::File pluginDir = companyDir.getChildFile("TremoloViola");
+    presetDirectory = pluginDir.getChildFile("Presets");
+#elif JUCE_WINDOWS
+    // On Windows, use AppData/Roaming
+    juce::File appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+    juce::File companyDir = appDataDir.getChildFile("DeividsHvostovsDSP");
+    juce::File pluginDir = companyDir.getChildFile("TremoloViola");
+    presetDirectory = pluginDir.getChildFile("Presets");
+#else
+    // Linux or other platforms
+    juce::File homeDir = juce::File::getSpecialLocation(juce::File::userHomeDirectory);
+    juce::File companyDir = homeDir.getChildFile(".DeividsHvostovsDSP");
+    juce::File pluginDir = companyDir.getChildFile("TremoloViola");
+    presetDirectory = pluginDir.getChildFile("Presets");
+#endif
+
     createPresetDirectory();
     scanForPresets();
 }
@@ -26,15 +46,50 @@ PresetManager::~PresetManager()
 
 void PresetManager::createPresetDirectory()
 {
+    // Create the entire directory hierarchy
+    
+    // First, the company directory
+    juce::File companyDir = presetDirectory.getParentDirectory().getParentDirectory();
+    if (!companyDir.exists())
+    {
+        const bool companyDirCreated = companyDir.createDirectory();
+        if (!companyDirCreated)
+        {
+            juce::Logger::writeToLog("Failed to create company directory at: " + companyDir.getFullPathName());
+            return; // Early return since we can't create parent directory
+        }
+    }
+    
+    // Then, the plugin directory
+    juce::File pluginDir = presetDirectory.getParentDirectory();
+    if (!pluginDir.exists())
+    {
+        const bool pluginDirCreated = pluginDir.createDirectory();
+        if (!pluginDirCreated)
+        {
+            juce::Logger::writeToLog("Failed to create plugin directory at: " + pluginDir.getFullPathName());
+            return; // Early return since we can't create parent directory
+        }
+    }
+    
+    // Finally, the presets directory
     if (!presetDirectory.exists())
     {
-        const bool dirCreated = presetDirectory.createDirectory();
-        if (!dirCreated)
+        const bool presetDirCreated = presetDirectory.createDirectory();
+        if (!presetDirCreated)
         {
-            // Handle directory creation failure
             juce::Logger::writeToLog("Failed to create preset directory at: " + presetDirectory.getFullPathName());
         }
     }
+    
+    // Create common subdirectories for organization
+    juce::File factoryDir = presetDirectory.getChildFile("Factory");
+    if (!factoryDir.exists())
+        factoryDir.createDirectory();
+        
+    juce::File userDir = presetDirectory.getChildFile("User");
+    if (!userDir.exists())
+        userDir.createDirectory();
 }
 
 void PresetManager::scanForPresets()
@@ -42,16 +97,13 @@ void PresetManager::scanForPresets()
     // Clear existing presets
     presets.clear();
     
-    // Scan directory for preset files
-    for (const auto& file : presetDirectory.findChildFiles(
-        juce::File::findFiles, false, "*.xml"))
-    {
-        loadPresetFromFile(file);
-    }
+    // Recursively scan the preset directory and its subdirectories
+    scanDirectory(presetDirectory, "");
     
     // Rebuild the folder hierarchy with the updated presets
     buildFolderHierarchy();
 }
+
 
 void PresetManager::clearFactoryPresets()
 {
@@ -70,8 +122,65 @@ bool PresetManager::savePreset(const juce::String& name, const juce::String& cat
     auto currentState = apvts.copyState();
     auto newPreset = std::make_unique<Preset>(name, category, currentState);
     
-    // Save to file
-    if (savePresetToFile(*newPreset))
+    // Determine the appropriate directory based on category
+    juce::File targetDir;
+    
+    if (category == "Factory" || category.startsWith("Factory/"))
+    {
+        // Save to Factory directory
+        if (category == "Factory")
+        {
+            targetDir = presetDirectory.getChildFile("Factory");
+        }
+        else
+        {
+            // Create nested directory structure for Factory subcategories
+            juce::String subfolderPath = category.substring(8); // Remove "Factory/" prefix
+            targetDir = presetDirectory.getChildFile("Factory");
+            
+            juce::StringArray folders = juce::StringArray::fromTokens(subfolderPath, "/", "");
+            for (const auto& folder : folders)
+            {
+                targetDir = targetDir.getChildFile(folder);
+                if (!targetDir.exists())
+                    targetDir.createDirectory();
+            }
+        }
+    }
+    else
+    {
+        // Save to User directory
+        targetDir = presetDirectory.getChildFile("User");
+        
+        // Check if this is a user subcategory
+        if (category != "User" && !category.isEmpty())
+        {
+            juce::StringArray folders = juce::StringArray::fromTokens(category, "/", "");
+            for (const auto& folder : folders)
+            {
+                targetDir = targetDir.getChildFile(folder);
+                if (!targetDir.exists())
+                    targetDir.createDirectory();
+            }
+        }
+    }
+    
+    // Make sure the directory exists
+    if (!targetDir.exists())
+    {
+        const bool dirCreated = targetDir.createDirectory();
+        if (!dirCreated)
+        {
+            juce::Logger::writeToLog("Failed to create preset directory at: " + targetDir.getFullPathName());
+            return false;
+        }
+    }
+    
+    // Save preset to file
+    juce::File presetFile = targetDir.getChildFile(generateSafeFileName(name));
+    
+    // Save to file using the updated location
+    if (savePresetToFile(*newPreset, presetFile))
     {
         // Add to our preset map
         presets[name] = std::move(newPreset);
@@ -166,7 +275,7 @@ juce::StringArray PresetManager::getCategories() const
     return categories;
 }
 
-bool PresetManager::savePresetToFile(const Preset& preset)
+bool PresetManager::savePresetToFile(const Preset& preset, const juce::File& presetFile)
 {
     // Convert state to XML
     if (auto xml = getXmlFromState(preset.state))
@@ -176,8 +285,7 @@ bool PresetManager::savePresetToFile(const Preset& preset)
         xml->setAttribute("category", preset.category);
         xml->setAttribute("dateCreated", preset.dateCreated.toISO8601(true));
         
-        // Generate safe filename and save
-        juce::File presetFile = presetDirectory.getChildFile(generateSafeFileName(preset.name));
+        // Save to the provided file path
         if (xml->writeTo(presetFile))
         {
             return true;
@@ -193,7 +301,16 @@ void PresetManager::loadPresetFromFile(const juce::File& file)
     {
         // Extract metadata
         juce::String name = xml->getStringAttribute("name");
-        juce::String category = xml->getStringAttribute("category", "User");
+        
+        // Determine category based on the file's location relative to the preset directory
+        juce::String category = xml->getStringAttribute("category", "");
+        
+        // If no category is specified in the XML, derive it from the file path
+        if (category.isEmpty())
+        {
+            category = determineCategory(file);
+        }
+        
         juce::Time dateCreated = juce::Time::fromISO8601(xml->getStringAttribute("dateCreated"));
         
         // Get the state
@@ -428,4 +545,51 @@ const PresetManager::PresetFolder* PresetManager::getFolderByPath(const juce::St
     }
     
     return currentFolder;
+}
+
+void PresetManager::scanDirectory(const juce::File& directory, const juce::String& categoryPrefix)
+{
+    // Process all XML files in this directory
+    for (const auto& file : directory.findChildFiles(juce::File::findFiles, false, "*.xml"))
+    {
+        loadPresetFromFile(file);
+    }
+    
+    // Recursively process subdirectories
+    for (const auto& subdir : directory.findChildFiles(juce::File::findDirectories, false))
+    {
+        // Determine the category for this subdirectory
+        juce::String category;
+        
+        // Special handling for root Factory and User directories
+        if (subdir.getFileName() == "Factory" || subdir.getFileName() == "User")
+        {
+            category = subdir.getFileName();
+        }
+        else if (!categoryPrefix.isEmpty())
+        {
+            category = categoryPrefix + "/" + subdir.getFileName();
+        }
+        else
+        {
+            category = subdir.getFileName();
+        }
+        
+        // Scan this subdirectory
+        scanDirectory(subdir, category);
+    }
+}
+
+juce::String PresetManager::determineCategory(const juce::File& file)
+{
+    // Get the path relative to the preset directory
+    juce::String relativePath = file.getParentDirectory().getRelativePathFrom(presetDirectory);
+    
+    // If the file is directly in the preset directory
+    if (relativePath.isEmpty() || relativePath == ".")
+    {
+        return "User"; // Default to User category
+    }
+    
+    return relativePath;
 }

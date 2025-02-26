@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="BWX4it" name="QuackerVST" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
-  <MAINGROUP id="rSG9EE" name="QuackerVST">
+<JUCERPROJECT id="BWX4it" name="TremoloViolaVST" projectType="audioplug" useAppConfig="0"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginName="Tremolo Viola"
+              pluginManufacturer="DeividsHvostovsDSP" companyName="DeividsHvostovsDSP"
+              companyEmail="deividshvostovsbusiness@gmail.com ">
+  <MAINGROUP id="rSG9EE" name="TremoloViolaVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
       <FILE id="RVOM1A" name="WaveshapeLFO.cpp" compile="1" resource="0"
             file="Source/WaveshapeLFO.cpp"/>
