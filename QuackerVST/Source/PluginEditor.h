@@ -17,6 +17,7 @@
 #include "CustomComboBox.h"
 #include "ArrowNavigationComboBox.h"
 #include "PresetComponent.h"
+#include "HierarchicalPresetMenu.h"
 
 //==============================================================================
 /**
@@ -52,8 +53,7 @@ private:
     juce::Slider mixSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
     
-    // Add PresetComponent
-    PresetComponent presetComponent; 
+    HierarchicalPresetMenu presetMenu;
     
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoRateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoDepthAttachment;

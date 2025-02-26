@@ -67,6 +67,46 @@ public:
     using PresetLoadedCallback = std::function<void()>;
     void setPresetLoadedCallback(PresetLoadedCallback callback) { onPresetLoaded = callback; }
     
+    // Add this inside the PresetManager class declaration
+
+    // Represents a folder in the preset hierarchy
+    struct PresetFolder {
+        juce::String name;
+        std::vector<juce::String> presets;  // Presets in this folder
+        std::map<juce::String, PresetFolder> subfolders;  // Nested folders
+        
+        // Helper to add a preset to this folder
+        void addPreset(const juce::String& presetName) {
+            presets.push_back(presetName);
+        }
+        
+        // Helper to get or create a subfolder
+        PresetFolder& getOrCreateSubfolder(const juce::String& folderName) {
+            return subfolders[folderName];
+        }
+    };
+
+    // Root folders (Factory, User, etc.)
+    std::map<juce::String, PresetFolder> presetFolders;
+
+    // Build the folder hierarchy from the preset categories
+    void buildFolderHierarchy();
+
+    // Get all factory preset categories
+    juce::StringArray getFactoryCategories() const;
+
+    // Get all presets in a specific folder path (e.g., "Factory/Vintage Amps")
+    juce::StringArray getPresetsInFolder(const juce::String& folderPath) const;
+
+    // Helper to split a path into components
+    static std::vector<juce::String> splitFolderPath(const juce::String& path);
+
+    // Convert category to folder path
+    juce::String categoryToFolderPath(const juce::String& category) const;
+
+    // Helper function to get a subfolder by path
+    const PresetFolder* getFolderByPath(const juce::String& path) const;
+    
 private:
     juce::AudioProcessorValueTreeState& apvts;
     juce::File presetDirectory;

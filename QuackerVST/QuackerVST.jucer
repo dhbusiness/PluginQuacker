@@ -36,6 +36,14 @@
       <FILE id="rEkgTm" name="TremoloLFO.h" compile="0" resource="0" file="Source/TremoloLFO.h"/>
       <FILE id="NvoZKP" name="Presets.h" compile="0" resource="0" file="Source/Presets.h"/>
       <FILE id="Yga3QB" name="Presets.cpp" compile="1" resource="0" file="Source/Presets.cpp"/>
+      <FILE id="GOhxIS" name="HierarchicalPresetMenu.h" compile="0" resource="0"
+            file="Source/HierarchicalPresetMenu.h"/>
+      <FILE id="TcDu5e" name="CustomMenuLookAndFeel.h" compile="0" resource="0"
+            file="Source/CustomMenuLookAndFeel.h"/>
+      <FILE id="nk6UoR" name="TransparentButtonLookAndFeel.h" compile="0"
+            resource="0" file="Source/TransparentButtonLookAndFeel.h"/>
+      <FILE id="crT99K" name="HierarchicalPresetMenu.cpp" compile="1" resource="0"
+            file="Source/HierarchicalPresetMenu.cpp"/>
       <FILE id="SjD8JU" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>

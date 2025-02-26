@@ -15,7 +15,7 @@ bool QuackerVSTAudioProcessorEditor::backgroundGenerated = false;
 
 //==============================================================================
 QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), presetComponent(p.getPresetManager())  // Initialize PresetComponent
+    : AudioProcessorEditor (&p), audioProcessor (p), presetMenu(p.getPresetManager())
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -254,7 +254,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoNoteDivisionBox.addMouseListener(this, false);
 
     
-    addAndMakeVisible(presetComponent);
+    addAndMakeVisible(presetMenu);
     
     
 }
@@ -635,21 +635,27 @@ void QuackerVSTAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
 void QuackerVSTAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
-        
+    
     // First, let's establish our key measurements
-    const int presetHeight = 40;
+    const int presetHeight = 35;
     const int visualizerHeight = 200;
     const int visualizerMargin = 10;
-        
+    
     // Instead of calculating a large margin, let's determine exactly where we want
     // the preset manager to sit. We want it centered in the space above the visualizer.
     const int desiredSpaceAboveVisualizer = 20;  // Total space we want above visualizer
     const int topMargin = (desiredSpaceAboveVisualizer - presetHeight) / 2;  // Center the preset in this space
-        
-    // Position PresetComponent
+    
+    // Position PresetComponent - use a specific width that matches your original design
     auto presetBounds = bounds.removeFromTop(topMargin + presetHeight);
-    presetComponent.setBounds(presetBounds.removeFromBottom(presetHeight).reduced(8, 4));
-        
+    
+    // Set a fixed width for the preset manager and center it
+    const int presetWidth = 250; // Adjust this value to match your original design
+    int leftMargin = (getWidth() - presetWidth) / 2;
+    
+    presetMenu.setBounds(leftMargin, presetBounds.getY() + (presetBounds.getHeight() - presetHeight)/2,
+                        presetWidth, presetHeight);
+    
     // Add the remaining margin before the visualizer
     bounds.removeFromTop(topMargin);
         

@@ -48,6 +48,9 @@ void PresetManager::scanForPresets()
     {
         loadPresetFromFile(file);
     }
+    
+    // Rebuild the folder hierarchy with the updated presets
+    buildFolderHierarchy();
 }
 
 void PresetManager::clearFactoryPresets()
@@ -276,4 +279,153 @@ void PresetManager::applyParametersInCorrectOrder()
     if (auto* rate = apvts.getParameter("lfoRate")) {
         rate->setValueNotifyingHost(rate->convertTo0to1(rateParam->load()));
     }
+}
+
+std::vector<juce::String> PresetManager::splitFolderPath(const juce::String& path)
+{
+    std::vector<juce::String> components;
+    juce::StringArray tokens = juce::StringArray::fromTokens(path, "/", "");
+    
+    for (const auto& token : tokens)
+        components.push_back(token);
+    
+    return components;
+}
+
+void PresetManager::buildFolderHierarchy()
+{
+    // Clear existing hierarchy
+    presetFolders.clear();
+    
+    // Create top-level folders
+    presetFolders["Factory"] = PresetFolder{"Factory", {}, {}};
+    presetFolders["User"] = PresetFolder{"User", {}, {}};
+    
+    // Process all presets
+    for (const auto& preset : presets)
+    {
+        juce::String presetName = preset.first;
+        juce::String category = preset.second->category;
+        
+        if (category == "Factory")
+        {
+            // Add to the root Factory folder
+            presetFolders["Factory"].addPreset(presetName);
+        }
+        else if (category.startsWith("Factory/"))
+        {
+            // Get the subfolder path
+            juce::String subfolderPath = category.substring(8); // Remove "Factory/" prefix
+            
+            // Navigate to the correct subfolder
+            PresetFolder* currentFolder = &presetFolders["Factory"];
+            auto pathComponents = splitFolderPath(subfolderPath);
+            
+            for (const auto& component : pathComponents)
+            {
+                currentFolder = &currentFolder->getOrCreateSubfolder(component);
+            }
+            
+            // Add the preset to this subfolder
+            currentFolder->addPreset(presetName);
+        }
+        else
+        {
+            // Add to User folder
+            presetFolders["User"].addPreset(presetName);
+        }
+    }
+}
+
+juce::StringArray PresetManager::getFactoryCategories() const
+{
+    juce::StringArray categories;
+    
+    // First check if "Factory" folder exists
+    auto it = presetFolders.find("Factory");
+    if (it != presetFolders.end())
+    {
+        // Add the base Factory category
+        categories.add("Factory");
+        
+        // Helper function to traverse folder hierarchy
+        std::function<void(const PresetFolder&, const juce::String&)> traverseFolder =
+            [&categories, &traverseFolder](const PresetFolder& folder, const juce::String& path)
+        {
+            // Add subfolders
+            for (const auto& subfolder : folder.subfolders)
+            {
+                juce::String newPath = path.isEmpty() ? subfolder.first : path + "/" + subfolder.first;
+                categories.add("Factory/" + newPath);
+                traverseFolder(subfolder.second, newPath);
+            }
+        };
+        
+        // Start traversal from the Factory folder with empty path
+        traverseFolder(it->second, "");
+    }
+    
+    return categories;
+}
+
+juce::StringArray PresetManager::getPresetsInFolder(const juce::String& folderPath) const
+{
+    juce::StringArray result;
+    
+    // Handle root folders
+    if (folderPath == "Factory" || folderPath == "User")
+    {
+        auto it = presetFolders.find(folderPath);
+        if (it != presetFolders.end())
+        {
+            // Add all presets from this root folder
+            for (const auto& presetName : it->second.presets)
+                result.add(presetName);
+        }
+        return result;
+    }
+    
+    // Handle subfolders
+    const PresetFolder* folder = getFolderByPath(folderPath);
+    if (folder != nullptr)
+    {
+        for (const auto& presetName : folder->presets)
+            result.add(presetName);
+    }
+    
+    return result;
+}
+
+juce::String PresetManager::categoryToFolderPath(const juce::String& category) const
+{
+    // Factory presets already have a path-like structure
+    return category;
+}
+
+const PresetManager::PresetFolder* PresetManager::getFolderByPath(const juce::String& path) const
+{
+    // Split the path
+    auto components = splitFolderPath(path);
+    
+    // Get the root folder
+    if (components.empty())
+        return nullptr;
+        
+    auto rootFolderIt = presetFolders.find(components[0]);
+    if (rootFolderIt == presetFolders.end())
+        return nullptr;
+        
+    const PresetFolder* currentFolder = &rootFolderIt->second;
+    
+    // Navigate through the path
+    for (size_t i = 1; i < components.size(); ++i)
+    {
+        auto subfolderIt = currentFolder->subfolders.find(components[i]);
+        if (subfolderIt == currentFolder->subfolders.end())
+            return nullptr;
+            
+        currentFolder = &subfolderIt->second;
+    }
+    
+    return currentFolder;
 }
