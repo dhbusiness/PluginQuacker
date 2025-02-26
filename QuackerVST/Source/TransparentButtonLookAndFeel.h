@@ -21,14 +21,12 @@ public:
         setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
     }
     
-    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                             const juce::Colour& backgroundColour,
-                             bool shouldDrawButtonAsHighlighted,
-                             bool shouldDrawButtonAsDown) override
+    
+    void drawButtonBackground(juce::Graphics&, juce::Button&,
+                             const juce::Colour&,
+                             bool, bool) override
     {
-        auto bounds = button.getLocalBounds();
-        
-
+        // Deliberately empty to prevent any background drawing
     }
     
     void drawButtonText(juce::Graphics& g, juce::TextButton& button,

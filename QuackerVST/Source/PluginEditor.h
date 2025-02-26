@@ -16,7 +16,6 @@
 #include "PerlinNoise.h"
 #include "CustomComboBox.h"
 #include "ArrowNavigationComboBox.h"
-#include "PresetComponent.h"
 #include "HierarchicalPresetMenu.h"
 
 //==============================================================================
