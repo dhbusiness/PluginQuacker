@@ -1,222 +1,71 @@
-name: Build Tremolo Viola Plugin
+name: Build TremoloViola Plugin
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # This allows manual triggering via a button in the GitHub UI
 
 jobs:
-  build-mac:
+  build-macos:
     runs-on: macos-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        
-      - name: Find Jucer File
-        id: find-jucer
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up environment
         run: |
-          # First, check the repository structure
-          echo "=== Repository Structure ==="
-          ls -la
-          
-          # Try to find the .jucer file
-          JUCER_PATH=""
-          
-          # Check if the file is in the root directory
-          if [ -f "QuackerVST.jucer" ]; then
-            JUCER_PATH="QuackerVST.jucer"
-            echo "Found .jucer file in root directory"
-          
-          # Check if it's in a subdirectory called QuackerVST
-          elif [ -f "QuackerVST/QuackerVST.jucer" ]; then
-            JUCER_PATH="QuackerVST/QuackerVST.jucer"
-            echo "Found .jucer file in QuackerVST subdirectory"
-          
-          # If not found in those specific locations, search for any .jucer file
-          else
-            # Find the first .jucer file in the repository
-            FOUND_JUCER=$(find . -name "*.jucer" -type f | head -n 1)
-            if [ -n "$FOUND_JUCER" ]; then
-              JUCER_PATH="$FOUND_JUCER"
-              echo "Found .jucer file at: $JUCER_PATH"
-            else
-              echo "No .jucer file found in the repository!"
-              exit 1
-            fi
-          fi
-          
-          # Set the JUCER_PATH as an output variable for later steps
-          echo "jucer_path=$JUCER_PATH" >> $GITHUB_OUTPUT
-          
-          # Also set the directory containing the .jucer file
-          JUCER_DIR=$(dirname "$JUCER_PATH")
-          echo "jucer_dir=$JUCER_DIR" >> $GITHUB_OUTPUT
-          
-          echo "Using .jucer file: $JUCER_PATH"
-          echo "Jucer directory: $JUCER_DIR"
-        
-      - name: Install Dependencies
+          echo "Setting up environment variables"
+          echo "JUCE_VERSION=7.0.8" >> $GITHUB_ENV
+          echo "PROJECT_NAME=TremoloViolaVST" >> $GITHUB_ENV
+          echo "JUCER_FILE=QuackerVST/QuackerVST.jucer" >> $GITHUB_ENV
+
+      - name: Install dependencies
         run: |
           brew update
-          brew install wget cmake xmlstarlet
+          brew install cmake
           
-      - name: Download Latest JUCE
+      - name: Download and build JUCE
         run: |
-          # Download the latest JUCE from the master branch
-          wget https://github.com/juce-framework/JUCE/archive/refs/heads/master.zip -O juce.zip
-          unzip juce.zip
-          mv JUCE-master JUCE
+          echo "Downloading JUCE ${JUCE_VERSION}"
+          curl -L -o JUCE.zip "https://github.com/juce-framework/JUCE/archive/refs/tags/${JUCE_VERSION}.zip"
+          unzip JUCE.zip
+          mv JUCE-${JUCE_VERSION} JUCE
           
-          # Verify JUCE modules directory structure
-          echo "JUCE modules directory structure:"
-          ls -la JUCE/modules
+          echo "Building Projucer"
+          cd JUCE
+          cmake -B build -DJUCE_BUILD_EXAMPLES=OFF -DJUCE_BUILD_EXTRAS=ON
+          cmake --build build --target Projucer --config Release
           
-      - name: Modify JUCER File for CI Environment
+          echo "Projucer path:"
+          ls -la build/extras/Projucer/Projucer_artefacts/Release/
+
+      - name: Resave JUCER file
         run: |
-          # Get the path to the .jucer file from the previous step
-          JUCER_PATH="${{ steps.find-jucer.outputs.jucer_path }}"
+          echo "Resaving JUCER file using Projucer"
+          ./JUCE/build/extras/Projucer/Projucer_artefacts/Release/Projucer --resave "${JUCER_FILE}"
           
-          # Create a backup of the original .jucer file
-          cp "$JUCER_PATH" "${JUCER_PATH}.backup"
-          
-          # Get the absolute path to the JUCE modules directory
-          JUCE_MODULES_PATH="$(pwd)/JUCE/modules"
-          
-          # Use XMLStarlet to properly modify the XML file
-          # First, update all module declarations to ensure they use global path but not local copy
-          xmlstarlet ed -L -u "/JUCERPROJECT/MODULES/MODULE/@useGlobalPath" -v "1" "$JUCER_PATH"
-          xmlstarlet ed -L -u "/JUCERPROJECT/MODULES/MODULE/@useLocalCopy" -v "0" "$JUCER_PATH"
-          
-          # Then update all MODULEPATH elements with the correct path
-          for MODULE_ID in $(xmlstarlet sel -t -v "/JUCERPROJECT/EXPORTFORMATS/XCODE_MAC/MODULEPATHS/MODULEPATH/@id" "$JUCER_PATH"); do
-            xmlstarlet ed -L -u "/JUCERPROJECT/EXPORTFORMATS/XCODE_MAC/MODULEPATHS/MODULEPATH[@id='$MODULE_ID']/@path" -v "$JUCE_MODULES_PATH" "$JUCER_PATH"
-          done
-          
-          # Show the changes made to the .jucer file
-          echo "Changes made to $JUCER_PATH:"
-          diff -u "${JUCER_PATH}.backup" "$JUCER_PATH" || true
-          
-      - name: Build Projucer
+      - name: Export Xcode project
         run: |
-          # Navigate to Projucer directory and build
-          cd JUCE/extras/Projucer/Builds/MacOSX
-          xcodebuild -project Projucer.xcodeproj -configuration "Release" -jobs 4
+          echo "Exporting Xcode project"
+          ./JUCE/build/extras/Projucer/Projucer_artefacts/Release/Projucer --export-xcode "${JUCER_FILE}"
           
-      - name: Set Up Projucer
+      - name: Build VST3 plugin
         run: |
-          # Make Projucer accessible
-          mkdir -p bin
-          cp JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer bin/
-          chmod +x bin/Projucer
+          echo "Building VST3 plugin with Xcode"
+          cd QuackerVST/Builds/MacOSX
+          xcodebuild -project TremoloViolaVST.xcodeproj -configuration Release -destination 'platform=macOS'
           
-          # Configure Projucer to recognize the JUCE path
-          mkdir -p "$HOME/Library/Application Support/Projucer"
+          echo "Checking build output"
+          ls -la build/Release
           
-          # Create settings file pointing to our JUCE installation
-          cat > "$HOME/Library/Application Support/Projucer/Projucer.settings" << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <PROPERTIES>
-            <VALUE name="jucePath" value="$(pwd)/JUCE"/>
-          </PROPERTIES>
-          EOF
-          
-      - name: Resave Project with Projucer
+      - name: Package plugin
         run: |
-          # Get the path to Projucer
-          PROJUCER_PATH=$(pwd)/bin/Projucer
+          echo "Creating ZIP archive of VST3 plugin"
+          cd QuackerVST/Builds/MacOSX/build/Release
+          mkdir -p TremoloViola
+          cp -r "TremoloViola.vst3" TremoloViola/
+          zip -r TremoloViola-macOS.zip TremoloViola
           
-          # Get the path to the .jucer file and its directory
-          JUCER_PATH="${{ steps.find-jucer.outputs.jucer_path }}"
-          JUCER_DIR="${{ steps.find-jucer.outputs.jucer_dir }}"
-          
-          # Show the current directory structure before resaving
-          echo "Current directory structure:"
-          ls -la
-          
-          # Resave the project to update all paths and regenerate project files
-          "$PROJUCER_PATH" --resave "$JUCER_PATH"
-          
-          # Show the directory structure after resaving
-          echo "Directory structure after resave:"
-          ls -la
-          
-          # Check where the Xcode project was generated
-          echo "Looking for generated Xcode projects:"
-          find . -name "*.xcodeproj" -type d
-          
-      - name: Build Plugin
-        run: |
-          # Get the .jucer directory from the previous step
-          JUCER_DIR="${{ steps.find-jucer.outputs.jucer_dir }}"
-          JUCER_PATH="${{ steps.find-jucer.outputs.jucer_path }}"
-          
-          # Determine the project name from the .jucer file
-          PROJECT_NAME=$(xmlstarlet sel -t -v "/JUCERPROJECT/EXPORTFORMATS/XCODE_MAC/CONFIGURATIONS/CONFIGURATION/@targetName" "$JUCER_PATH" | head -n 1)
-          echo "Project target name from .jucer file: $PROJECT_NAME"
-          
-          # Find the generated Xcode project
-          # First check in the standard Builds directory relative to the .jucer file
-          XCODE_PROJECT_PATH=""
-          
-          if [ -d "$JUCER_DIR/Builds/MacOSX" ]; then
-            XCODE_PROJECT_PATH=$(find "$JUCER_DIR/Builds/MacOSX" -name "*.xcodeproj" -type d | head -n 1)
-          fi
-          
-          # If not found, search more broadly
-          if [ -z "$XCODE_PROJECT_PATH" ]; then
-            XCODE_PROJECT_PATH=$(find . -name "*.xcodeproj" -type d | head -n 1)
-          fi
-          
-          echo "Found Xcode project: $XCODE_PROJECT_PATH"
-          
-          # Navigate to the directory containing the Xcode project
-          cd $(dirname "$XCODE_PROJECT_PATH")
-          
-          # Show available schemes
-          xcodebuild -list -project $(basename "$XCODE_PROJECT_PATH")
-          
-          # Build the project
-          xcodebuild -project $(basename "$XCODE_PROJECT_PATH") -configuration "Release" -jobs 4
-          
-      - name: Package Plugin
-        run: |
-          # Create directory for packaging
-          mkdir -p package/VST3
-          mkdir -p package/AU
-          
-          # Find the built plugins (search entire repository)
-          echo "Searching for built plugins..."
-          VST3_FILES=$(find . -name "*.vst3" -type d)
-          AU_FILES=$(find . -name "*.component" -type d)
-          
-          echo "Found VST3 files: $VST3_FILES"
-          echo "Found AU files: $AU_FILES"
-          
-          # Copy the plugins to the package directory
-          if [ -n "$VST3_FILES" ]; then
-            for VST3_FILE in $VST3_FILES; do
-              cp -R "$VST3_FILE" package/VST3/
-              echo "Copied $VST3_FILE to package directory"
-            done
-          else
-            echo "No VST3 files found"
-          fi
-          
-          if [ -n "$AU_FILES" ]; then
-            for AU_FILE in $AU_FILES; do
-              cp -R "$AU_FILE" package/AU/
-              echo "Copied $AU_FILE to package directory"
-            done
-          else
-            echo "No AU files found"
-          fi
-          
-          # Create zip package
-          cd package
-          zip -r TremoloViola_Mac.zip .
-          mv TremoloViola_Mac.zip ../ 
-          
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: TremoloViola_Mac
-          path: TremoloViola_Mac.zip
-          retention-days: 30
+          name: TremoloViola-macOS
+          path: QuackerVST/Builds/MacOSX/build/Release/TremoloViola-macOS.zip
