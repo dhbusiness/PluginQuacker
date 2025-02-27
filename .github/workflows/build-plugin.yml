@@ -35,17 +35,17 @@ jobs:
           cmake --build build --target Projucer --config Release
           
           echo "Projucer path:"
-          ls -la build/extras/Projucer/Projucer_artefacts/Release/
+          ls -la build/extras/Projucer/Projucer_artefacts/
 
       - name: Resave JUCER file
         run: |
           echo "Resaving JUCER file using Projucer"
-          ./JUCE/build/extras/Projucer/Projucer_artefacts/Release/Projucer --resave "${JUCER_FILE}"
+          ./JUCE/build/extras/Projucer/Projucer_artefacts/Projucer.app/Contents/MacOS/Projucer --resave "${JUCER_FILE}"
           
       - name: Export Xcode project
         run: |
           echo "Exporting Xcode project"
-          ./JUCE/build/extras/Projucer/Projucer_artefacts/Release/Projucer --export-xcode "${JUCER_FILE}"
+          ./JUCE/build/extras/Projucer/Projucer_artefacts/Projucer.app/Contents/MacOS/Projucer --export-xcode "${JUCER_FILE}"
           
       - name: Build VST3 plugin
         run: |
