@@ -41,8 +41,26 @@ jobs:
           
           # Make Projucer executable available with absolute path
           echo "PROJUCER_PATH=$WORKSPACE/External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer" >> $GITHUB_ENV
+          
+          # Store the absolute path to the JUCE modules
+          echo "JUCE_MODULES_PATH=$WORKSPACE/External/JUCE/modules" >> $GITHUB_ENV
       
-      - name: Resave JUCER file
+      - name: Examine and Update Module Paths FIRST
+        run: |
+          echo "Examining current module paths in project:"
+          grep -A 1 MODULEPATH "$WORKSPACE/QuackerVST/QuackerVST.jucer" || echo "No MODULEPATH found"
+          
+          echo "Updating JUCE module paths in project file"
+          # Create a backup of the original project file
+          cp "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$WORKSPACE/QuackerVST/QuackerVST.jucer.bak"
+          
+          # Update all module paths directly using sed
+          sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_MODULES_PATH\"/>#g" "$WORKSPACE/QuackerVST/QuackerVST.jucer"
+          
+          echo "Verifying updated module paths:"
+          grep -A 1 MODULEPATH "$WORKSPACE/QuackerVST/QuackerVST.jucer" || echo "No MODULEPATH found after update"
+      
+      - name: Resave JUCER file AFTER updating paths
         run: |
           echo "Resaving project file using Projucer at: $PROJUCER_PATH"
           # Ensure file exists and is executable
@@ -53,38 +71,6 @@ jobs:
           fi
           
           # Use the absolute path to the Projucer
-          "$PROJUCER_PATH" --resave "$WORKSPACE/QuackerVST/QuackerVST.jucer"
-      
-      - name: Set Project Module Paths
-        run: |
-          echo "Setting JUCE module paths in project"
-          
-          # Store the absolute path to the JUCE modules
-          JUCE_MODULES_PATH=$WORKSPACE/External/JUCE/modules
-          
-          # Create a simple script to update the module paths
-          cat > update_paths.sh << 'EOF'
-          #!/bin/bash
-          PROJECT_FILE="$1"
-          JUCE_PATH="$2"
-          
-          echo "Updating module paths in $PROJECT_FILE"
-          echo "Setting JUCE path to: $JUCE_PATH"
-          
-          # Create a copy of the project file
-          cp "$PROJECT_FILE" "$PROJECT_FILE.bak"
-          
-          # Replace all MODULEPATH paths with our downloaded JUCE path
-          sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_PATH\"/>#g" "$PROJECT_FILE"
-          EOF
-          
-          # Make the script executable
-          chmod +x update_paths.sh
-          
-          # Run the script with the JUCE modules path
-          ./update_paths.sh "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$JUCE_MODULES_PATH"
-          
-          # Resave the project with updated paths
           "$PROJUCER_PATH" --resave "$WORKSPACE/QuackerVST/QuackerVST.jucer"
       
       - name: Build Plugin
