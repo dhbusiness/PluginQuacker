@@ -39,18 +39,29 @@ jobs:
 
       - name: Prepare JUCER file
         run: |
-          echo "Updating module paths in JUCER file"
+          echo "Creating modified JUCER file with correct module paths"
+          
+          # Get absolute path to JUCE modules
+          JUCE_MODULES_PATH=$(pwd)/JUCE/modules
+          echo "JUCE modules path: $JUCE_MODULES_PATH"
+          
           # Create a backup of the original file
           cp "${JUCER_FILE}" "${JUCER_FILE}.backup"
           
-          # Use sed to replace the module paths with the path to our downloaded JUCE modules
-          # This replaces any path between path=" and " with our JUCE path
-          sed -i '' 's#path="[^"]*"#path="'$(pwd)'/JUCE/modules"#g' "${JUCER_FILE}"
+          # Use a different approach with perl for better compatibility on macOS
+          perl -i -pe 's|(path=").*?(")$|${1}'$JUCE_MODULES_PATH'${2}|g' "${JUCER_FILE}"
           
-          # Let's see the changes
-          echo "Modified JUCER file:"
-          grep -B 1 -A 1 "path=" "${JUCER_FILE}"
-      
+          # Let's verify the changes
+          echo "Changes made to JUCER file:"
+          grep -A 3 "<MODULEPATH" "${JUCER_FILE}"
+          
+      - name: Debug JUCE structure
+        run: |
+          echo "Checking JUCE directory structure:"
+          ls -la JUCE
+          echo "Checking JUCE modules directory:"
+          ls -la JUCE/modules
+          
       - name: Resave JUCER file
         run: |
           echo "Resaving JUCER file using Projucer"
