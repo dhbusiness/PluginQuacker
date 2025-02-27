@@ -22,6 +22,20 @@ jobs:
           wget https://github.com/juce-framework/JUCE/archive/refs/heads/master.zip -O juce.zip
           unzip juce.zip
           mv JUCE-master JUCE
+      
+      - name: Update JUCE Paths in .jucer File
+        run: |
+          # Get the absolute path to the JUCE modules directory
+          JUCE_MODULES_PATH="$(pwd)/JUCE/modules"
+          echo "JUCE modules path: $JUCE_MODULES_PATH"
+          
+          # Update the .jucer file to use the correct path
+          # This uses sed to replace the path attribute in the JUCEOPTIONS element
+          sed -i '' "s|path=\".*modules\"|path=\"$JUCE_MODULES_PATH\"|g" QuackerVST/QuackerVST.jucer
+          
+          # Print the modified part of the file to verify
+          echo "Updated .jucer file paths:"
+          grep -A 5 "JUCERPROJECT" QuackerVST/QuackerVST.jucer
           
       - name: Build Projucer
         run: |
@@ -41,22 +55,20 @@ jobs:
           # Get the absolute path to the Projucer executable
           PROJUCER_PATH=$(pwd)/bin/Projucer
           
-          # Navigate to the root of the repository where the .jucer file is located
+          # Navigate to the root of the repository
           cd $GITHUB_WORKSPACE
           
-          # List the contents to debug
-          echo "Contents of current directory:"
-          ls -la
-          echo "Contents of QuackerVST directory:"
-          ls -la QuackerVST || echo "QuackerVST directory not found"
+          # Debug: Examine the .jucer file
+          echo "First 50 lines of the .jucer file:"
+          head -n 50 QuackerVST/QuackerVST.jucer
           
-          # Use the correct command-line options for the latest Projucer
+          # Resave the project file
           "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST.jucer"
           
           # Create the Builds directory if it doesn't exist
           mkdir -p Builds/MacOSX
           
-          # Now export to Xcode
+          # Export to Xcode
           "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST.jucer" "Builds/MacOSX"
         
       - name: Build Plugin
@@ -81,7 +93,6 @@ jobs:
           ls -la Builds/MacOSX/build/Release || echo "Build directory not found"
           
           # Copy plugins to the package directory
-          # Adjust paths based on your build output
           cp -R Builds/MacOSX/build/Release/TremoloViola.vst3 package/VST3/ || echo "VST3 not found"
           cp -R Builds/MacOSX/build/Release/TremoloViola.component package/AU/ || echo "AU not found"
           
