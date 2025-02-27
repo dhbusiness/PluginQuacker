@@ -9,7 +9,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       - name: Install Dependencies
         run: |
@@ -76,7 +76,7 @@ jobs:
           mv TremoloViola_Mac.zip ../
         
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: TremoloViola_Mac
           path: TremoloViola_Mac.zip
