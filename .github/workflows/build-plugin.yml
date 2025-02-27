@@ -52,7 +52,7 @@ jobs:
           JUCE_MODULES_PATH="$WORKSPACE/External/JUCE/modules"
           
           # Use Python for more reliable XML manipulation
-          python3 -c '
+          cat > update_modules.py << 'EOF'
 import sys
 import os
 import xml.etree.ElementTree as ET
@@ -71,7 +71,10 @@ for modulepath in root.findall(".//MODULEPATH"):
 
 # Write the updated XML back to the file
 tree.write(jucer_file)
-          ' "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$JUCE_MODULES_PATH"
+EOF
+          
+          # Run the Python script
+          python3 update_modules.py "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$JUCE_MODULES_PATH"
           
           echo "Verifying updated jucer file:"
           grep -A 1 MODULEPATH "$WORKSPACE/QuackerVST/QuackerVST.jucer" || echo "No MODULEPATH found"
@@ -105,12 +108,6 @@ tree.write(jucer_file)
           echo "Checking if Xcode project exists"
           if [ ! -d "$WORKSPACE/QuackerVST/Builds/MacOSX" ]; then
             echo "Xcode project not found - likely because Projucer failed to resave"
-            echo "Attempting to manually create a minimal Xcode project"
-            
-            # Create a minimal Xcode project directly for the plugin
-            # This is a fallback if Projucer fails
-            mkdir -p "$WORKSPACE/QuackerVST/Builds/MacOSX"
-            # ... commands to create a basic Xcode project would go here
             exit 1
           fi
           
