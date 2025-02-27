@@ -43,20 +43,20 @@ jobs:
           # Ensure we're at the repository root
           cd $GITHUB_WORKSPACE
           
-          # Debugging: list contents of current and project directories
+          # Debug: list current directories
           echo "Contents of current directory:"
           ls -la
           echo "Contents of QuackerVST directory:"
           ls -la QuackerVST || echo "QuackerVST directory not found"
           
-          # Resave the .jucer file and override the module path so it points to JUCE/modules
-          "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST.jucer" --set-global-module-path "$(pwd)/JUCE/modules"
+          # Resave the .jucer file (which now uses local copies of JUCE modules)
+          "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST.jucer"
           
           # Create the Builds directory if it doesn't exist
           mkdir -p Builds/MacOSX
           
-          # Export the Xcode project with the correct module path
-          "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST.jucer" --set-global-module-path "$(pwd)/JUCE/modules" "Builds/MacOSX"
+          # Export the Xcode project
+          "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST.jucer" "Builds/MacOSX"
         
       - name: Build Plugin
         run: |
@@ -72,7 +72,7 @@ jobs:
           mkdir -p package/VST3
           mkdir -p package/AU
           
-          # Debug output: list build output directory
+          # Debug: list build output directory
           echo "Contents of build directory:"
           ls -la Builds/MacOSX/build/Release || echo "Build directory not found"
           
