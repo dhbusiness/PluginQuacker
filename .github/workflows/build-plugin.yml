@@ -1,49 +1,48 @@
-name: Build JUCE Plugin
+name: Build QuackerVST
 
 on:
-  workflow_dispatch:  # manually triggered via the GitHub Actions UI
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Clone JUCE Repository
+      - name: Install dependencies
         run: |
-          # Clone the JUCE repo into a folder named "juce"
-          git clone https://github.com/juce-framework/JUCE.git juce
+          brew install cmake ninja
 
-      - name: Build Projucer from JUCE
-        working-directory: juce/Projucer/Builds/MacOSX
+      - name: Download JUCE
         run: |
-          # Build the Projucer (this example assumes an Xcode project exists)
-          xcodebuild -project Projucer.xcodeproj -scheme Projucer -configuration Release clean build \
-                     -derivedDataPath ../../build
+          git clone --depth 1 https://github.com/juce-framework/JUCE.git
 
-      - name: Resave the .jucer file and Export Xcode Project
+      - name: Build Projucer
         run: |
-          # Adjust the path to the built Projucer binary as needed
-          JUCE_PROJUCER="./juce/Projucer/Builds/MacOSX/build/Build/Products/Release/Projucer"
-          # Resave to update the project file (which also generates exporters if set up)
-          $JUCE_PROJUCER --resave QuackerVST/QuackerVST.jucer
-          # (Optional) If you need to explicitly export, you could call:
-          $JUCE_PROJUCER --export Xcode QuackerVST/QuackerVST.jucer
+          cd JUCE/extras/Projucer/Builds/MacOSX
+          xcodebuild -scheme Projucer -configuration Release
 
-      - name: Build the Xcode Project
+      - name: Resave .jucer file
         run: |
-          # Assuming the Xcode project was exported to QuackerVST/Builds/MacOSX/
-          xcodebuild -project QuackerVST/Builds/MacOSX/QuackerVST.xcodeproj \
-                     -configuration Release clean build
+          JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer --resave QuackerVST/QuackerVST.jucer
 
-      - name: Zip the Build Product
+      - name: Export Xcode project
+        run: |
+          JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer --set-exporter Xcode --resave QuackerVST/QuackerVST.jucer
+
+      - name: Build plugin
         run: |
           cd QuackerVST/Builds/MacOSX
-          zip -r QuackerVST.zip Release/
+          xcodebuild -configuration Release
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+      - name: Package build
+        run: |
+          cd QuackerVST/Builds/MacOSX/build/Release
+          zip -r QuackerVST.zip *.vst3 *.component *.au
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: QuackerVST-build
-          path: QuackerVST/Builds/MacOSX/QuackerVST.zip
+          name: QuackerVST-macOS
+          path: QuackerVST/Builds/MacOSX/build/Release/QuackerVST.zip
