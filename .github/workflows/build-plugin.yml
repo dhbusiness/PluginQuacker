@@ -1,156 +1,49 @@
-name: Build TremoloViola Plugin
+name: Build JUCE Plugin
 
 on:
-  workflow_dispatch:  # This allows manual triggering via a button in the GitHub UI
+  workflow_dispatch:  # manually triggered via the GitHub Actions UI
 
 jobs:
-  build-macos:
+  build:
     runs-on: macos-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - name: Set up environment
+      - name: Clone JUCE Repository
         run: |
-          echo "Setting up environment variables"
-          echo "JUCE_VERSION=7.0.8" >> $GITHUB_ENV
-          echo "PROJECT_NAME=TremoloViolaVST" >> $GITHUB_ENV
-          echo "JUCER_FILE=QuackerVST/QuackerVST.jucer" >> $GITHUB_ENV
+          # Clone the JUCE repo into a folder named "juce"
+          git clone https://github.com/juce-framework/JUCE.git juce
 
-      - name: Install dependencies
+      - name: Build Projucer from JUCE
+        working-directory: juce/Projucer/Builds/MacOSX
         run: |
-          brew update
-          brew install cmake xmlstarlet
+          # Build the Projucer (this example assumes an Xcode project exists)
+          xcodebuild -project Projucer.xcodeproj -scheme Projucer -configuration Release clean build \
+                     -derivedDataPath ../../build
 
-      - name: Clone JUCE repository
+      - name: Resave the .jucer file and Export Xcode Project
         run: |
-          # Clone specific tag of JUCE from GitHub
-          git clone --branch ${JUCE_VERSION} --depth 1 https://github.com/juce-framework/JUCE.git
-          
-          # Verify JUCE modules are available
-          echo "JUCE modules path: $(pwd)/JUCE/modules"
-          ls -la JUCE/modules | head -10
-          
-          # Store JUCE path for later use
-          echo "JUCE_PATH=$(pwd)/JUCE" >> $GITHUB_ENV
-          echo "JUCE_MODULES_PATH=$(pwd)/JUCE/modules" >> $GITHUB_ENV
+          # Adjust the path to the built Projucer binary as needed
+          JUCE_PROJUCER="./juce/Projucer/Builds/MacOSX/build/Build/Products/Release/Projucer"
+          # Resave to update the project file (which also generates exporters if set up)
+          $JUCE_PROJUCER --resave QuackerVST/QuackerVST.jucer
+          # (Optional) If you need to explicitly export, you could call:
+          $JUCE_PROJUCER --export Xcode QuackerVST/QuackerVST.jucer
 
-      - name: Build Projucer
+      - name: Build the Xcode Project
         run: |
-          # Build Projucer using CMake
-          cd JUCE
-          cmake -B build -DJUCE_BUILD_EXAMPLES=OFF -DJUCE_BUILD_EXTRAS=ON
-          cmake --build build --target Projucer --config Release
-          
-          # Find and save Projucer path
-          PROJUCER_PATH=$(find build -name "Projucer" -type f -executable || find build -name "Projucer" -path "*MacOS*" -type f)
-          echo "Found Projucer at: $PROJUCER_PATH"
-          
-          if [ -z "$PROJUCER_PATH" ]; then
-            echo "Searching for Projucer.app..."
-            find build -name "Projucer.app" -type d
-            PROJUCER_PATH=$(find build -name "Projucer.app" -type d | head -1)
-            PROJUCER_PATH="$PROJUCER_PATH/Contents/MacOS/Projucer"
-            echo "Using Projucer at: $PROJUCER_PATH"
-          fi
-          
-          # Verify Projucer exists and is executable
-          if [ ! -f "$PROJUCER_PATH" ]; then
-            echo "❌ Projucer not found!"
-            exit 1
-          fi
-          
-          if [ ! -x "$PROJUCER_PATH" ]; then
-            echo "Making Projucer executable"
-            chmod +x "$PROJUCER_PATH"
-          fi
-          
-          echo "PROJUCER_PATH=$PROJUCER_PATH" >> $GITHUB_ENV
+          # Assuming the Xcode project was exported to QuackerVST/Builds/MacOSX/
+          xcodebuild -project QuackerVST/Builds/MacOSX/QuackerVST.xcodeproj \
+                     -configuration Release clean build
 
-      - name: Update module paths in JUCER file
+      - name: Zip the Build Product
         run: |
-          echo "Creating backup of original JUCER file"
-          cp "${JUCER_FILE}" "${JUCER_FILE}.backup"
-          
-          echo "Updating module paths"
-          xmlstarlet ed -L \
-            -u "//MODULEPATH/@path" -v "${JUCE_MODULES_PATH}" \
-            "${JUCER_FILE}"
-          
-          echo "Verifying changes"
-          grep -A 3 "MODULEPATH" "${JUCER_FILE}"
-
-      - name: Resave JUCER file
-        run: |
-          echo "Resaving JUCER file with Projucer"
-          "${PROJUCER_PATH}" --resave "${JUCER_FILE}"
-          
-          # Check if resave was successful
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to resave JUCER file"
-            echo "Debug info:"
-            ls -la $(dirname "${JUCER_FILE}")
-            echo "Contents of JUCER file:"
-            head -30 "${JUCER_FILE}"
-            exit 1
-          fi
-
-      - name: Export Xcode project
-        run: |
-          echo "Exporting Xcode project"
-          "${PROJUCER_PATH}" --export-xcode "${JUCER_FILE}"
-          
-          # Check if export was successful
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to export Xcode project"
-            exit 1
-          fi
-          
-          # Verify Xcode project was created
-          ls -la QuackerVST/Builds/MacOSX
-
-      - name: Build VST3 plugin
-        run: |
-          echo "Building VST3 plugin with Xcode"
           cd QuackerVST/Builds/MacOSX
-          xcodebuild -project TremoloViolaVST.xcodeproj -configuration Release
-          
-          # Check if build was successful
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to build plugin"
-            exit 1
-          fi
-          
-          # Find built plugin
-          echo "Built plugin location:"
-          find . -name "*.vst3" -type d
+          zip -r QuackerVST.zip Release/
 
-      - name: Package plugin
-        run: |
-          echo "Creating ZIP archive of VST3 plugin"
-          mkdir -p artifact
-          
-          # Find and copy VST3 plugin to artifact directory
-          VST3_PLUGIN=$(find QuackerVST/Builds/MacOSX -name "*.vst3" -type d | head -1)
-          
-          if [ -z "$VST3_PLUGIN" ]; then
-            echo "❌ VST3 plugin not found!"
-            echo "Searching in build directories:"
-            find QuackerVST/Builds -type d -name "build" | xargs ls -la
-            exit 1
-          fi
-          
-          cp -r "$VST3_PLUGIN" artifact/
-          
-          # Create ZIP file
-          cd artifact
-          zip -r TremoloViola-macOS.zip *.vst3
-          
-          # Verify ZIP file was created
-          ls -la
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: TremoloViola-macOS
-          path: artifact/TremoloViola-macOS.zip
+          name: QuackerVST-build
+          path: QuackerVST/Builds/MacOSX/QuackerVST.zip
