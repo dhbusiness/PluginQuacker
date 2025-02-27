@@ -1,0 +1,83 @@
+name: Build Tremolo Viola Plugin
+
+# This allows you to run this workflow manually from the Actions tab
+on:
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        
+      - name: Install Dependencies
+        run: |
+          brew update
+          brew install wget cmake
+          
+      - name: Download and Extract JUCE
+        run: |
+          # Download latest JUCE
+          wget https://github.com/juce-framework/JUCE/archive/refs/heads/master.zip -O juce.zip
+          unzip juce.zip
+          mv JUCE-master JUCE
+          
+      - name: Build Projucer
+        run: |
+          # Navigate to Projucer directory and build
+          cd JUCE/extras/Projucer/Builds/MacOSX
+          xcodebuild -project Projucer.xcodeproj -configuration "Release" -jobs 4
+          
+      - name: Move Projucer to Convenient Location
+        run: |
+          # Make Projucer accessible
+          mkdir -p bin
+          cp JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer bin/
+          chmod +x bin/Projucer
+          
+      - name: Create Project with Projucer
+        run: |
+          # Using the correct .jucer file path in the QuackerVST folder
+          # Create a Projucer command to save and export the project
+          cat > export_project.txt << EOL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <PROJUCER-COMMANDS>
+            <OPEN file="QuackerVST/QuackerVST.jucer"/>
+            <SAVE/>
+            <EXPORTFORMAC targetFolder="Builds/MacOSX"/>
+            <QUIT/>
+          </PROJUCER-COMMANDS>
+          EOL
+          
+          # Run Projucer in headless mode with the commands
+          ./bin/Projucer --headless export_project.txt
+        
+      - name: Build Plugin
+        run: |
+          # Navigate to the Xcode project directory and build
+          cd Builds/MacOSX
+          xcodebuild -project TremoloViolaVST.xcodeproj -configuration "Release" -jobs 4
+          
+      - name: Package Plugin
+        run: |
+          # Create directory for packaging
+          mkdir -p package/VST3
+          mkdir -p package/AU
+          
+          # Copy plugins to the package directory
+          # Adjust paths based on your build output
+          cp -R Builds/MacOSX/build/Release/TremoloViola.vst3 package/VST3/ || echo "VST3 not found"
+          cp -R Builds/MacOSX/build/Release/TremoloViola.component package/AU/ || echo "AU not found"
+          
+          # Zip the package
+          cd package
+          zip -r TremoloViola_Mac.zip .
+          mv TremoloViola_Mac.zip ../
+        
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: TremoloViola_Mac
+          path: TremoloViola_Mac.zip
+          retention-days: 30
