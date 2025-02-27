@@ -38,25 +38,36 @@ jobs:
           
       - name: Create Project with Projucer
         run: |
-          # Using the correct .jucer file path in the QuackerVST folder
-          # Create a Projucer command to save and export the project
-          cat > export_project.txt << EOL
-          <?xml version="1.0" encoding="UTF-8"?>
-          <PROJUCER-COMMANDS>
-            <OPEN file="QuackerVST/QuackerVST.jucer"/>
-            <SAVE/>
-            <EXPORTFORMAC targetFolder="Builds/MacOSX"/>
-            <QUIT/>
-          </PROJUCER-COMMANDS>
-          EOL
+          # Get the absolute path to the Projucer executable
+          PROJUCER_PATH=$(pwd)/bin/Projucer
           
-          # Run Projucer in headless mode with the commands
-          ./bin/Projucer --headless export_project.txt
+          # Navigate to the root of the repository where the .jucer file is located
+          cd $GITHUB_WORKSPACE
+          
+          # List the contents to debug
+          echo "Contents of current directory:"
+          ls -la
+          echo "Contents of QuackerVST directory:"
+          ls -la QuackerVST || echo "QuackerVST directory not found"
+          
+          # Use the correct command-line options for the latest Projucer
+          "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST.jucer"
+          
+          # Create the Builds directory if it doesn't exist
+          mkdir -p Builds/MacOSX
+          
+          # Now export to Xcode
+          "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST.jucer" "Builds/MacOSX"
         
       - name: Build Plugin
         run: |
           # Navigate to the Xcode project directory and build
           cd Builds/MacOSX
+          
+          # List contents to debug
+          echo "Contents of Builds/MacOSX:"
+          ls -la
+          
           xcodebuild -project TremoloViolaVST.xcodeproj -configuration "Release" -jobs 4
           
       - name: Package Plugin
@@ -64,6 +75,10 @@ jobs:
           # Create directory for packaging
           mkdir -p package/VST3
           mkdir -p package/AU
+          
+          # List build outputs to debug
+          echo "Contents of build directory:"
+          ls -la Builds/MacOSX/build/Release || echo "Build directory not found"
           
           # Copy plugins to the package directory
           # Adjust paths based on your build output
