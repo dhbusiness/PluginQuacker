@@ -1,6 +1,5 @@
 name: Build Tremolo Viola Plugin
 
-# This allows you to run this workflow manually from the Actions tab
 on:
   workflow_dispatch:
 
@@ -23,19 +22,23 @@ jobs:
           unzip juce.zip
           mv JUCE-master JUCE
       
-      - name: Update JUCE Paths in .jucer File
+      - name: Modify JUCER File for CI
         run: |
-          # Get the absolute path to the JUCE modules directory
-          JUCE_MODULES_PATH="$(pwd)/JUCE/modules"
-          echo "JUCE modules path: $JUCE_MODULES_PATH"
+          # Get absolute path to JUCE modules
+          JUCE_PATH=$(pwd)/JUCE
+          MODULES_PATH="$JUCE_PATH/modules"
+          echo "JUCE modules path: $MODULES_PATH"
           
-          # Update the .jucer file to use the correct path
-          # This uses sed to replace the path attribute in the JUCEOPTIONS element
-          sed -i '' "s|path=\".*modules\"|path=\"$JUCE_MODULES_PATH\"|g" QuackerVST/QuackerVST.jucer
+          # Create a modified copy of the .jucer file that uses the downloaded JUCE
+          cat QuackerVST/QuackerVST.jucer | sed 's/useGlobalPath="1"/useGlobalPath="0" useExportedPaths="1"/g' > QuackerVST/QuackerVST_CI.jucer
           
-          # Print the modified part of the file to verify
-          echo "Updated .jucer file paths:"
-          grep -A 5 "JUCERPROJECT" QuackerVST/QuackerVST.jucer
+          # Add the JUCEPATH property to the file
+          sed -i '' "/<JUCERPROJECT/a\\
+          \\  jucePath=\"$JUCE_PATH\"" QuackerVST/QuackerVST_CI.jucer
+          
+          # Print the modified file for debugging
+          echo "Modified .jucer file:"
+          head -n 80 QuackerVST/QuackerVST_CI.jucer
           
       - name: Build Projucer
         run: |
@@ -58,18 +61,14 @@ jobs:
           # Navigate to the root of the repository
           cd $GITHUB_WORKSPACE
           
-          # Debug: Examine the .jucer file
-          echo "First 50 lines of the .jucer file:"
-          head -n 50 QuackerVST/QuackerVST.jucer
-          
-          # Resave the project file
-          "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST.jucer"
+          # Use the modified CI version of the .jucer file
+          "$PROJUCER_PATH" --resave "QuackerVST/QuackerVST_CI.jucer"
           
           # Create the Builds directory if it doesn't exist
           mkdir -p Builds/MacOSX
           
-          # Export to Xcode
-          "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST.jucer" "Builds/MacOSX"
+          # Export to Xcode - use the modified file
+          "$PROJUCER_PATH" --export-xcode "QuackerVST/QuackerVST_CI.jucer" "Builds/MacOSX"
         
       - name: Build Plugin
         run: |
