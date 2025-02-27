@@ -1,7 +1,7 @@
-name: Build JUCE Plugin
+name: Build QuackerVST Plugin
 
 on:
-  # This allows manual triggering from the Actions tab
+  # Manual trigger from Actions tab
   workflow_dispatch:
 
 jobs:
@@ -18,8 +18,8 @@ jobs:
       - name: Setup Environment
         run: |
           echo "Setting up environment variables"
-          echo "JUCE_VERSION=7.0.7" >> $GITHUB_ENV
-          echo "PLUGIN_NAME=TremoloViola" >> $GITHUB_ENV
+          echo "JUCE_VERSION=7.0.9" >> $GITHUB_ENV
+          echo "PLUGIN_NAME=QuackerVST" >> $GITHUB_ENV
           
       - name: Download and Build JUCE
         run: |
