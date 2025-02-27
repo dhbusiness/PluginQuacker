@@ -1,6 +1,7 @@
-name: Build JUCE Plugin
+name: Build QuackerVST Plugin
 
 on:
+  # Manual trigger from Actions tab
   workflow_dispatch:
 
 jobs:
@@ -17,9 +18,8 @@ jobs:
       - name: Setup Environment
         run: |
           echo "Setting up environment variables"
-          echo "JUCE_VERSION=8.0.6" >> $GITHUB_ENV
-          echo "PLUGIN_NAME=TremoloViola" >> $GITHUB_ENV
-          echo "WORKSPACE=$(pwd)" >> $GITHUB_ENV
+          echo "JUCE_VERSION=7.0.9" >> $GITHUB_ENV
+          echo "PLUGIN_NAME=QuackerVST" >> $GITHUB_ENV
           
       - name: Download and Build JUCE
         run: |
@@ -30,87 +30,50 @@ jobs:
           unzip JUCE.zip
           mv JUCE-$JUCE_VERSION JUCE
           
-          # Verify JUCE modules exist
-          echo "Verifying JUCE modules directory structure:"
-          ls -la JUCE/modules
-          
           echo "Building Projucer"
           cd JUCE/extras/Projucer/Builds/MacOSX
           xcodebuild -configuration Release
           
           echo "Making Projucer executable available"
           cd ../../../../../
-          echo "PROJUCER_PATH=$WORKSPACE/External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer" >> $GITHUB_ENV
+          ln -s External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer ./projucer
       
-      - name: Create a Fresh Projucer File
+      - name: Resave JUCER file
         run: |
-          echo "Creating a simplified .jucer file with correct paths"
-          # Make backup of original file
-          cp "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$WORKSPACE/QuackerVST/QuackerVST.jucer.original"
-          
-          # Create a modified version of the jucer file with correct module paths
-          JUCE_MODULES_PATH="$WORKSPACE/External/JUCE/modules"
-          
-          # Use Python for more reliable XML manipulation
-          cat > update_modules.py << 'EOF'
-import sys
-import os
-import xml.etree.ElementTree as ET
-
-# Get command line arguments
-jucer_file = sys.argv[1]
-modules_path = sys.argv[2]
-
-# Parse XML
-tree = ET.parse(jucer_file)
-root = tree.getroot()
-
-# Find all MODULEPATH elements and update their path attribute
-for modulepath in root.findall(".//MODULEPATH"):
-    modulepath.set("path", modules_path)
-
-# Write the updated XML back to the file
-tree.write(jucer_file)
-EOF
-          
-          # Run the Python script
-          python3 update_modules.py "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$JUCE_MODULES_PATH"
-          
-          echo "Verifying updated jucer file:"
-          grep -A 1 MODULEPATH "$WORKSPACE/QuackerVST/QuackerVST.jucer" || echo "No MODULEPATH found"
-      
-      - name: Resave Project with Projucer
-        run: |
-          echo "Checking Projucer executable exists at: $PROJUCER_PATH"
-          ls -la "$PROJUCER_PATH" || echo "Projucer not found at expected location"
-          
           echo "Resaving project file"
-          "$PROJUCER_PATH" --resave "$WORKSPACE/QuackerVST/QuackerVST.jucer"
+          ./projucer --resave QuackerVST/QuackerVST.jucer
+      
+      - name: Set Project Module Paths
+        run: |
+          echo "Setting JUCE module paths in project"
           
-          # If the above fails, try an alternate approach
-          if [ $? -ne 0 ]; then
-            echo "Standard resave failed, attempting alternate approach..."
-            
-            # First, show all modules in the downloaded JUCE to verify they exist
-            echo "Available JUCE modules:"
-            find "$WORKSPACE/External/JUCE/modules" -maxdepth 1 -type d | sort
-            
-            # Try using the --set-global-search-path flag to help Projucer find modules
-            echo "Setting global search path for modules"
-            "$PROJUCER_PATH" --set-global-search-path osx defaultJuceModulePath "$WORKSPACE/External/JUCE/modules"
-            
-            # Try resave again
-            "$PROJUCER_PATH" --resave "$WORKSPACE/QuackerVST/QuackerVST.jucer"
-          fi
+          # Store the absolute path to the JUCE modules
+          JUCE_MODULES_PATH=$(pwd)/External/JUCE/modules
+          
+          # Create a simple script to update the module paths
+          cat > update_paths.sh << 'EOF'
+          #!/bin/bash
+          PROJECT_FILE="QuackerVST/QuackerVST.jucer"
+          JUCE_PATH="$1"
+          
+          # Create a copy of the project file
+          cp "$PROJECT_FILE" "$PROJECT_FILE.bak"
+          
+          # Replace all MODULEPATH paths with our downloaded JUCE path
+          sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_PATH\"/>#g" "$PROJECT_FILE"
+          EOF
+          
+          # Make the script executable
+          chmod +x update_paths.sh
+          
+          # Run the script with the JUCE modules path
+          ./update_paths.sh "$JUCE_MODULES_PATH"
+          
+          # Resave the project with updated paths
+          ./projucer --resave QuackerVST/QuackerVST.jucer
       
       - name: Build Plugin
         run: |
-          echo "Checking if Xcode project exists"
-          if [ ! -d "$WORKSPACE/QuackerVST/Builds/MacOSX" ]; then
-            echo "Xcode project not found - likely because Projucer failed to resave"
-            exit 1
-          fi
-          
           echo "Building plugin"
           cd QuackerVST/Builds/MacOSX
           xcodebuild -configuration Release
@@ -120,50 +83,25 @@ EOF
           echo "Packaging plugin"
           mkdir -p artifacts
           
-          # Find all the built plugin files (more flexible approach)
-          echo "Looking for built plugin files:"
-          find "$WORKSPACE/QuackerVST/Builds" -name "*.vst3" -o -name "*.component" -o -name "*.app"
-          
-          # Package any VST3 found
-          VST3_FILES=$(find "$WORKSPACE/QuackerVST/Builds" -name "*.vst3" -type d)
-          if [ ! -z "$VST3_FILES" ]; then
-            for vst3 in $VST3_FILES; do
-              BASENAME=$(basename "$vst3")
-              cd $(dirname "$vst3")
-              zip -r "$WORKSPACE/artifacts/${BASENAME%.vst3}-VST3-macOS.zip" "$BASENAME"
-              cd "$WORKSPACE"
-              echo "Packaged VST3: $BASENAME"
-            done
-          else
-            echo "No VST3 plugins found"
+          # Package VST3
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3/$PLUGIN_NAME.vst3" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/VST3
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-VST3-macOS.zip ./$PLUGIN_NAME.vst3
+            cd ../../../../../
           fi
           
-          # Package any AU found
-          AU_FILES=$(find "$WORKSPACE/QuackerVST/Builds" -name "*.component" -type d)
-          if [ ! -z "$AU_FILES" ]; then
-            for au in $AU_FILES; do
-              BASENAME=$(basename "$au")
-              cd $(dirname "$au")
-              zip -r "$WORKSPACE/artifacts/${BASENAME%.component}-AU-macOS.zip" "$BASENAME"
-              cd "$WORKSPACE"
-              echo "Packaged AU: $BASENAME"
-            done
-          else
-            echo "No AU plugins found"
+          # Package AU
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/AU/$PLUGIN_NAME.component" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/AU
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-AU-macOS.zip ./$PLUGIN_NAME.component
+            cd ../../../../../
           fi
           
-          # Package any Standalone found
-          APP_FILES=$(find "$WORKSPACE/QuackerVST/Builds" -name "*.app" -type d)
-          if [ ! -z "$APP_FILES" ]; then
-            for app in $APP_FILES; do
-              BASENAME=$(basename "$app")
-              cd $(dirname "$app")
-              zip -r "$WORKSPACE/artifacts/${BASENAME%.app}-Standalone-macOS.zip" "$BASENAME"
-              cd "$WORKSPACE"
-              echo "Packaged Standalone: $BASENAME"
-            done
-          else
-            echo "No Standalone plugins found"
+          # Package Standalone
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/Standalone/$PLUGIN_NAME.app" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/Standalone
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-Standalone-macOS.zip ./$PLUGIN_NAME.app
+            cd ../../../../../
           fi
       
       - name: Upload Artifacts
