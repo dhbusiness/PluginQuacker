@@ -41,27 +41,19 @@ jobs:
           # Make Projucer executable available with absolute path
           echo "PROJUCER_PATH=$WORKSPACE/External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer" >> $GITHUB_ENV
       
-      - name: Resave JUCER file
-        run: |
-          echo "Resaving project file using Projucer at: $PROJUCER_PATH"
-          # Ensure file exists and is executable
-          if [ ! -f "$PROJUCER_PATH" ]; then
-            echo "ERROR: Projucer executable not found at $PROJUCER_PATH"
-            find External -name "Projucer" -type f
-            exit 1
-          fi
-          
-          # Use the absolute path to the Projucer
-          "$PROJUCER_PATH" --resave $WORKSPACE/QuackerVST/QuackerVST.jucer
-      
-      - name: Set Project Module Paths
+      - name: Set Project Module Paths FIRST (before resaving)
         run: |
           echo "Setting JUCE module paths in project"
           
           # Store the absolute path to the JUCE modules
           JUCE_MODULES_PATH=$WORKSPACE/External/JUCE/modules
+          echo "Using JUCE modules at: $JUCE_MODULES_PATH"
           
-          # Create a simple script to update the module paths
+          # Display current module paths in the project
+          echo "Current module paths in project:"
+          grep -A 1 MODULEPATH QuackerVST/QuackerVST.jucer
+          
+          # Create a script to update the module paths
           cat > update_paths.sh << 'EOF'
           #!/bin/bash
           PROJECT_FILE="$1"
@@ -75,6 +67,10 @@ jobs:
           
           # Replace all MODULEPATH paths with our downloaded JUCE path
           sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_PATH\"/>#g" "$PROJECT_FILE"
+          
+          # Verify changes were made
+          echo "Updated module paths:"
+          grep -A 1 MODULEPATH "$PROJECT_FILE"
           EOF
           
           # Make the script executable
@@ -82,8 +78,18 @@ jobs:
           
           # Run the script with the JUCE modules path
           ./update_paths.sh "$WORKSPACE/QuackerVST/QuackerVST.jucer" "$JUCE_MODULES_PATH"
+      
+      - name: Resave JUCER file AFTER updating paths
+        run: |
+          echo "Resaving project file using Projucer at: $PROJUCER_PATH"
+          # Ensure file exists and is executable
+          if [ ! -f "$PROJUCER_PATH" ]; then
+            echo "ERROR: Projucer executable not found at $PROJUCER_PATH"
+            find External -name "Projucer" -type f
+            exit 1
+          fi
           
-          # Resave the project with updated paths
+          # Use the absolute path to the Projucer
           "$PROJUCER_PATH" --resave "$WORKSPACE/QuackerVST/QuackerVST.jucer"
       
       - name: Build Plugin
@@ -97,6 +103,10 @@ jobs:
           echo "Packaging plugin"
           mkdir -p artifacts
           
+          # Display the build output directory structure for debugging
+          echo "Build directory structure:"
+          find QuackerVST/Builds/MacOSX/build -type d | sort
+          
           # Package VST3
           if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3/$PLUGIN_NAME.vst3" ]; then
             cd QuackerVST/Builds/MacOSX/build/Release/VST3
@@ -104,7 +114,7 @@ jobs:
             cd "$WORKSPACE"
           else
             echo "VST3 build not found"
-            find QuackerVST/Builds -type d -name "VST3"
+            find QuackerVST/Builds -name "*.vst3" -o -name "VST3"
           fi
           
           # Package AU
@@ -114,7 +124,7 @@ jobs:
             cd "$WORKSPACE"
           else
             echo "AU build not found"
-            find QuackerVST/Builds -type d -name "AU"
+            find QuackerVST/Builds -name "*.component" -o -name "AU"
           fi
           
           # Package Standalone
@@ -124,7 +134,7 @@ jobs:
             cd "$WORKSPACE"
           else
             echo "Standalone build not found"
-            find QuackerVST/Builds -type d -name "Standalone"
+            find QuackerVST/Builds -name "*.app" -o -name "Standalone"
           fi
       
       - name: Upload Artifacts
