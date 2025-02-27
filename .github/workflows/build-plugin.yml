@@ -1,48 +1,112 @@
-name: Build QuackerVST
+name: Build JUCE Plugin
 
 on:
+  # This allows manual triggering from the Actions tab
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build macOS Plugin
     runs-on: macos-latest
+    
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Install dependencies
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Environment
         run: |
-          brew install cmake ninja
-
-      - name: Download JUCE
+          echo "Setting up environment variables"
+          echo "JUCE_VERSION=7.0.7" >> $GITHUB_ENV
+          echo "PLUGIN_NAME=TremoloViola" >> $GITHUB_ENV
+          
+      - name: Download and Build JUCE
         run: |
-          git clone --depth 1 https://github.com/juce-framework/JUCE.git
-
-      - name: Build Projucer
-        run: |
+          echo "Downloading JUCE $JUCE_VERSION"
+          mkdir -p External
+          cd External
+          curl -L https://github.com/juce-framework/JUCE/archive/refs/tags/$JUCE_VERSION.zip -o JUCE.zip
+          unzip JUCE.zip
+          mv JUCE-$JUCE_VERSION JUCE
+          
+          echo "Building Projucer"
           cd JUCE/extras/Projucer/Builds/MacOSX
-          xcodebuild -scheme Projucer -configuration Release
-
-      - name: Resave .jucer file
+          xcodebuild -configuration Release
+          
+          echo "Making Projucer executable available"
+          cd ../../../../../
+          ln -s External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer ./projucer
+      
+      - name: Resave JUCER file
         run: |
-          JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer --resave QuackerVST/QuackerVST.jucer
-
-      - name: Export Xcode project
+          echo "Resaving project file"
+          ./projucer --resave QuackerVST/QuackerVST.jucer
+      
+      - name: Set Project Module Paths
         run: |
-          JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer --set-exporter Xcode --resave QuackerVST/QuackerVST.jucer
-
-      - name: Build plugin
+          echo "Setting JUCE module paths in project"
+          
+          # Store the absolute path to the JUCE modules
+          JUCE_MODULES_PATH=$(pwd)/External/JUCE/modules
+          
+          # Create a simple script to update the module paths
+          cat > update_paths.sh << 'EOF'
+          #!/bin/bash
+          PROJECT_FILE="QuackerVST/QuackerVST.jucer"
+          JUCE_PATH="$1"
+          
+          # Create a copy of the project file
+          cp "$PROJECT_FILE" "$PROJECT_FILE.bak"
+          
+          # Replace all MODULEPATH paths with our downloaded JUCE path
+          sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_PATH\"/>#g" "$PROJECT_FILE"
+          EOF
+          
+          # Make the script executable
+          chmod +x update_paths.sh
+          
+          # Run the script with the JUCE modules path
+          ./update_paths.sh "$JUCE_MODULES_PATH"
+          
+          # Resave the project with updated paths
+          ./projucer --resave QuackerVST/QuackerVST.jucer
+      
+      - name: Build Plugin
         run: |
+          echo "Building plugin"
           cd QuackerVST/Builds/MacOSX
           xcodebuild -configuration Release
-
-      - name: Package build
+      
+      - name: Package Plugin
         run: |
-          cd QuackerVST/Builds/MacOSX/build/Release
-          zip -r QuackerVST.zip *.vst3 *.component *.au
-
-      - name: Upload artifact
+          echo "Packaging plugin"
+          mkdir -p artifacts
+          
+          # Package VST3
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3/$PLUGIN_NAME.vst3" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/VST3
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-VST3-macOS.zip ./$PLUGIN_NAME.vst3
+            cd ../../../../../
+          fi
+          
+          # Package AU
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/AU/$PLUGIN_NAME.component" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/AU
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-AU-macOS.zip ./$PLUGIN_NAME.component
+            cd ../../../../../
+          fi
+          
+          # Package Standalone
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/Standalone/$PLUGIN_NAME.app" ]; then
+            cd QuackerVST/Builds/MacOSX/build/Release/Standalone
+            zip -r ../../../../../artifacts/$PLUGIN_NAME-Standalone-macOS.zip ./$PLUGIN_NAME.app
+            cd ../../../../../
+          fi
+      
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: QuackerVST-macOS
-          path: QuackerVST/Builds/MacOSX/build/Release/QuackerVST.zip
+          name: ${{ env.PLUGIN_NAME }}-macOS-Builds
+          path: artifacts/
+          retention-days: 30
