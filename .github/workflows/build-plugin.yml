@@ -21,76 +21,84 @@ jobs:
         run: |
           brew update
           brew install cmake
-          
-      - name: Download and build JUCE
-        run: |
-          echo "Downloading JUCE ${JUCE_VERSION}"
-          curl -L -o JUCE.zip "https://github.com/juce-framework/JUCE/archive/refs/tags/${JUCE_VERSION}.zip"
-          unzip JUCE.zip
-          mv JUCE-${JUCE_VERSION} JUCE
-          
-          echo "Building Projucer"
-          cd JUCE
-          cmake -B build -DJUCE_BUILD_EXAMPLES=OFF -DJUCE_BUILD_EXTRAS=ON
-          cmake --build build --target Projucer --config Release
-          
-          echo "Projucer path:"
-          ls -la build/extras/Projucer/Projucer_artefacts/
 
-      - name: Prepare JUCER file
+      - name: Setup JUCE
+        uses: juce-framework/package-juce-action@v1.1
+        with:
+          version: 7.0.8
+
+      - name: Modify module paths in JUCER file
         run: |
-          echo "Creating modified JUCER file with correct module paths"
-          
-          # Get absolute path to JUCE modules
-          JUCE_MODULES_PATH=$(pwd)/JUCE/modules
-          echo "JUCE modules path: $JUCE_MODULES_PATH"
+          echo "Updating module paths in JUCER file"
           
           # Create a backup of the original file
           cp "${JUCER_FILE}" "${JUCER_FILE}.backup"
           
-          # Use a different approach with perl for better compatibility on macOS
-          perl -i -pe 's|(path=").*?(")$|${1}'$JUCE_MODULES_PATH'${2}|g' "${JUCER_FILE}"
+          # JUCE package will have been installed in $HOME/.juce
+          JUCE_MODULES_PATH="$HOME/.juce/JUCE-7.0.8/modules"
+          echo "JUCE modules path: $JUCE_MODULES_PATH"
           
-          # Let's verify the changes
-          echo "Changes made to JUCER file:"
-          grep -A 3 "<MODULEPATH" "${JUCER_FILE}"
+          # Check that the modules directory exists
+          if [ -d "$JUCE_MODULES_PATH" ]; then
+            echo "✅ JUCE modules directory exists"
+            ls -la "$JUCE_MODULES_PATH" | head
+          else
+            echo "❌ JUCE modules directory not found!"
+            echo "Looking for JUCE in HOME directory:"
+            find $HOME -name "JUCE*" -type d | head
+          fi
           
-      - name: Debug JUCE structure
+          # Modify the module paths in the JUCER file
+          # Using XMLStarlet for more reliable XML manipulation
+          brew install xmlstarlet
+          
+          # Create a temporary XML file with updated module paths
+          xmlstarlet ed -L \
+            -u "//MODULEPATH/@path" -v "$JUCE_MODULES_PATH" \
+            "${JUCER_FILE}"
+          
+          # Verify the changes
+          echo "Updated module paths in JUCER file:"
+          grep -A 3 "MODULEPATH" "${JUCER_FILE}"
+          
+      - name: Find Projucer
         run: |
-          echo "Checking JUCE directory structure:"
-          ls -la JUCE
-          echo "Checking JUCE modules directory:"
-          ls -la JUCE/modules
+          # The action will install Projucer in $HOME/.juce/JUCE-7.0.8
+          echo "Looking for Projucer:"
+          find $HOME/.juce -name "Projucer*" | head
           
-      - name: Resave JUCER file
-        run: |
-          echo "Resaving JUCER file using Projucer"
-          ./JUCE/build/extras/Projucer/Projucer_artefacts/Projucer.app/Contents/MacOS/Projucer --resave "${JUCER_FILE}"
+          # Store the path for later use
+          PROJUCER_PATH=$(find $HOME/.juce -name "Projucer" -type f -executable | head -1)
+          echo "Projucer path: $PROJUCER_PATH"
+          echo "PROJUCER_PATH=$PROJUCER_PATH" >> $GITHUB_ENV
           
-      - name: Export Xcode project
+      - name: Resave and export JUCER project
         run: |
+          echo "Resaving JUCER file with Projucer"
+          "$PROJUCER_PATH" --resave "${JUCER_FILE}"
+          
           echo "Exporting Xcode project"
-          ./JUCE/build/extras/Projucer/Projucer_artefacts/Projucer.app/Contents/MacOS/Projucer --export-xcode "${JUCER_FILE}"
+          "$PROJUCER_PATH" --export-xcode "${JUCER_FILE}"
           
       - name: Build VST3 plugin
         run: |
           echo "Building VST3 plugin with Xcode"
           cd QuackerVST/Builds/MacOSX
-          xcodebuild -project TremoloViolaVST.xcodeproj -configuration Release -destination 'platform=macOS'
+          xcodebuild -project TremoloViolaVST.xcodeproj -configuration Release
           
           echo "Checking build output"
-          ls -la build/Release
+          find . -name "*.vst3" -type d
           
       - name: Package plugin
         run: |
           echo "Creating ZIP archive of VST3 plugin"
-          cd QuackerVST/Builds/MacOSX/build/Release
-          mkdir -p TremoloViola
-          cp -r "TremoloViola.vst3" TremoloViola/
-          zip -r TremoloViola-macOS.zip TremoloViola
+          mkdir -p artifact
+          find QuackerVST/Builds/MacOSX -name "*.vst3" -type d -exec cp -r {} artifact/ \;
+          cd artifact
+          zip -r TremoloViola-macOS.zip *.vst3
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: TremoloViola-macOS
-          path: QuackerVST/Builds/MacOSX/build/Release/TremoloViola-macOS.zip
+          path: artifact/TremoloViola-macOS.zip
