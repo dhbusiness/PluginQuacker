@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="BWX4it" name="TremoloViolaVST" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginName="Tremolo Viola"
-              pluginManufacturer="DeividsHvostovsDSP" companyName="DeividsHvostovsDSP"
-              companyEmail="deividshvostovsbusiness@gmail.com ">
-  <MAINGROUP id="rSG9EE" name="TremoloViolaVST">
+<JUCERPROJECT id="BWX4it" name="QuackerVST" projectType="audioplug" useAppConfig="0"
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+  <MAINGROUP id="rSG9EE" name="QuackerVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
       <FILE id="RVOM1A" name="WaveshapeLFO.cpp" compile="1" resource="0"
             file="Source/WaveshapeLFO.cpp"/>
@@ -65,8 +63,8 @@
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="TremoloViola"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="TremoloViola"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="QuackerVST"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="QuackerVST"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../../../Documents/JUCE/modules"/>
@@ -84,26 +82,5 @@
         <MODULEPATH id="juce_dsp" path="../../../../Documents/JUCE/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
-    <VS2022 targetFolder="Builds/VisualStudio2022">
-      <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug"/>
-        <CONFIGURATION isDebug="0" name="Release"/>
-      </CONFIGURATIONS>
-      <MODULEPATHS>
-        <MODULEPATH id="juce_audio_basics" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_plugin_client" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_dsp" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="/Users/deividshvostovs/Documents/JUCE/modules"/>
-      </MODULEPATHS>
-    </VS2022>
   </EXPORTFORMATS>
 </JUCERPROJECT>

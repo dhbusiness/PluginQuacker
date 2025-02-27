@@ -41,19 +41,19 @@
  #define JucePlugin_Enable_ARA             0
 #endif
 #ifndef  JucePlugin_Name
- #define JucePlugin_Name                   "Tremolo Viola"
+ #define JucePlugin_Name                   "QuackerVST"
 #endif
 #ifndef  JucePlugin_Desc
- #define JucePlugin_Desc                   "TremoloViolaVST"
+ #define JucePlugin_Desc                   "QuackerVST"
 #endif
 #ifndef  JucePlugin_Manufacturer
- #define JucePlugin_Manufacturer           "DeividsHvostovsDSP"
+ #define JucePlugin_Manufacturer           "yourcompany"
 #endif
 #ifndef  JucePlugin_ManufacturerWebsite
- #define JucePlugin_ManufacturerWebsite    "www.DeividsHvostovsDSP.com"
+ #define JucePlugin_ManufacturerWebsite    "www.yourcompany.com"
 #endif
 #ifndef  JucePlugin_ManufacturerEmail
- #define JucePlugin_ManufacturerEmail      "deividshvostovsbusiness@gmail.com "
+ #define JucePlugin_ManufacturerEmail      ""
 #endif
 #ifndef  JucePlugin_ManufacturerCode
  #define JucePlugin_ManufacturerCode       0x4d616e75
@@ -101,19 +101,19 @@
  #define JucePlugin_AUSubType              JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_AUExportPrefix
- #define JucePlugin_AUExportPrefix         TremoloViolaVSTAU
+ #define JucePlugin_AUExportPrefix         QuackerVSTAU
 #endif
 #ifndef  JucePlugin_AUExportPrefixQuoted
- #define JucePlugin_AUExportPrefixQuoted   "TremoloViolaVSTAU"
+ #define JucePlugin_AUExportPrefixQuoted   "QuackerVSTAU"
 #endif
 #ifndef  JucePlugin_AUManufacturerCode
  #define JucePlugin_AUManufacturerCode     JucePlugin_ManufacturerCode
 #endif
 #ifndef  JucePlugin_CFBundleIdentifier
- #define JucePlugin_CFBundleIdentifier     com.DeividsHvostovsDSP.TremoloViolaVST
+ #define JucePlugin_CFBundleIdentifier     com.yourcompany.QuackerVST
 #endif
 #ifndef  JucePlugin_AAXIdentifier
- #define JucePlugin_AAXIdentifier          com.DeividsHvostovsDSP.TremoloViolaVST
+ #define JucePlugin_AAXIdentifier          com.yourcompany.QuackerVST
 #endif
 #ifndef  JucePlugin_AAXManufacturerCode
  #define JucePlugin_AAXManufacturerCode    JucePlugin_ManufacturerCode
@@ -137,7 +137,7 @@
  #define JucePlugin_IAASubType             JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_IAAName
- #define JucePlugin_IAAName                "DeividsHvostovsDSP: Tremolo Viola"
+ #define JucePlugin_IAAName                "yourcompany: QuackerVST"
 #endif
 #ifndef  JucePlugin_VSTNumMidiInputs
  #define JucePlugin_VSTNumMidiInputs       16
@@ -152,10 +152,10 @@
  #define JucePlugin_ARATransformationFlags  0
 #endif
 #ifndef  JucePlugin_ARAFactoryID
- #define JucePlugin_ARAFactoryID           "com.DeividsHvostovsDSP.TremoloViolaVST.factory"
+ #define JucePlugin_ARAFactoryID           "com.yourcompany.QuackerVST.factory"
 #endif
 #ifndef  JucePlugin_ARADocumentArchiveID
- #define JucePlugin_ARADocumentArchiveID   "com.DeividsHvostovsDSP.TremoloViolaVST.aradocumentarchive.1.0.0"
+ #define JucePlugin_ARADocumentArchiveID   "com.yourcompany.QuackerVST.aradocumentarchive.1.0.0"
 #endif
 #ifndef  JucePlugin_ARACompatibleArchiveIDs
  #define JucePlugin_ARACompatibleArchiveIDs  ""
