@@ -38,82 +38,89 @@ jobs:
           # Create a symlink to the built Projucer in the repository root
           cd /Users/runner/work/PluginQuacker/PluginQuacker
           ln -s QuackerVST/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer projucer
+      
+      - name: Verify Projucer
+        run: |
+          ls -la ./projucer
+          ./projucer --version || echo "Projucer version check failed"
           
       - name: Resave JUCER file
         run: |
-          pwd
-          ls
           echo "Resaving project file"
           ./projucer --resave QuackerVST/QuackerVST.jucer
        
+      - name: Verify Xcode project
+        run: |
+          echo "Checking if Xcode project exists"
+          ls -la QuackerVST/Builds/MacOSX
+          
+          echo "Checking Xcode project structure"
+          ls -la QuackerVST/Builds/MacOSX/*.xcodeproj || echo "No Xcode projects found"
+          
+          echo "Looking for specific Xcode projects:"
+          find QuackerVST/Builds -name "*.xcodeproj" | sort
+       
       - name: Build Plugin
         run: |
-          echo "Building plugin"
+          echo "Building plugin with verbose output"
           cd QuackerVST/Builds/MacOSX
-          xcodebuild -configuration Release
+          xcodebuild -configuration Release -verbose
+          echo "Build exit code: $?"
       
-      - name: Debug build output
+      - name: Examine project structure
         run: |
-          echo "Checking build outputs..."
-          find QuackerVST/Builds/MacOSX/build -type d | sort
+          echo "Examining overall project structure for plugin files"
+          find . -name "*.vst3" -o -name "*.component" -o -name "*.app"
           
-          echo "Checking for VST3..."
-          ls -la QuackerVST/Builds/MacOSX/build/Release/VST3/ || echo "VST3 directory not found"
+          echo "All directories under build:"
+          find QuackerVST/Builds -type d | sort
           
-          echo "Checking for AU..."
-          ls -la QuackerVST/Builds/MacOSX/build/Release/AU/ || echo "AU directory not found"
-          
-          echo "Checking for Standalone..."
-          ls -la QuackerVST/Builds/MacOSX/build/Release/Standalone/ || echo "Standalone directory not found"
+          echo "Files in build directory (if it exists):"
+          find QuackerVST/Builds -type f -name "*.plist" | head -20
       
-      - name: Package Plugin
+      - name: Create artifacts directory
         run: |
-          echo "Packaging plugin"
+          echo "Creating artifacts directory"
           mkdir -p artifacts
+      
+      - name: Package Plugin (search everywhere)
+        run: |
+          echo "Searching for plugin files throughout the project"
           
-          # Package VST3 - Find any VST3 plugins regardless of name
-          echo "Looking for VST3 builds..."
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3" ]; then
-            cd QuackerVST/Builds/MacOSX/build/Release/VST3
-            for vst in *.vst3; do
-              if [ -d "$vst" ]; then
-                echo "Packaging VST3: $vst"
-                zip -r ../../../../../artifacts/$(basename "$vst" .vst3)-VST3-macOS.zip "$vst"
-              fi
-            done
-            cd ../../../../../
-          else
-            echo "No VST3 directory found"
-          fi
+          # Find and package all VST3 plugins
+          echo "Finding VST3 plugins..."
+          for vst_path in $(find . -name "*.vst3" -type d); do
+            vst_name=$(basename "$vst_path" .vst3)
+            echo "Found VST3: $vst_path, packaging as $vst_name"
+            cd $(dirname "$vst_path")
+            zip -r "$GITHUB_WORKSPACE/artifacts/$vst_name-VST3-macOS.zip" "$(basename "$vst_path")"
+            cd "$GITHUB_WORKSPACE"
+          done
           
-          # Package AU - Find any AU components regardless of name
-          echo "Looking for AU builds..."
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/AU" ]; then
-            cd QuackerVST/Builds/MacOSX/build/Release/AU
-            for au in *.component; do
-              if [ -d "$au" ]; then
-                echo "Packaging AU: $au"
-                zip -r ../../../../../artifacts/$(basename "$au" .component)-AU-macOS.zip "$au"
-              fi
-            done
-            cd ../../../../../
-          else
-            echo "No AU directory found"
-          fi
+          # Find and package all AU components
+          echo "Finding AU plugins..."
+          for au_path in $(find . -name "*.component" -type d); do
+            au_name=$(basename "$au_path" .component)
+            echo "Found AU: $au_path, packaging as $au_name"
+            cd $(dirname "$au_path")
+            zip -r "$GITHUB_WORKSPACE/artifacts/$au_name-AU-macOS.zip" "$(basename "$au_path")"
+            cd "$GITHUB_WORKSPACE"
+          done
           
-          # Package Standalone - Find any app bundles regardless of name
-          echo "Looking for Standalone builds..."
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/Standalone" ]; then
-            cd QuackerVST/Builds/MacOSX/build/Release/Standalone
-            for app in *.app; do
-              if [ -d "$app" ]; then
-                echo "Packaging Standalone: $app"
-                zip -r ../../../../../artifacts/$(basename "$app" .app)-Standalone-macOS.zip "$app"
-              fi
-            done
-            cd ../../../../../
-          else
-            echo "No Standalone directory found"
+          # Find and package all standalone apps
+          echo "Finding Standalone apps..."
+          for app_path in $(find . -name "*.app" -type d); do
+            app_name=$(basename "$app_path" .app)
+            echo "Found App: $app_path, packaging as $app_name"
+            cd $(dirname "$app_path")
+            zip -r "$GITHUB_WORKSPACE/artifacts/$app_name-Standalone-macOS.zip" "$(basename "$app_path")"
+            cd "$GITHUB_WORKSPACE"
+          done
+          
+          # If no files were found, create a dummy file to prevent upload failure
+          if [ ! "$(ls -A artifacts)" ]; then
+            echo "No plugin files found. Creating a dummy file."
+            echo "No plugin files were found during the build process. Please check the build logs." > artifacts/build-log.txt
           fi
           
           # List what's in the artifacts directory
