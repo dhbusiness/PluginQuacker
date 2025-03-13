@@ -23,8 +23,8 @@ jobs:
         run: |
           echo "Setting up environment variables"
           echo "JUCE_VERSION=8.0.6" >> $GITHUB_ENV
-          echo "PLUGIN_NAME=QuackerVST" >> $GITHUB_ENV
-          
+          echo "PLUGIN_NAME=TremoloViolaVST" >> $GITHUB_ENV
+      
       - name: Print directory
         run: |
           pwd
@@ -52,35 +52,78 @@ jobs:
           cd QuackerVST/Builds/MacOSX
           xcodebuild -configuration Release
       
+      - name: Debug build output
+        run: |
+          echo "Checking build outputs..."
+          find QuackerVST/Builds/MacOSX/build -type d | sort
+          
+          echo "Checking for VST3..."
+          ls -la QuackerVST/Builds/MacOSX/build/Release/VST3/ || echo "VST3 directory not found"
+          
+          echo "Checking for AU..."
+          ls -la QuackerVST/Builds/MacOSX/build/Release/AU/ || echo "AU directory not found"
+          
+          echo "Checking for Standalone..."
+          ls -la QuackerVST/Builds/MacOSX/build/Release/Standalone/ || echo "Standalone directory not found"
+      
       - name: Package Plugin
         run: |
           echo "Packaging plugin"
           mkdir -p artifacts
           
-          # Package VST3
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3/$PLUGIN_NAME.vst3" ]; then
+          # Package VST3 - Find any VST3 plugins regardless of name
+          echo "Looking for VST3 builds..."
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/VST3" ]; then
             cd QuackerVST/Builds/MacOSX/build/Release/VST3
-            zip -r ../../../../../artifacts/$PLUGIN_NAME-VST3-macOS.zip ./$PLUGIN_NAME.vst3
+            for vst in *.vst3; do
+              if [ -d "$vst" ]; then
+                echo "Packaging VST3: $vst"
+                zip -r ../../../../../artifacts/$(basename "$vst" .vst3)-VST3-macOS.zip "$vst"
+              fi
+            done
             cd ../../../../../
+          else
+            echo "No VST3 directory found"
           fi
           
-          # Package AU
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/AU/$PLUGIN_NAME.component" ]; then
+          # Package AU - Find any AU components regardless of name
+          echo "Looking for AU builds..."
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/AU" ]; then
             cd QuackerVST/Builds/MacOSX/build/Release/AU
-            zip -r ../../../../../artifacts/$PLUGIN_NAME-AU-macOS.zip ./$PLUGIN_NAME.component
+            for au in *.component; do
+              if [ -d "$au" ]; then
+                echo "Packaging AU: $au"
+                zip -r ../../../../../artifacts/$(basename "$au" .component)-AU-macOS.zip "$au"
+              fi
+            done
             cd ../../../../../
+          else
+            echo "No AU directory found"
           fi
           
-          # Package Standalone
-          if [ -d "QuackerVST/Builds/MacOSX/build/Release/Standalone/$PLUGIN_NAME.app" ]; then
+          # Package Standalone - Find any app bundles regardless of name
+          echo "Looking for Standalone builds..."
+          if [ -d "QuackerVST/Builds/MacOSX/build/Release/Standalone" ]; then
             cd QuackerVST/Builds/MacOSX/build/Release/Standalone
-            zip -r ../../../../../artifacts/$PLUGIN_NAME-Standalone-macOS.zip ./$PLUGIN_NAME.app
+            for app in *.app; do
+              if [ -d "$app" ]; then
+                echo "Packaging Standalone: $app"
+                zip -r ../../../../../artifacts/$(basename "$app" .app)-Standalone-macOS.zip "$app"
+              fi
+            done
             cd ../../../../../
+          else
+            echo "No Standalone directory found"
           fi
+          
+          # List what's in the artifacts directory
+          echo "Contents of artifacts directory:"
+          ls -la artifacts/
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PLUGIN_NAME }}-macOS-Builds
+          name: TremoloViola-macOS-Builds
           path: artifacts/
           retention-days: 30
+          if-no-files-found: warn
