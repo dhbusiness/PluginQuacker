@@ -23,13 +23,6 @@ jobs:
           
       - name: Download and Build JUCE
         run: |
-          echo "Downloading JUCE $JUCE_VERSION"
-          mkdir -p External
-          cd External
-          curl -L https://github.com/juce-framework/JUCE/archive/refs/tags/$JUCE_VERSION.zip -o JUCE.zip
-          unzip JUCE.zip
-          mv JUCE-$JUCE_VERSION JUCE
-          
           echo "Building Projucer"
           cd JUCE/extras/Projucer/Builds/MacOSX
           xcodebuild -configuration Release
@@ -40,38 +33,11 @@ jobs:
       
       - name: Resave JUCER file
         run: |
+          pwd
+          ls
           echo "Resaving project file"
           ./projucer --resave QuackerVST/QuackerVST.jucer
-      
-      - name: Set Project Module Paths
-        run: |
-          echo "Setting JUCE module paths in project"
-          
-          # Store the absolute path to the JUCE modules
-          JUCE_MODULES_PATH=$(pwd)/External/JUCE/modules
-          
-          # Create a simple script to update the module paths
-          cat > update_paths.sh << 'EOF'
-          #!/bin/bash
-          PROJECT_FILE="QuackerVST/QuackerVST.jucer"
-          JUCE_PATH="$1"
-          
-          # Create a copy of the project file
-          cp "$PROJECT_FILE" "$PROJECT_FILE.bak"
-          
-          # Replace all MODULEPATH paths with our downloaded JUCE path
-          sed -i '' -E "s#<MODULEPATH id=\"([^\"]*)\" path=\"[^\"]*\"/>#<MODULEPATH id=\"\1\" path=\"$JUCE_PATH\"/>#g" "$PROJECT_FILE"
-          EOF
-          
-          # Make the script executable
-          chmod +x update_paths.sh
-          
-          # Run the script with the JUCE modules path
-          ./update_paths.sh "$JUCE_MODULES_PATH"
-          
-          # Resave the project with updated paths
-          ./projucer --resave QuackerVST/QuackerVST.jucer
-      
+       
       - name: Build Plugin
         run: |
           echo "Building plugin"
