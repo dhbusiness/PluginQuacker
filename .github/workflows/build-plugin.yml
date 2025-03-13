@@ -33,8 +33,7 @@ jobs:
           
       - name: Download and Build JUCE
         run: |
-          echo "Building Projucer"
-          cd JUCE/extras/Projucer/Builds/MacOSX
+          cd /Users/runner/work/PluginQuacker/PluginQuacker/QuackerVST/JUCE/extras/Projucer/Builds/MacOSX
           xcodebuild -configuration Release
           
           echo "Making Projucer executable available"
