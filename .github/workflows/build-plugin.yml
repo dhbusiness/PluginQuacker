@@ -1,9 +1,7 @@
 name: Build QuackerVST Plugin
-
 on:
   # Manual trigger from Actions tab
   workflow_dispatch:
-
 jobs:
   build:
     name: Build macOS Plugin
@@ -14,7 +12,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Update submodules (pull juce)
+          
+      - name: Update submodules (pull JUCE)
         run: |
           git submodule update --init --recursive
           
@@ -23,30 +22,50 @@ jobs:
           echo "Setting up environment variables"
           echo "JUCE_VERSION=8.0.6" >> $GITHUB_ENV
           echo "PLUGIN_NAME=QuackerVST" >> $GITHUB_ENV
-      - name: Print directory
-        run: |
-          pwd
-
-      - name: List contents directory
-        run: |
-          ls
           
-      - name: Download and Build JUCE
+      - name: Print debug information
         run: |
-          cd /Users/runner/work/PluginQuacker/PluginQuacker/QuackerVST/JUCE/extras/Projucer/Builds/MacOSX
+          echo "Working directory:"
+          pwd
+          echo "Contents:"
+          ls -la
+          
+      - name: Locate JUCE directory
+        run: |
+          echo "Looking for JUCE directory:"
+          find . -type d -name "JUCE" | grep -v "build" || echo "JUCE directory not found"
+          
+      - name: Build Projucer
+        run: |
+          # Assuming JUCE is at the root level as a submodule
+          cd JUCE/extras/Projucer/Builds/MacOSX
           xcodebuild -configuration Release
           
-          echo "Making Projucer executable available"
-          cd ../../../../../
-          ln -s External/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer ./projucer
-      
+          echo "Projucer build complete. Contents of build directory:"
+          ls -la build/Release
+          
+      - name: Make Projucer executable available
+        run: |
+          # Go back to root directory
+          cd $GITHUB_WORKSPACE
+          
+          # Create symbolic link to Projucer
+          ln -sf $GITHUB_WORKSPACE/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer ./projucer
+          
+          # Verify link created successfully
+          ls -la ./projucer
+          
       - name: Resave JUCER file
         run: |
+          echo "Current directory:"
           pwd
-          ls
+          
+          echo "Finding .jucer files:"
+          find . -name "*.jucer"
+          
           echo "Resaving project file"
           ./projucer --resave QuackerVST/QuackerVST.jucer
-       
+          
       - name: Build Plugin
         run: |
           echo "Building plugin"
