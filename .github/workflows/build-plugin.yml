@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-macos:
     name: Build macOS Plugin
     runs-on: macos-latest
     
@@ -131,6 +131,111 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TremoloViola-macOS-Builds
+          path: artifacts/
+          retention-days: 30
+          if-no-files-found: warn
+
+  build-windows:
+    name: Build Windows Plugin
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          
+      - name: Update submodules (pull juce)
+        run: |
+          git submodule update --init --recursive
+          
+      - name: Setup Environment
+        run: |
+          echo "Setting up environment variables"
+          echo "JUCE_VERSION=8.0.6" >> $env:GITHUB_ENV
+          echo "PLUGIN_NAME=TremoloViolaVST" >> $env:GITHUB_ENV
+      
+      - name: Print directory
+        run: |
+          Get-Location
+          Get-ChildItem
+          
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+          
+      - name: Build Projucer
+        run: |
+          cd QuackerVST/JUCE/extras/Projucer/Builds/VisualStudio2022
+          msbuild Projucer.sln /p:Configuration=Release /p:Platform=x64
+          
+          # Verify Projucer build
+          if (-not (Test-Path "x64/Release/App/Projucer.exe")) {
+            Write-Error "Projucer build failed! Executable not found."
+            exit 1
+          }
+          
+          # Create a reference to the Projucer in the repository root
+          cd $env:GITHUB_WORKSPACE
+          $projucerPath = "QuackerVST\JUCE\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe"
+          echo "PROJUCER_PATH=$projucerPath" >> $env:GITHUB_ENV
+      
+      - name: Verify Projucer
+        run: |
+          & "$env:PROJUCER_PATH" --version
+          
+      - name: Resave JUCER file
+        run: |
+          echo "Resaving project file"
+          & "$env:PROJUCER_PATH" --resave "QuackerVST\QuackerVST.jucer"
+       
+      - name: Verify Visual Studio project
+        run: |
+          echo "Checking if Visual Studio project exists"
+          Get-ChildItem -Path "QuackerVST\Builds\VisualStudio2022"
+          
+      - name: Build Plugin
+        run: |
+          echo "Building plugin with verbose output"
+          cd "QuackerVST\Builds\VisualStudio2022"
+          msbuild "TremoloViolaVST.sln" /p:Configuration=Release /p:Platform=x64
+      
+      - name: Create artifacts directory
+        run: |
+          echo "Creating artifacts directory"
+          mkdir artifacts
+      
+      - name: Package Plugin
+        run: |
+          echo "Searching for plugin files throughout the project"
+          
+          # Find and package VST3 plugins
+          $vst3Path = "QuackerVST\Builds\VisualStudio2022\x64\Release\VST3\TremoloViola.vst3"
+          if (Test-Path -Path $vst3Path) {
+            echo "Found VST3 plugin, packaging..."
+            Compress-Archive -Path $vst3Path -DestinationPath "artifacts\TremoloViola-VST3-Windows.zip" -Force
+          }
+          
+          # Find and package Standalone app
+          $standalonePath = "QuackerVST\Builds\VisualStudio2022\x64\Release\Standalone\TremoloViola.exe"
+          if (Test-Path -Path $standalonePath) {
+            echo "Found Standalone app, packaging..."
+            Compress-Archive -Path $standalonePath -DestinationPath "artifacts\TremoloViola-Standalone-Windows.zip" -Force
+          }
+          
+          # If no files were found, create a dummy file to prevent upload failure
+          if (-not (Get-ChildItem -Path artifacts\*.zip)) {
+            echo "No plugin files found. Creating a dummy file."
+            "No plugin files were found during the build process. Please check the build logs." | Out-File -FilePath "artifacts\build-log.txt"
+          }
+          
+          # List what's in the artifacts directory
+          echo "Contents of artifacts directory:"
+          Get-ChildItem artifacts\
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TremoloViola-Windows-Builds
           path: artifacts/
           retention-days: 30
           if-no-files-found: warn
