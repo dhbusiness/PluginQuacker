@@ -23,6 +23,13 @@ jobs:
           echo "Setting up environment variables"
           echo "JUCE_VERSION=8.0.6" >> $GITHUB_ENV
           echo "PLUGIN_NAME=QuackerVST" >> $GITHUB_ENV
+      - name: Print directory
+        run: |
+          pwd
+
+      - name: List contents directory
+        run: |
+          ls
           
       - name: Download and Build JUCE
         run: |
