@@ -580,6 +580,12 @@ void PresetManager::scanDirectory(const juce::File& directory, const juce::Strin
     }
 }
 
+void PresetManager::setCustomPresetName(const juce::String& name)
+{
+    currentPresetName = name;
+    // Don't update cleanPresetState since this is just for display
+}
+
 juce::String PresetManager::determineCategory(const juce::File& file)
 {
     // Get the path relative to the preset directory

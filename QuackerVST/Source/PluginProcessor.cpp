@@ -507,7 +507,13 @@ juce::AudioProcessorEditor* QuackerVSTAudioProcessor::createEditor()
 
 void QuackerVSTAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
+    // Get the APVTS state
     auto state = apvts.copyState();
+    
+    // Add the current preset name as a property
+    state.setProperty("presetName", presetManager->getDisplayedPresetName(), nullptr);
+    
+    // Convert to XML and save
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -519,7 +525,26 @@ void QuackerVSTAudioProcessor::setStateInformation(const void* data, int sizeInB
     {
         if (xmlState->hasTagName(apvts.state.getType()))
         {
-            apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+            // Create a ValueTree from the XML
+            juce::ValueTree vt = juce::ValueTree::fromXml(*xmlState);
+            
+            // Get the preset name before replacing the state
+            juce::String savedPresetName = vt.getProperty("presetName", "Default");
+            
+            // Replace the state (loads all parameters)
+            apvts.replaceState(vt);
+            
+            // Now set the preset name in the PresetManager
+            // We need to check if this is an actual preset or just a custom setting
+            if (presetManager->loadPreset(savedPresetName))
+            {
+                // Preset was loaded successfully
+            }
+            else
+            {
+                // This is a custom setting, still update the display name
+                presetManager->setCustomPresetName(savedPresetName);
+            }
         }
     }
 }

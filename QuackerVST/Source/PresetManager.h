@@ -107,6 +107,8 @@ public:
     // Helper function to get a subfolder by path
     const PresetFolder* getFolderByPath(const juce::String& path) const;
     
+    void setCustomPresetName(const juce::String& name);
+    
 private:
     juce::AudioProcessorValueTreeState& apvts;
     juce::File presetDirectory;
@@ -120,6 +122,7 @@ private:
     juce::String determineCategory(const juce::File& file);
     bool savePresetToFile(const Preset& preset, const juce::File& presetFile);
     juce::String generateSafeFileName(const juce::String& name);
+
     
     juce::String currentPresetName = "Default";
     
