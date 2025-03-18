@@ -41,6 +41,17 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
     
     double getCurrentBPM() const;
+    double getSafeBPM() const {
+        // Triple-layered safety check
+        double safeBPM = currentBPM;
+        if (safeBPM <= 0.0) {
+            safeBPM = lastKnownGoodBPM;
+            if (safeBPM <= 0.0) {
+                safeBPM = defaultBPM;
+            }
+        }
+        return std::max(1.0, safeBPM); // Always return at least 1.0
+    };
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     
@@ -53,6 +64,8 @@ public:
     void applyParametersInOrder();
 
     void syncParametersAfterPresetLoad();
+    
+
     
 private:
     // DC Filter components

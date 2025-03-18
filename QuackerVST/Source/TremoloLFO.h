@@ -54,8 +54,14 @@ public:
 
     // Convert BPM and note division to equivalent frequency
     static double bpmToFrequency(double bpm, double noteDivision) {
-        // BPM represents beats per minute
-        // noteDivision represents the fraction of a beat (e.g., 0.25 = quarter note)
+        // Safety checks
+        if (bpm <= 0.0) {
+            bpm = 120.0; // Default fallback
+        }
+        
+        if (noteDivision <= 0.0) {
+            noteDivision = 1.0; // Default to quarter note
+        }
         
         // First calculate cycles per minute
         double cyclesPerMinute = (bpm * noteDivision);
@@ -69,7 +75,8 @@ public:
             frequencyHz *= 0.75; // Reduce the frequency to keep it more musical
         }
         
-        return frequencyHz;
+        // Final safety check
+        return std::max(0.01, frequencyHz); // Never return less than 0.01 Hz
     };
 
     // Get the current effective frequency, whether synced or not

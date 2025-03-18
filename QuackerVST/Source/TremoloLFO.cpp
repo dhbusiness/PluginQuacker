@@ -44,11 +44,25 @@ TremoloLFO::TremoloLFO()
 
 
 void TremoloLFO::setBPM(double bpm) {
+    // Safety check
+    if (bpm <= 0.0) {
+        bpm = 120.0; // Default fallback
+        juce::Logger::writeToLog("TremoloLFO received invalid BPM, using default: 120.0");
+    }
+    
     currentBPM = bpm;
+    
     if (syncedToHost) {
-        // When in sync mode, update our effective rate based on the new BPM
-        double syncedFreq = bpmToFrequency(bpm, noteDivision);
-        setRate(static_cast<float>(syncedFreq));
+        try {
+            // Calculate synced frequency based on BPM and division
+            double syncedFreq = bpmToFrequency(bpm, noteDivision);
+            setRate(static_cast<float>(syncedFreq));
+        }
+        catch (const std::exception& e) {
+            // Handle any calculation errors
+            juce::Logger::writeToLog("Error in TremoloLFO setBPM: " + juce::String(e.what()));
+            setRate(1.0f); // Safe default
+        }
     }
 }
 
@@ -119,21 +133,34 @@ float TremoloLFO::getNextSample() {
 
 // Ensure setSyncMode updates our rate when sync state changes:
 void TremoloLFO::setSyncMode(bool shouldSync, double division) {
+    // Safety check for division
+    if (division <= 0.0) {
+        division = 1.0; // Default to quarter note
+        juce::Logger::writeToLog("TremoloLFO received invalid division, using default: 1.0");
+    }
+    
     // Store current manual rate before enabling sync
     if (!syncedToHost && shouldSync) {
-        lastManualRate = rate;
+        lastManualRate = rate > 0.0f ? rate : 1.0f; // Safety check
     }
     
     syncedToHost = shouldSync;
     noteDivision = division;
     
     if (shouldSync) {
-        // Calculate synced frequency based on BPM and division
-        double syncedFreq = bpmToFrequency(currentBPM, division);
-        setRate(static_cast<float>(syncedFreq));
+        try {
+            // Calculate synced frequency based on BPM and division
+            double syncedFreq = bpmToFrequency(currentBPM > 0.0 ? currentBPM : 120.0, division);
+            setRate(static_cast<float>(syncedFreq));
+        }
+        catch (const std::exception& e) {
+            // Handle any calculation errors
+            juce::Logger::writeToLog("Error in TremoloLFO setSyncMode: " + juce::String(e.what()));
+            setRate(1.0f); // Safe default
+        }
     } else {
-        // Restore previous manual rate
-        setRate(lastManualRate);
+        // Restore previous manual rate with safety check
+        setRate(lastManualRate > 0.0f ? lastManualRate : 1.0f);
     }
 }
 
@@ -179,7 +206,10 @@ void TremoloLFO::updateActiveState(bool isActive, bool isPlaying)
 void TremoloLFO::resetPhase() {
     phase = 0.0;
     accumulatedPhase = 0.0;
-    currentRate = rate;
+    
+    // Safety check for rate
+    currentRate = rate > 0.0f ? rate : 1.0f;
+    
     smoothedDepth.reset(sampleRate, 0.05);
     smoothedRate.reset(sampleRate, 0.05);
     waveshaper.reset();

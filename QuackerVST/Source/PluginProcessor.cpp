@@ -259,15 +259,20 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
         {
             // Use default if host doesn't provide valid BPM
             currentBPM = defaultBPM;
+            juce::Logger::writeToLog("No valid BPM provided during prepareToPlay, using default: " +
+                                    juce::String(defaultBPM));
         }
     }
     else
     {
         // No playhead available (standalone mode)
         currentBPM = defaultBPM;
+        juce::Logger::writeToLog("No playhead available during prepareToPlay, using default BPM: " +
+                                juce::String(defaultBPM));
     }
     
-    lfo.setBPM(currentBPM);
+    // Ensure the LFO has a valid BPM using our safe getter
+    lfo.setBPM(getSafeBPM());
     
     // Allocate buffer with alignment for SIMD operations
     lfoValuesBuffer.allocate(samplesPerBlock + 4, true);
@@ -328,31 +333,58 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::AudioPlayHead::CurrentPositionInfo posInfo;
     if (auto* playHead = getPlayHead())
     {
-        if (playHead->getCurrentPosition(posInfo))
-        {
-            isPlaying = posInfo.isPlaying;
-            
-            // Store the BPM whenever it's valid (non-zero)
-            if (posInfo.bpm > 0.0)
+        try {
+            if (playHead->getCurrentPosition(posInfo))
             {
-                currentBPM = posInfo.bpm;
-                lastKnownGoodBPM = currentBPM; // Save for later use
+                isPlaying = posInfo.isPlaying;
+                
+                // Store the BPM whenever it's valid (non-zero)
+                if (posInfo.bpm > 0.0)
+                {
+                    currentBPM = posInfo.bpm;
+                    lastKnownGoodBPM = currentBPM; // Save for later use
+                }
+                else if (lastKnownGoodBPM > 0.0)
+                {
+                    // Use last known good BPM if current is invalid
+                    currentBPM = lastKnownGoodBPM;
+                    juce::Logger::writeToLog("Host provided invalid BPM: " + juce::String(posInfo.bpm) +
+                                             ". Using last known good BPM: " + juce::String(lastKnownGoodBPM));
+                }
+                else
+                {
+                    // No valid BPM has been seen yet, use default
+                    currentBPM = defaultBPM;
+                    juce::Logger::writeToLog("Host provided invalid BPM and no history exists. Using default: " +
+                                             juce::String(defaultBPM));
+                }
+                
+                currentlyPlaying = isPlaying;
             }
-            else if (lastKnownGoodBPM > 0.0)
-            {
-                // Use last known good BPM if current is invalid
-                currentBPM = lastKnownGoodBPM;
-            }
-            
-            currentlyPlaying = isPlaying;
+        }
+        catch (const std::exception& e) {
+            // Protect against any unexpected exceptions when getting position info
+            juce::Logger::writeToLog("Exception when getting playhead position: " + juce::String(e.what()));
+            currentBPM = lastKnownGoodBPM > 0.0 ? lastKnownGoodBPM : defaultBPM;
         }
     }
-    
-    // If we've never received a valid BPM, use the default
+    else
+    {
+        // No playhead available (likely standalone mode)
+        if (currentBPM <= 0.0)
+            currentBPM = defaultBPM;
+        juce::Logger::writeToLog("No playhead available, using BPM: " + juce::String(currentBPM));
+    }
+
+    // Final safety check - if we somehow still have an invalid BPM, use default
     if (currentBPM <= 0.0)
     {
         currentBPM = defaultBPM;
+        juce::Logger::writeToLog("Emergency BPM fallback activated, using default: " + juce::String(defaultBPM));
     }
+
+    // Update the LFO with our validated BPM value
+    lfo.setBPM(getSafeBPM());
 
     // Check for audio signal
     bool hasSignal = false;
@@ -453,24 +485,47 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     // Regular parameter handling
     if (isInSync) {
-        const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
-        double division = divisions[static_cast<int>(divisionParam->load())];
-        
-        lfo.setBPM(currentBPM);
-        
-        // Calculate tempo-synced frequency
-        double syncedFreq = TremoloLFO::bpmToFrequency(currentBPM, division);
-        
-        // Apply high-frequency compression
-        if (syncedFreq > 15.0) {
-            syncedFreq = 15.0 + (std::log10(syncedFreq - 14.0) * 5.0);
+        try {
+            const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
+            int divisionIndex = static_cast<int>(divisionParam->load());
+            
+            // Safety check for division index
+            if (divisionIndex < 0 || divisionIndex >= 6) {
+                divisionIndex = 2; // Default to quarter note
+                juce::Logger::writeToLog("Invalid division index: " + juce::String(divisionIndex) +
+                                         ". Using default (1/4 note)");
+            }
+            
+            double division = divisions[divisionIndex];
+            
+            // Use the safe BPM getter
+            double safeBPM = getSafeBPM();
+            lfo.setBPM(safeBPM);
+            
+            // Calculate tempo-synced frequency with protected calculation
+            double syncedFreq = TremoloLFO::bpmToFrequency(safeBPM, division);
+            
+            // Apply high-frequency compression
+            if (syncedFreq > 15.0) {
+                syncedFreq = 15.0 + (std::log10(std::max(1.0, syncedFreq - 14.0)) * 5.0);
+            }
+            syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
+            
+            // Set the actual rate in the LFO and update parameter
+            lfo.setRate(static_cast<float>(syncedFreq));
+            if (auto* rateParameter = apvts.getParameter("lfoRate")) {
+                rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(syncedFreq));
+            }
         }
-        syncedFreq = juce::jlimit(0.01, 25.0, syncedFreq);
-        
-        // Set the actual rate in the LFO and update parameter
-        lfo.setRate(static_cast<float>(syncedFreq));
-        if (auto* rateParameter = apvts.getParameter("lfoRate")) {
-            rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(syncedFreq));
+        catch (const std::exception& e) {
+            // Handle any calculation errors
+            juce::Logger::writeToLog("Error in sync processing: " + juce::String(e.what()));
+            
+            // Fallback to a safe rate
+            lfo.setRate(1.0f);
+            if (auto* rateParameter = apvts.getParameter("lfoRate")) {
+                rateParameter->setValueNotifyingHost(rateParameter->convertTo0to1(1.0f));
+            }
         }
     }
     else {
@@ -592,9 +647,8 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     return new QuackerVSTAudioProcessor();
 }
 
-double QuackerVSTAudioProcessor::getCurrentBPM() const
-{
-    return currentBPM;
+double QuackerVSTAudioProcessor::getCurrentBPM() const {
+    return getSafeBPM(); // Use the safe method
 }
 
 
