@@ -66,6 +66,10 @@ private:
     bool audioInputDetected = false;
     juce::HeapBlock<float> lfoValuesBuffer;
     
+    // BPM handling
+    double defaultBPM = 120.0;
+    double lastKnownGoodBPM = 0.0;
+    
     bool wasInSync = false;
     
     std::unique_ptr<PresetManager> presetManager;

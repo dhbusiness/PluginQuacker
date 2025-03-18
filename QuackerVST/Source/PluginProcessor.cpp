@@ -29,6 +29,10 @@ apvts(*this, nullptr, "Parameters", createParameters())
         syncParametersAfterPresetLoad();
     });
     QuackerPresets::loadAllFactoryPresets(*this);
+    
+    // Default BPM that will be used if no host BPM is available
+    currentBPM = defaultBPM;
+    lastKnownGoodBPM = defaultBPM;
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
@@ -246,12 +250,24 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     if (auto* playHead = getPlayHead())
     {
         juce::AudioPlayHead::CurrentPositionInfo posInfo;
-        if (playHead->getCurrentPosition(posInfo))
+        if (playHead->getCurrentPosition(posInfo) && posInfo.bpm > 0.0)
         {
             currentBPM = posInfo.bpm;
-            lfo.setBPM(currentBPM);
+            lastKnownGoodBPM = currentBPM;
+        }
+        else
+        {
+            // Use default if host doesn't provide valid BPM
+            currentBPM = defaultBPM;
         }
     }
+    else
+    {
+        // No playhead available (standalone mode)
+        currentBPM = defaultBPM;
+    }
+    
+    lfo.setBPM(currentBPM);
     
     // Allocate buffer with alignment for SIMD operations
     lfoValuesBuffer.allocate(samplesPerBlock + 4, true);
@@ -305,7 +321,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-    const int numSamples = buffer.getNumSamples();  // Added this declaration
+    const int numSamples = buffer.getNumSamples();
     
     // Get playhead info
     bool isPlaying = false;
@@ -315,9 +331,27 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         if (playHead->getCurrentPosition(posInfo))
         {
             isPlaying = posInfo.isPlaying;
-            currentBPM = posInfo.bpm;
+            
+            // Store the BPM whenever it's valid (non-zero)
+            if (posInfo.bpm > 0.0)
+            {
+                currentBPM = posInfo.bpm;
+                lastKnownGoodBPM = currentBPM; // Save for later use
+            }
+            else if (lastKnownGoodBPM > 0.0)
+            {
+                // Use last known good BPM if current is invalid
+                currentBPM = lastKnownGoodBPM;
+            }
+            
             currentlyPlaying = isPlaying;
         }
+    }
+    
+    // If we've never received a valid BPM, use the default
+    if (currentBPM <= 0.0)
+    {
+        currentBPM = defaultBPM;
     }
 
     // Check for audio signal
@@ -333,7 +367,10 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             }
         }
     }
-
+    
+    // Always update audioInputDetected so the visualizer can pick it up
+    audioInputDetected = hasSignal;
+    
     // Get bypass parameter
     auto* bypassParam = apvts.getRawParameterValue("bypass");
     bool isBypassed = bypassParam->load();
@@ -342,18 +379,17 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     if (isBypassed)
     {
         // Update states but don't process audio
-        audioInputDetected = hasSignal;
         currentlyPlaying = isPlaying;
         lfo.resetPhase(); // Reset LFO when bypassed
         return;
     }
     
-    // Update the member variable here
-    audioInputDetected = hasSignal;
-    bool isActive = isPlaying && hasSignal;
-    lfo.updateActiveState(isActive, isPlaying); // Pass both states
+    // KEY CHANGE: Allow effect to run even when transport isn't active
+    // We'll detect audio activity regardless of playhead state
+    bool isActive = hasSignal; // Remove the isPlaying requirement
     
-
+    // We still want to tell the LFO about the transport state for some behaviors
+    lfo.updateActiveState(isActive, isPlaying);
     
     // Get parameters from APVTS
     auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
@@ -415,7 +451,6 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
     wasInSync = isInSync;
 
-
     // Regular parameter handling
     if (isInSync) {
         const double divisions[] = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
@@ -445,8 +480,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         // Don't store the rate here - we only want to store it when switching TO sync mode
     }
 
-    // Pre-calculate LFO values with high quality
-    if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+    // KEY CHANGE: Pre-calculate LFO values with high quality - removed isPlaying dependency
+    if (hasSignal || lfo.isWaitingForReset())
     {
         for (int i = 0; i < numSamples; ++i)
         {
@@ -464,7 +499,8 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         auto* channelData = buffer.getWritePointer(channel);
         auto* dryData = buffer.getReadPointer(channel);
         
-        if (isPlaying && (hasSignal || lfo.isWaitingForReset()))
+        // KEY CHANGE: Apply effect if there's signal or waiting for reset - removed isPlaying dependency
+        if (hasSignal || lfo.isWaitingForReset())
         {
             // Store dry signal for mix
             juce::AudioBuffer<float> dryBuffer(1, numSamples);

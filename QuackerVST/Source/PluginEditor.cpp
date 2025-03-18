@@ -290,7 +290,7 @@ void QuackerVSTAudioProcessorEditor::timerCallback()
     // Only update visualizer if not bypassed
     if (!isBypassed)
     {
-        bool isActive = audioProcessor.isPlaying() && audioProcessor.hasAudioInput();
+        bool isActive = audioProcessor.hasAudioInput();
         lfoVisualizer.setActive(isActive, audioProcessor.isLfoWaitingForReset());
         
         auto waveformParam = audioProcessor.apvts.getRawParameterValue("lfoWaveform");

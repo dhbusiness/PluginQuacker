@@ -147,18 +147,30 @@ void TremoloLFO::setBeatPosition(double newBeatPosition) {
 }
 
 
-void TremoloLFO::updateActiveState(bool isActive, bool isPlaying) {
-    if (!isPlaying) {
+void TremoloLFO::updateActiveState(bool isActive, bool isPlaying)
+{
+    // If transport is not playing, we should still process audio
+    // but we need to be careful about phase resets
+    if (!isPlaying)
+    {
+        // Only reset phase if we're going from active to inactive
+        if (wasActive && !isActive)
+        {
+            resetPhase();
+        }
         waitingForReset = false;
-        wasActive = false;
-        phase = 0.0;
-        return;
     }
-
-    if (wasActive && !isActive) {
-        waitingForReset = true;
-    } else if (isActive) {
-        waitingForReset = false;
+    else
+    {
+        // Original behavior for when transport is playing
+        if (wasActive && !isActive)
+        {
+            waitingForReset = true;
+        }
+        else if (isActive)
+        {
+            waitingForReset = false;
+        }
     }
 
     wasActive = isActive;
