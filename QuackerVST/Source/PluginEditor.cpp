@@ -737,3 +737,5 @@ void QuackerVSTAudioProcessorEditor::resized()
                                    buttonWidth,
                                    buttonHeight);
 }
+
+

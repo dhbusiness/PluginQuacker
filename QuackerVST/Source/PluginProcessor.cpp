@@ -209,6 +209,9 @@ QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
     {
         param->removeListener(this);
     }
+    
+    // Add this line to clean up static resources
+    QuackerVSTAudioProcessorEditor::cleanupStaticResources();
 }
 
 //==============================================================================

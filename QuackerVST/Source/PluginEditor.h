@@ -34,6 +34,12 @@ public:
     void resized() override;
     void timerCallback() override;
     void mouseDown(const juce::MouseEvent& event) override;
+    
+    static void cleanupStaticResources()
+    {
+        backgroundImage = juce::Image(); // Replace with empty image to release resources
+        backgroundGenerated = false;
+    };
 
 private:
     // This reference is provided as a quick way for your editor to
