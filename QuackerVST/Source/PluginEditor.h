@@ -18,6 +18,7 @@
 #include "CustomComboBox.h"
 #include "ArrowNavigationComboBox.h"
 #include "HierarchicalPresetMenu.h"
+#include "Fonts/FontManager.h"
 
 //==============================================================================
 /**
@@ -95,6 +96,8 @@ private:
      std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> waveshapeDepthAttachment;
      std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveshapeWaveformAttachment;
      std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> waveshapeEnableAttachment;
+    
+    juce::Font embossedTextFont;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (QuackerVSTAudioProcessorEditor)
 };

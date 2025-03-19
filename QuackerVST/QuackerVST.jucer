@@ -6,6 +6,12 @@
               companyEmail="deividshvostovsbusiness@gmail.com">
   <MAINGROUP id="rSG9EE" name="TremoloViolaVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
+      <FILE id="kiAKqr" name="Montserrat-Bold.ttf" compile="0" resource="1"
+            file="Source/Fonts/Montserrat-Bold.ttf"/>
+      <FILE id="fbL0RI" name="Montserrat-Regular.ttf" compile="0" resource="1"
+            file="Source/Fonts/Montserrat-Regular.ttf"/>
+      <FILE id="cxpqrG" name="FontManager.cpp" compile="1" resource="0" file="Source/Fonts/FontManager.cpp"/>
+      <FILE id="efNieu" name="FontManager.h" compile="0" resource="0" file="Source/Fonts/FontManager.h"/>
       <FILE id="RVOM1A" name="WaveshapeLFO.cpp" compile="1" resource="0"
             file="Source/WaveshapeLFO.cpp"/>
       <FILE id="do7XGJ" name="CustomDialLookAndFeel.cpp" compile="1" resource="0"

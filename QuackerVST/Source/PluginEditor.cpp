@@ -17,6 +17,21 @@ bool QuackerVSTAudioProcessorEditor::backgroundGenerated = false;
 QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p), presetMenu(p.getPresetManager())
 {
+    
+        
+    // Apply custom fonts to the LookAndFeel
+    auto& defaultLookAndFeel = getLookAndFeel();
+    defaultLookAndFeel.setDefaultSansSerifTypeface(
+        FontManager::getInstance().getRegularTypeface());
+        
+    // Apply to specific look-and-feels
+    customDialLookAndFeel.setDefaultSansSerifTypeface(FontManager::getInstance().getRegularTypeface());
+    customToggleLookAndFeel.setDefaultSansSerifTypeface(FontManager::getInstance().getRegularTypeface());
+    customComboBoxLookAndFeel.setDefaultSansSerifTypeface(FontManager::getInstance().getRegularTypeface());
+    
+    embossedTextFont = FontManager::getInstance().getRegularFont(16.0f);
+    
+    
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (800, 700);
@@ -562,7 +577,8 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
     
     // Function to draw embossed text
     auto drawEmbossedText = [&](const juce::String& text, const juce::Rectangle<int>& bounds) {
-        g.setFont(16.0f);
+        // Use the font from FontManager
+        g.setFont(embossedTextFont);
         
         // Bottom highlight (creates depth)
         g.setColour(juce::Colours::white.withAlpha(0.08f));
@@ -573,7 +589,7 @@ void QuackerVSTAudioProcessorEditor::drawControls(juce::Graphics& g)
         g.drawText(text, bounds.translated(0, -1), juce::Justification::centred, false);
         
         // Main text
-        g.setColour(textColor.withAlpha(0.8f));  // Slightly transparent to enhance inset effect
+        g.setColour(textColor.withAlpha(0.8f));
         g.drawText(text, bounds, juce::Justification::centred, false);
     };
 
