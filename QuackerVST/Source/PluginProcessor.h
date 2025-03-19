@@ -12,7 +12,7 @@
 #include "TremoloLFO.h"
 #include "PresetManager.h"
 
-class QuackerVSTAudioProcessor : public juce::AudioProcessor {
+class QuackerVSTAudioProcessor : public juce::AudioProcessor, public juce::AudioProcessorParameter::Listener {
 public:
     QuackerVSTAudioProcessor();
     ~QuackerVSTAudioProcessor() override;
@@ -39,6 +39,9 @@ public:
     void changeProgramName(int index, const juce::String& newName) override;
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
+    
+    void parameterValueChanged(int parameterIndex, float newValue) override;
+    void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override {};
     
     double getCurrentBPM() const;
     double getSafeBPM() const {

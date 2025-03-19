@@ -118,7 +118,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
     lfoPhaseOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
-    lfoPhaseOffsetSlider.setTextValueSuffix(" °");
+    lfoPhaseOffsetSlider.setTextValueSuffix(juce::CharPointer_UTF8(" °"));
     addAndMakeVisible(lfoPhaseOffsetSlider);
     
     mixSlider.setSliderStyle(juce::Slider::Rotary);

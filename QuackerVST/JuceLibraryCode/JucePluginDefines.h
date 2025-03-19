@@ -53,7 +53,7 @@
  #define JucePlugin_ManufacturerWebsite    "www.DeividsHvostovsDSP.com"
 #endif
 #ifndef  JucePlugin_ManufacturerEmail
- #define JucePlugin_ManufacturerEmail      "deividshvostovsbusiness@gmail.com "
+ #define JucePlugin_ManufacturerEmail      "deividshvostovsbusiness@gmail.com"
 #endif
 #ifndef  JucePlugin_ManufacturerCode
  #define JucePlugin_ManufacturerCode       0x4d616e75

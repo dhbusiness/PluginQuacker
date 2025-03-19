@@ -37,29 +37,35 @@ apvts(*this, nullptr, "Parameters", createParameters())
 
 juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::createParameters()
 {
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-
+    // Create parameter groups
+    auto lfoGroup = std::make_unique<juce::AudioProcessorParameterGroup>("lfo", "LFO", "|");
+    auto tremoloGroup = std::make_unique<juce::AudioProcessorParameterGroup>("tremolo", "Tremolo", "|");
+    auto waveshapeGroup = std::make_unique<juce::AudioProcessorParameterGroup>("waveshape", "Waveshaping", "|");
+    auto utilityGroup = std::make_unique<juce::AudioProcessorParameterGroup>("utility", "Utility", "|");
+    
     // LFO Rate with skew factor for exponential response
-    auto* rateParam = new juce::AudioParameterFloat(
-        "lfoRate",           // parameterID
-        "LFO Rate",         // parameter name
-        juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f), // range with skew
-        1.0f                // default value
+    auto rateParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("lfoRate", 1),  // Added version hint
+        "LFO Rate",
+        juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f),
+        1.0f,
+        "Hz"
     );
-    params.push_back(std::unique_ptr<juce::RangedAudioParameter>(rateParam));
+    lfoGroup->addChild(std::move(rateParam));
 
     // LFO Depth
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "lfoDepth",
+    auto depthParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("lfoDepth", 1),  // Added version hint
         "LFO Depth",
-        0.0f,
-        1.0f,
-        0.5f
-    ));
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+        0.5f,
+        "%"
+    );
+    tremoloGroup->addChild(std::move(depthParam));
 
     // LFO Waveform
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "lfoWaveform",
+    auto waveformParam = std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("lfoWaveform", 1),  // Added version hint
         "LFO Waveform",
         juce::StringArray{
             "Sine",
@@ -83,62 +89,75 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
             "Slow Gear"
         },
         0  // default to Sine
-    ));
+    );
+    lfoGroup->addChild(std::move(waveformParam));
 
     // LFO Sync
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        "lfoSync",
+    auto syncParam = std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID("lfoSync", 1),  // Added version hint
         "LFO Sync",
         false
-    ));
+    );
+    lfoGroup->addChild(std::move(syncParam));
 
     // Note Division
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "lfoNoteDivision",
+    auto divisionParam = std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("lfoNoteDivision", 1),  // Added version hint
         "LFO Note Division",
         juce::StringArray{ "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" },
         2  // default to Quarter note
-    ));
+    );
+    lfoGroup->addChild(std::move(divisionParam));
 
-    // Phase Offset
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "lfoPhaseOffset",
+    // Phase Offset - fixed non-ASCII degree symbol
+    auto phaseOffsetParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("lfoPhaseOffset", 1),  // Added version hint
         "LFO Phase Offset",
-        -180.0f,
-        180.0f,
-        0.0f
-    ));
+        juce::NormalisableRange<float>(-180.0f, 180.0f, 1.0f),
+        0.0f,
+        juce::CharPointer_UTF8(" °")
+    );
+    lfoGroup->addChild(std::move(phaseOffsetParam));
     
     // Mix Control
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "mix",
+    auto mixParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("mix", 1),  // Added version hint
         "Mix",
-        0.0f,
-        1.0f,
-        1.0f  // default to 100% wet
-    ));
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+        1.0f,  // default to 100% wet
+        "%"
+    );
+    utilityGroup->addChild(std::move(mixParam));
 
-    
     // Add bypass parameter
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        "bypass",
+    auto bypassParam = std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID("bypass", 1),  // Added version hint
         "Bypass",
         false
-    ));
+    );
+    utilityGroup->addChild(std::move(bypassParam));
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "waveshapeRate", "Waveshape Rate",
+    // Waveshaping parameters
+    auto waveshapeRateParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("waveshapeRate", 1),  // Added version hint
+        "Waveshape Rate",
         juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f),
-        1.0f
-    ));
+        1.0f,
+        "Hz"
+    );
+    waveshapeGroup->addChild(std::move(waveshapeRateParam));
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        "waveshapeDepth", "Waveshape Depth",
-        0.0f, 1.0f, 0.0f
-    ));
+    auto waveshapeDepthParam = std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("waveshapeDepth", 1),  // Added version hint
+        "Waveshape Depth",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+        0.0f,
+        "%"
+    );
+    waveshapeGroup->addChild(std::move(waveshapeDepthParam));
 
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        "waveshapeWaveform",
+    auto waveshapeWaveformParam = std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("waveshapeWaveform", 1),  // Added version hint
         "Waveshape Waveform",
         juce::StringArray{
             "Sine",
@@ -162,19 +181,34 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
             "Slow Gear"
         },
         0
-    ));
+    );
+    waveshapeGroup->addChild(std::move(waveshapeWaveformParam));
     
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        "waveshapeEnabled", "Waveshape Enabled",
+    auto waveshapeEnabledParam = std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID("waveshapeEnabled", 1),  // Added version hint
+        "Waveshape Enabled",
         false
-    ));
+    );
+    waveshapeGroup->addChild(std::move(waveshapeEnabledParam));
 
-    return { params.begin(), params.end() };
+    // Create the layout with all parameter groups
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    layout.add(std::move(lfoGroup),
+               std::move(tremoloGroup),
+               std::move(waveshapeGroup),
+               std::move(utilityGroup));
+
+    return layout;
 }
 
 
 QuackerVSTAudioProcessor::~QuackerVSTAudioProcessor()
 {
+    // Remove parameter listeners to avoid callbacks after destruction
+    for (auto* param : getParameters())
+    {
+        param->removeListener(this);
+    }
 }
 
 //==============================================================================
@@ -259,7 +293,7 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
         {
             // Use default if host doesn't provide valid BPM
             currentBPM = defaultBPM;
-            juce::Logger::writeToLog("No valid BPM provided during prepareToPlay, using default: " +
+            DBG("No valid BPM provided during prepareToPlay, using default: " +
                                     juce::String(defaultBPM));
         }
     }
@@ -267,7 +301,7 @@ void QuackerVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     {
         // No playhead available (standalone mode)
         currentBPM = defaultBPM;
-        juce::Logger::writeToLog("No playhead available during prepareToPlay, using default BPM: " +
+        DBG("No playhead available during prepareToPlay, using default BPM: " +
                                 juce::String(defaultBPM));
     }
     
@@ -348,14 +382,14 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
                 {
                     // Use last known good BPM if current is invalid
                     currentBPM = lastKnownGoodBPM;
-                    juce::Logger::writeToLog("Host provided invalid BPM: " + juce::String(posInfo.bpm) +
+                    DBG("Host provided invalid BPM: " + juce::String(posInfo.bpm) +
                                              ". Using last known good BPM: " + juce::String(lastKnownGoodBPM));
                 }
                 else
                 {
                     // No valid BPM has been seen yet, use default
                     currentBPM = defaultBPM;
-                    juce::Logger::writeToLog("Host provided invalid BPM and no history exists. Using default: " +
+                    DBG("Host provided invalid BPM and no history exists. Using default: " +
                                              juce::String(defaultBPM));
                 }
                 
@@ -364,7 +398,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
         catch (const std::exception& e) {
             // Protect against any unexpected exceptions when getting position info
-            juce::Logger::writeToLog("Exception when getting playhead position: " + juce::String(e.what()));
+            DBG("Exception when getting playhead position: " + juce::String(e.what()));
             currentBPM = lastKnownGoodBPM > 0.0 ? lastKnownGoodBPM : defaultBPM;
         }
     }
@@ -373,14 +407,14 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         // No playhead available (likely standalone mode)
         if (currentBPM <= 0.0)
             currentBPM = defaultBPM;
-        juce::Logger::writeToLog("No playhead available, using BPM: " + juce::String(currentBPM));
+        DBG("No playhead available, using BPM: " + juce::String(currentBPM));
     }
 
     // Final safety check - if we somehow still have an invalid BPM, use default
     if (currentBPM <= 0.0)
     {
         currentBPM = defaultBPM;
-        juce::Logger::writeToLog("Emergency BPM fallback activated, using default: " + juce::String(defaultBPM));
+        DBG("Emergency BPM fallback activated, using default: " + juce::String(defaultBPM));
     }
 
     // Update the LFO with our validated BPM value
@@ -492,7 +526,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
             // Safety check for division index
             if (divisionIndex < 0 || divisionIndex >= 6) {
                 divisionIndex = 2; // Default to quarter note
-                juce::Logger::writeToLog("Invalid division index: " + juce::String(divisionIndex) +
+                DBG("Invalid division index: " + juce::String(divisionIndex) +
                                          ". Using default (1/4 note)");
             }
             
@@ -519,7 +553,7 @@ void QuackerVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
         catch (const std::exception& e) {
             // Handle any calculation errors
-            juce::Logger::writeToLog("Error in sync processing: " + juce::String(e.what()));
+            DBG("Error in sync processing: " + juce::String(e.what()));
             
             // Fallback to a safe rate
             lfo.setRate(1.0f);
@@ -679,4 +713,19 @@ void QuackerVSTAudioProcessor::syncParametersAfterPresetLoad()
     // Force a complete refresh by temporarily flipping wasInSync
     // This ensures the next processBlock call will apply all parameters correctly
     wasInSync = !apvts.getRawParameterValue("lfoSync")->load() > 0.5f;
+}
+
+void QuackerVSTAudioProcessor::parameterValueChanged(int parameterIndex, float newValue)
+{
+    // This gets called when hosts automate parameters
+    // You can handle specific parameters if needed
+    if (auto* param = apvts.getParameter("lfoSync"))
+    {
+        if (parameterIndex == param->getParameterIndex())
+        {
+            // Sync parameter changed - may need special handling
+            bool isSync = newValue > 0.5f;
+            // Your logic here
+        }
+    }
 }

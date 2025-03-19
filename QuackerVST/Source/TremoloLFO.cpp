@@ -47,7 +47,7 @@ void TremoloLFO::setBPM(double bpm) {
     // Safety check
     if (bpm <= 0.0) {
         bpm = 120.0; // Default fallback
-        juce::Logger::writeToLog("TremoloLFO received invalid BPM, using default: 120.0");
+        DBG("TremoloLFO received invalid BPM, using default: 120.0");
     }
     
     currentBPM = bpm;
@@ -60,7 +60,7 @@ void TremoloLFO::setBPM(double bpm) {
         }
         catch (const std::exception& e) {
             // Handle any calculation errors
-            juce::Logger::writeToLog("Error in TremoloLFO setBPM: " + juce::String(e.what()));
+            DBG("Error in TremoloLFO setBPM: " + juce::String(e.what()));
             setRate(1.0f); // Safe default
         }
     }
@@ -136,7 +136,7 @@ void TremoloLFO::setSyncMode(bool shouldSync, double division) {
     // Safety check for division
     if (division <= 0.0) {
         division = 1.0; // Default to quarter note
-        juce::Logger::writeToLog("TremoloLFO received invalid division, using default: 1.0");
+        DBG("TremoloLFO received invalid division, using default: 1.0");
     }
     
     // Store current manual rate before enabling sync
@@ -155,7 +155,7 @@ void TremoloLFO::setSyncMode(bool shouldSync, double division) {
         }
         catch (const std::exception& e) {
             // Handle any calculation errors
-            juce::Logger::writeToLog("Error in TremoloLFO setSyncMode: " + juce::String(e.what()));
+            DBG("Error in TremoloLFO setSyncMode: " + juce::String(e.what()));
             setRate(1.0f); // Safe default
         }
     } else {
