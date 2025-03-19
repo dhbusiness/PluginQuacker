@@ -38,8 +38,12 @@ public:
     
     static void cleanupStaticResources()
     {
-        backgroundImage = juce::Image(); // Replace with empty image to release resources
-        backgroundGenerated = false;
+        // Only clean up if we have no instances left
+        if (instanceCount == 0)
+        {
+            backgroundImage = juce::Image(); // Replace with empty image to release resources
+            backgroundGenerated = false;
+        }
     };
 
 private:
@@ -85,6 +89,7 @@ private:
     static juce::Image backgroundImage;  // Make it static
     static bool backgroundGenerated;     // Track if we've generated it
     static void generateBackgroundPattern(int width, int height); // Static generator
+    static int instanceCount;
     
     // Waveshaping controls
      juce::Slider waveshapeRateSlider, waveshapeDepthSlider;

@@ -36,6 +36,9 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     // editor's size to whatever you need it to be.
     setSize (800, 700);
 
+    // Increment the instance counter
+    ++instanceCount;
+    
     // Generate background only if it hasn't been generated yet
     if (!backgroundGenerated)
     {
@@ -293,6 +296,13 @@ QuackerVSTAudioProcessorEditor::~QuackerVSTAudioProcessorEditor()
     waveshapeRateSlider.setLookAndFeel(nullptr);
     waveshapeDepthSlider.setLookAndFeel(nullptr);
     waveshapeWaveformSelector.getComboBox().setLookAndFeel(nullptr);
+    
+    // Decrement instance counter and clean up resources if this is the last instance
+    if (--instanceCount == 0)
+    {
+        // Only clean up the static resources when the last instance is closed
+        cleanupStaticResources();
+    }
     
 }
 
@@ -754,4 +764,4 @@ void QuackerVSTAudioProcessorEditor::resized()
                                    buttonHeight);
 }
 
-
+int QuackerVSTAudioProcessorEditor::instanceCount = 0;
