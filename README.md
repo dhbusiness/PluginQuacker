@@ -8,7 +8,10 @@ QuackerVST delivers authentic tremolo effects ranging from subtle amplitude modu
 - **Core Tremolo Engine**
 - **Tempo Synchronization**
 - **Advanced Waveshaping**
+- **Preset System**
 - **Professional Audio Processing**
+- **Visual Highly Stylised FFT Display**
+- **Custom Made GUI**
 
 ---
 **Audio Processing Pipeline:**
