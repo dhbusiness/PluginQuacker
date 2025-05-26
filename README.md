@@ -1,4 +1,4 @@
-#Tremolo Viola 🔉
+# Tremolo Viola 🔉
 
 A tremolo effect plugin featuring wave-shaping, built using the JUCE framework.
 Written and developed by Deivids Hvostovs.
