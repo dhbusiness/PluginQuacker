@@ -5,7 +5,7 @@ Written and developed by Deivids Hvostovs.
 
 ![til](./ResourcesGit/TremoloViola.gif)
 
-QuackerVST delivers authentic tremolo effects ranging from subtle amplitude modulation to dramatic rhythmic pulsing. The plugin combines classic tremolo algorithms with advanced wave-shaping capabilities, offering both traditional and experimental sound design possibilities.
+QuackerVST delivers tremolo effects ranging from subtle amplitude modulation to dramatic rhythmic pulsing. The plugin combines classic tremolo algorithms with advanced wave-shaping capabilities, offering both traditional and experimental sound design possibilities.
 ### Key Features
 - **Core Tremolo Engine**
 - **Tempo Synchronization**
