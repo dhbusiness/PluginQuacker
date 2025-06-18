@@ -347,6 +347,7 @@ jobs:
           fi
           
           echo "Packaging process complete"
+
       - name: Create macOS Installer Package
         run: |
           echo "Creating professional macOS installer package..."
@@ -467,12 +468,55 @@ jobs:
           For support, please visit: https://github.com/your-username/your-repo
           EOF
           
-          # Create Distribution.xml for product archive
-          # TODO: Replace 'yourcompany' with your actual company/developer name
-          # Examples: com.johnsmith.tremoloviola, com.audiocorp.tremoloviola
+          # Bundle ID (this is fine - you don't need a real domain)
           BUNDLE_ID_BASE="com.deividshvostovs.tremoloviola"
           
-          cat > installer_staging/Distribution.xml << EOF
+          # Build component packages and collect their paths
+          PACKAGE_REFS=""
+          CHOICE_REFS=""
+          
+          if [ $VST3_COUNT -gt 0 ]; then
+            echo "Building VST3 component package..."
+            pkgbuild \
+              --root installer_staging/vst3_payload \
+              --identifier "$BUNDLE_ID_BASE.vst3" \
+              --version 1.0.0 \
+              --scripts installer_staging/scripts \
+              --install-location / \
+              installer_staging/TremoloViola-VST3.pkg
+            
+            if [ -f "installer_staging/TremoloViola-VST3.pkg" ]; then
+              echo "✅ VST3 component package created successfully"
+              PACKAGE_REFS="$PACKAGE_REFS
+                  <pkg-ref id=\"$BUNDLE_ID_BASE.vst3\" version=\"1.0.0\" auth=\"root\">TremoloViola-VST3.pkg</pkg-ref>"
+              CHOICE_REFS="$CHOICE_REFS
+                      <line choice=\"vst3\"/>"
+            fi
+          fi
+          
+          if [ $AU_COUNT -gt 0 ]; then
+            echo "Building AU component package..."
+            pkgbuild \
+              --root installer_staging/au_payload \
+              --identifier "$BUNDLE_ID_BASE.au" \
+              --version 1.0.0 \
+              --scripts installer_staging/scripts \
+              --install-location / \
+              installer_staging/TremoloViola-AU.pkg
+            
+            if [ -f "installer_staging/TremoloViola-AU.pkg" ]; then
+              echo "✅ AU component package created successfully"
+              PACKAGE_REFS="$PACKAGE_REFS
+                  <pkg-ref id=\"$BUNDLE_ID_BASE.au\" version=\"1.0.0\" auth=\"root\">TremoloViola-AU.pkg</pkg-ref>"
+              CHOICE_REFS="$CHOICE_REFS
+                      <line choice=\"au\"/>"
+            fi
+          fi
+          
+          # Only proceed if we have at least one package
+          if [ -n "$PACKAGE_REFS" ]; then
+            # Create Distribution.xml with actual package references
+            cat > installer_staging/Distribution.xml << EOF
           <?xml version="1.0" encoding="utf-8"?>
           <installer-gui-script minSpecVersion="2">
               <title>TremoloViola Plugin</title>
@@ -483,10 +527,6 @@ jobs:
               <!-- Welcome and ReadMe -->
               <welcome file="Welcome.txt" mime-type="text/plain" />
               <readme file="ReadMe.txt" mime-type="text/plain" />
-              
-              <!-- License (you can add this if you have a license file)
-              <license file="License.txt" mime-type="text/plain" />
-              -->
               
               <!-- Installation check -->
               <installation-check script="pm_install_check();"/>
@@ -506,68 +546,38 @@ jobs:
               
               <!-- Define installation choices -->
               <choices-outline>
-                  <line choice="default">
-                      <line choice="vst3"/>
-                      <line choice="au"/>
+                  <line choice="default">$CHOICE_REFS
                   </line>
               </choices-outline>
               
               <choice id="default"/>
+          EOF
+          
+            # Add choice definitions based on what packages we have
+            if [ $VST3_COUNT -gt 0 ]; then
+              cat >> installer_staging/Distribution.xml << EOF
               <choice id="vst3" visible="false">
                   <pkg-ref id="$BUNDLE_ID_BASE.vst3"/>
               </choice>
+          EOF
+            fi
+            
+            if [ $AU_COUNT -gt 0 ]; then
+              cat >> installer_staging/Distribution.xml << EOF
               <choice id="au" visible="false">
                   <pkg-ref id="$BUNDLE_ID_BASE.au"/>
               </choice>
+          EOF
+            fi
+            
+            # Add package references
+            cat >> installer_staging/Distribution.xml << EOF
               
-              <!-- Package references -->
-              <pkg-ref id="$BUNDLE_ID_BASE.vst3">
-                  <bundle-version/>
-              </pkg-ref>
-              <pkg-ref id="$BUNDLE_ID_BASE.au">
-                  <bundle-version/>
-              </pkg-ref>
+              <!-- Package references -->$PACKAGE_REFS
               
           </installer-gui-script>
           EOF
-          
-          # Build component packages only if we have plugins to package
-          PACKAGE_CREATED=false
-          
-          if [ $VST3_COUNT -gt 0 ]; then
-            echo "Building VST3 component package..."
-            pkgbuild \
-              --root installer_staging/vst3_payload \
-              --identifier "$BUNDLE_ID_BASE.vst3" \
-              --version 1.0.0 \
-              --scripts installer_staging/scripts \
-              --install-location / \
-              installer_staging/TremoloViola-VST3.pkg
             
-            if [ -f "installer_staging/TremoloViola-VST3.pkg" ]; then
-              echo "✅ VST3 component package created successfully"
-              PACKAGE_CREATED=true
-            fi
-          fi
-          
-          if [ $AU_COUNT -gt 0 ]; then
-            echo "Building AU component package..."
-            pkgbuild \
-              --root installer_staging/au_payload \
-              --identifier "$BUNDLE_ID_BASE.au" \
-              --version 1.0.0 \
-              --scripts installer_staging/scripts \
-              --install-location / \
-              installer_staging/TremoloViola-AU.pkg
-            
-            if [ -f "installer_staging/TremoloViola-AU.pkg" ]; then
-              echo "✅ AU component package created successfully"
-              PACKAGE_CREATED=true
-            fi
-          fi
-          
-          # Create final product archive if we have packages
-          if [ "$PACKAGE_CREATED" = true ]; then
             echo "Creating final installer package..."
             
             # Copy resources to staging
@@ -591,9 +601,10 @@ jobs:
               exit 1
             fi
           else
-            echo "❌ No plugins found to package into installer"
+            echo "❌ No component packages were created successfully"
             exit 1
           fi
+
       - name: Sign and Notarize Installer
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -658,6 +669,7 @@ jobs:
             echo "Available identities:"
             security find-identity -v -p codesigning
           fi
+
       - name: Update artifacts with installer
         run: |
           echo "Adding installer to artifacts..."
@@ -690,6 +702,7 @@ jobs:
           
           echo "Final artifacts:"
           ls -la artifacts/
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
