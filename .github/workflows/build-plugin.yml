@@ -605,6 +605,49 @@ jobs:
             exit 1
           fi
 
+      - name: Install the Apple certificates
+        env:
+          APPLICATION_CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
+          APPLICATION_CERTIFICATE_PASS: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          INSTALLER_CERTIFICATE_DATA: ${{ secrets.MACOS_INSTALLER_CERTIFICATE }}
+          INSTALLER_CERTIFICATE_PASS: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PWD }}
+        run: |
+          # Create a temporary directory for certificates
+          APP_CERTIFICATE_PATH=$RUNNER_TEMP/app_certificate.p12
+          INSTALLER_CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          
+          # Import application certificate from secrets
+          echo $APPLICATION_CERTIFICATE_DATA | base64 --decode > $APP_CERTIFICATE_PATH
+          
+          # Import installer certificate from secrets
+          echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
+          
+          # Create temporary keychain
+          security create-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
+          
+          # Import application certificate to keychain
+          security import $APP_CERTIFICATE_PATH -P "$APPLICATION_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          
+          # Import installer certificate to keychain
+          security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          
+          # Verify both certificates are available
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning
+          
+          echo ""
+          echo "Application certificates:"
+          security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Application certificates found"
+          
+          echo ""
+          echo "Installer certificates:"
+          security find-identity -v -p codesigning | grep "Developer ID Installer" || echo "No Installer certificates found"
+
       - name: Sign and Notarize Installer
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -613,26 +656,27 @@ jobs:
         run: |
           echo "Signing and notarizing installer package..."
           
-          # Get the signing identity
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          # Get the installer signing identity
+          INSTALLER_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           
-          if [ -z "$IDENTITY" ]; then
-            echo "No Developer ID Installer certificate found. Trying with Application certificate..."
-            IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-          fi
-          
-          if [ -n "$IDENTITY" ]; then
-            echo "Signing installer with identity: $IDENTITY"
+          if [ -n "$INSTALLER_IDENTITY" ]; then
+            echo "✅ Found Developer ID Installer certificate: $INSTALLER_IDENTITY"
             
             # Sign the installer package
-            productsign --sign "$IDENTITY" TremoloViola-Installer.pkg TremoloViola-Installer-Signed.pkg
+            echo "Signing installer package..."
+            productsign --sign "$INSTALLER_IDENTITY" TremoloViola-Installer.pkg TremoloViola-Installer-Signed.pkg
             
             if [ -f "TremoloViola-Installer-Signed.pkg" ]; then
               echo "✅ Installer signed successfully"
               mv TremoloViola-Installer-Signed.pkg TremoloViola-Installer.pkg
               
               # Verify the signature
-              spctl -a -v --type install TremoloViola-Installer.pkg && echo "✅ Installer signature verified" || echo "❌ Installer signature verification failed"
+              echo "Verifying installer signature..."
+              if spctl -a -v --type install TremoloViola-Installer.pkg; then
+                echo "✅ Installer signature verified"
+              else
+                echo "⚠️ Installer signature verification failed, but continuing"
+              fi
               
               # Notarize the installer
               echo "Submitting installer for notarization..."
@@ -643,31 +687,69 @@ jobs:
                 --team-id "$APPLE_TEAM_ID" \
                 --wait \
                 --timeout 15m \
-                --output-format json)
+                --output-format json 2>&1)
+              
+              echo "Notarization submission output:"
+              echo "$submission_output"
               
               # Check if notarization was successful
               if echo "$submission_output" | grep -q '"status":"Accepted"'; then
                 echo "✅ Installer notarization successful"
                 
                 # Staple the notarization ticket
-                xcrun stapler staple TremoloViola-Installer.pkg
-                echo "✅ Notarization ticket stapled to installer"
-                
-                # Final verification
-                xcrun stapler validate TremoloViola-Installer.pkg && echo "✅ Stapled installer validated" || echo "❌ Stapled installer validation failed"
+                echo "Stapling notarization ticket..."
+                if xcrun stapler staple TremoloViola-Installer.pkg; then
+                  echo "✅ Notarization ticket stapled to installer"
+                  
+                  # Final verification
+                  if xcrun stapler validate TremoloViola-Installer.pkg; then
+                    echo "✅ Stapled installer validated successfully"
+                  else
+                    echo "⚠️ Stapled installer validation failed, but continuing"
+                  fi
+                else
+                  echo "⚠️ Failed to staple notarization ticket, but continuing"
+                fi
                 
               else
-                echo "❌ Installer notarization failed"
+                echo "❌ Installer notarization failed or timed out"
+                echo "Full notarization output:"
                 echo "$submission_output"
+                
+                # Check if it's still processing
+                if echo "$submission_output" | grep -q '"status":"In Progress"'; then
+                  echo "⚠️ Notarization still in progress - continuing with signed but unnotarized installer"
+                else
+                  echo "⚠️ Notarization failed - continuing with signed but unnotarized installer"
+                fi
               fi
               
             else
               echo "❌ Failed to sign installer package"
+              echo "⚠️ Continuing with unsigned installer"
+            fi
+            
+          else
+            echo "❌ No Developer ID Installer certificate found"
+            echo "Available signing identities:"
+            security find-identity -v -p codesigning
+            echo "⚠️ Continuing with unsigned installer"
+          fi
+          
+          # Verify the final installer exists
+          if [ -f "TremoloViola-Installer.pkg" ]; then
+            echo "✅ Final installer package ready: TremoloViola-Installer.pkg"
+            ls -lh TremoloViola-Installer.pkg
+            
+            # Check if it's signed
+            if pkgutil --check-signature TremoloViola-Installer.pkg > /dev/null 2>&1; then
+              echo "✅ Installer is signed"
+            else
+              echo "⚠️ Installer is unsigned"
             fi
           else
-            echo "❌ No suitable signing identity found for installer"
-            echo "Available identities:"
-            security find-identity -v -p codesigning
+            echo "❌ No installer package found"
+            exit 1
           fi
 
       - name: Update artifacts with installer
