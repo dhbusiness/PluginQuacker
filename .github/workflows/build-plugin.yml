@@ -1,4 +1,4 @@
-  name: Build QuackerVST Plugin
+name: Build QuackerVST Plugin
 
 on:
   # Manual trigger from Actions tab
