@@ -30,7 +30,7 @@ jobs:
           pwd
           ls
           
-     - name: Install Apple certificates (both app and installer)
+      - name: Install Apple certificates (both app and installer)
         env:
           APPLICATION_CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
           APPLICATION_CERTIFICATE_PASS: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -79,7 +79,7 @@ jobs:
           echo ""
           echo "Installer certificates:"
           security find-identity -v -p codesigning | grep "Developer ID Installer" || echo "No Installer certificates found"
-
+          
       - name: Create entitlements file
         run: |
           cat > entitlements.plist << EOF
