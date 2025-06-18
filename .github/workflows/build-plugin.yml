@@ -348,253 +348,60 @@ jobs:
           
           echo "Packaging process complete"
 
-      - name: Create macOS Installer Package
+      - name: Create installer staging directory
+        run: mkdir -p installer_staging
+
+      - name: Build component packages
         run: |
-          echo "Creating professional macOS installer package..."
-          
-          # Create installer staging directories
-          mkdir -p installer_staging/vst3_payload/Library/Audio/Plug-Ins/VST3
-          mkdir -p installer_staging/au_payload/Library/Audio/Plug-Ins/Components
-          mkdir -p installer_staging/scripts
-          mkdir -p installer_staging/resources
-          
-          # Copy plugins to staging directories
-          echo "Staging plugin files for installer..."
-          
-          # Stage VST3 plugins
-          VST3_COUNT=0
-          for vst_path in $(find . -name "*.vst3" -type d); do
-            if [ -d "$vst_path" ]; then
-              plugin_name=$(basename "$vst_path")
-              echo "Staging VST3: $plugin_name"
-              cp -R "$vst_path" "installer_staging/vst3_payload/Library/Audio/Plug-Ins/VST3/"
-              VST3_COUNT=$((VST3_COUNT + 1))
-            fi
-          done
-          
-          # Stage AU plugins
-          AU_COUNT=0
-          for au_path in $(find . -name "*.component" -type d); do
-            if [ -d "$au_path" ]; then
-              plugin_name=$(basename "$au_path")
-              echo "Staging AU: $plugin_name"
-              cp -R "$au_path" "installer_staging/au_payload/Library/Audio/Plug-Ins/Components/"
-              AU_COUNT=$((AU_COUNT + 1))
-            fi
-          done
-          
-          echo "Found $VST3_COUNT VST3 plugins and $AU_COUNT AU plugins"
-          
-          # Create installer scripts
-          cat > installer_staging/scripts/preinstall << 'EOF'
-          #!/bin/bash
-          # Pre-installation script
-          echo "Preparing to install TremoloViola plugin..."
-          
-          # Create plugin directories if they don't exist
-          mkdir -p "/Library/Audio/Plug-Ins/VST3"
-          mkdir -p "/Library/Audio/Plug-Ins/Components"
-          
-          # Set proper permissions
-          chmod 755 "/Library/Audio/Plug-Ins/VST3"
-          chmod 755 "/Library/Audio/Plug-Ins/Components"
-          
-          exit 0
-          EOF
-          
-          cat > installer_staging/scripts/postinstall << 'EOF'
-          #!/bin/bash
-          # Post-installation script
-          echo "TremoloViola plugin installation completed successfully!"
-          
-          # Set proper ownership and permissions for installed plugins
-          if [ -d "/Library/Audio/Plug-Ins/VST3" ]; then
-            find "/Library/Audio/Plug-Ins/VST3" -name "TremoloViola*" -type d -exec chmod -R 755 {} \;
-            find "/Library/Audio/Plug-Ins/VST3" -name "TremoloViola*" -type d -exec chown -R root:admin {} \;
-          fi
-          
-          if [ -d "/Library/Audio/Plug-Ins/Components" ]; then
-            find "/Library/Audio/Plug-Ins/Components" -name "TremoloViola*" -type d -exec chmod -R 755 {} \;
-            find "/Library/Audio/Plug-Ins/Components" -name "TremoloViola*" -type d -exec chown -R root:admin {} \;
-          fi
-          
-          # Notify audio system of new plugins (this helps DAWs detect the plugins)
-          killall -9 AudioComponentRegistrar 2>/dev/null || true
-          
-          echo "Plugin installation and registration complete."
-          echo "You may need to restart your DAW to see the new plugins."
-          
-          exit 0
-          EOF
-          
-          # Make scripts executable
-          chmod +x installer_staging/scripts/preinstall
-          chmod +x installer_staging/scripts/postinstall
-          
-          # Create welcome and readme files
-          cat > installer_staging/resources/Welcome.txt << 'EOF'
-          Welcome to TremoloViola Plugin Installer
-          
-          This installer will install the TremoloViola audio plugin on your Mac.
-          
-          The plugin will be installed to:
-          • VST3: /Library/Audio/Plug-Ins/VST3/
-          • Audio Units: /Library/Audio/Plug-Ins/Components/
-          
-          After installation, you can use the plugin in any compatible DAW software.
-          
-          Click Continue to proceed with the installation.
-          EOF
-          
-          cat > installer_staging/resources/ReadMe.txt << 'EOF'
-          TremoloViola Plugin Installation
-          
-          SYSTEM REQUIREMENTS:
-          • macOS 10.15 (Catalina) or later
-          • Compatible DAW software (Logic Pro, Pro Tools, Ableton Live, etc.)
-          • VST3 or Audio Units host support
-          
-          INSTALLATION:
-          This installer will place the plugin files in the standard macOS audio plugin directories. Administrator privileges are required for installation.
-          
-          USAGE:
-          After installation, restart your DAW and look for "TremoloViola" in your plugin list.
-          
-          UNINSTALLATION:
-          To remove the plugin, delete the following files:
-          • /Library/Audio/Plug-Ins/VST3/TremoloViola.vst3
-          • /Library/Audio/Plug-Ins/Components/TremoloViola.component
-          
-          For support, please visit: https://github.com/your-username/your-repo
-          EOF
-          
-          # Create Distribution.xml for product archive
-          # TODO: Replace 'yourcompany' with your actual company/developer name
-          # Examples: com.johnsmith.tremoloviola, com.audiocorp.tremoloviola
-          BUNDLE_ID_BASE="com.deividshvostovs.tremoloviola"
-          
-          cat > installer_staging/Distribution.xml << EOF
+          pkgbuild --component path/to/VST3.component \
+                   --identifier com.deividshvostovs.tremoloviola.vst3 \
+                   --version "${{ matrix.version }}" \
+                   installer_staging/TremoloViola-VST3.pkg
+          pkgbuild --component path/to/AU.component \
+                   --identifier com.deividshvostovs.tremoloviola.au \
+                   --version "${{ matrix.version }}" \
+                   installer_staging/TremoloViola-AU.pkg
+
+      - name: Create Distribution.xml
+        run: |
+          cat <<-EOF > installer_staging/Distribution.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <installer-gui-script minSpecVersion="2">
-              <title>TremoloViola Plugin</title>
-              <organization>$BUNDLE_ID_BASE</organization>
-              <domains enable_localSystem="true"/>
-              <options customize="never" require-scripts="false" rootVolumeOnly="true" />
-              
-              <!-- Welcome and ReadMe -->
-              <welcome file="Welcome.txt" mime-type="text/plain" />
-              <readme file="ReadMe.txt" mime-type="text/plain" />
-              
-              <!-- License (you can add this if you have a license file)
-              <license file="License.txt" mime-type="text/plain" />
-              -->
-              
-              <!-- Installation check -->
-              <installation-check script="pm_install_check();"/>
-              <script>
-          <![CDATA[
-              function pm_install_check() {
-                  if(!(system.version.ProductVersion >= '10.15')) {
-                      my.result.title = 'Unable to install';
-                      my.result.message = 'This plugin requires macOS 10.15 (Catalina) or later.';
-                      my.result.type = 'Fatal';
-                      return false;
-                  }
-                  return true;
-              }
-          ]]>
-              </script>
-              
-              <!-- Define installation choices -->
-              <choices-outline>
-                  <line choice="default">
-                      <line choice="vst3"/>
-                      <line choice="au"/>
-                  </line>
-              </choices-outline>
-              
-              <choice id="default"/>
-              <choice id="vst3" visible="false">
-                  <pkg-ref id="$BUNDLE_ID_BASE.vst3"/>
-              </choice>
-              <choice id="au" visible="false">
-                  <pkg-ref id="$BUNDLE_ID_BASE.au"/>
-              </choice>
-              
-              <!-- Package references -->
-              <pkg-ref id="$BUNDLE_ID_BASE.vst3">
-                  <bundle-version/>
-              </pkg-ref>
-              <pkg-ref id="$BUNDLE_ID_BASE.au">
-                  <bundle-version/>
-              </pkg-ref>
-              
+          <installer-gui-script minSpecVersion="1">
+            <title>TremoloViola Installer</title>
+
+            <choices-outline>
+              <line choice="vst3"/>
+              <line choice="au"/>
+            </choices-outline>
+
+            <choice id="vst3" title="VST3 Plugin">
+              <pkg-ref id="com.deividshvostovs.tremoloviola.vst3"/>
+            </choice>
+            <choice id="au" title="AU Plugin">
+              <pkg-ref id="com.deividshvostovs.tremoloviola.au"/>
+            </choice>
+
+            <pkg-ref id="com.deividshvostovs.tremoloviola.vst3"
+                     version="${{ matrix.version }}"
+                     onConclusion="none">
+              file:./TremoloViola-VST3.pkg
+            </pkg-ref>
+
+            <pkg-ref id="com.deividshvostovs.tremoloviola.au"
+                     version="${{ matrix.version }}"
+                     onConclusion="none">
+              file:./TremoloViola-AU.pkg
+            </pkg-ref>
           </installer-gui-script>
           EOF
-          
-          # Build component packages only if we have plugins to package
-          PACKAGE_CREATED=false
-          
-          if [ $VST3_COUNT -gt 0 ]; then
-            echo "Building VST3 component package..."
-            pkgbuild \
-              --root installer_staging/vst3_payload \
-              --identifier "$BUNDLE_ID_BASE.vst3" \
-              --version 1.0.0 \
-              --scripts installer_staging/scripts \
-              --install-location / \
-              installer_staging/TremoloViola-VST3.pkg
-            
-            if [ -f "installer_staging/TremoloViola-VST3.pkg" ]; then
-              echo "✅ VST3 component package created successfully"
-              PACKAGE_CREATED=true
-            fi
-          fi
-          
-          if [ $AU_COUNT -gt 0 ]; then
-            echo "Building AU component package..."
-            pkgbuild \
-              --root installer_staging/au_payload \
-              --identifier "$BUNDLE_ID_BASE.au" \
-              --version 1.0.0 \
-              --scripts installer_staging/scripts \
-              --install-location / \
-              installer_staging/TremoloViola-AU.pkg
-            
-            if [ -f "installer_staging/TremoloViola-AU.pkg" ]; then
-              echo "✅ AU component package created successfully"
-              PACKAGE_CREATED=true
-            fi
-          fi
-          
-          # Create final product archive if we have packages
-          if [ "$PACKAGE_CREATED" = true ]; then
-            echo "Creating final installer package..."
-            
-            # Copy resources to staging
-            cp installer_staging/resources/* installer_staging/ 2>/dev/null || true
-            
-            productbuild \
-              --distribution installer_staging/Distribution.xml \
-              --package-path installer_staging \
-              --resources installer_staging/resources \
-              TremoloViola-Installer.pkg
-            
-            if [ -f "TremoloViola-Installer.pkg" ]; then
-              echo "✅ Final installer package created: TremoloViola-Installer.pkg"
-              
-              # Get package info
-              echo "Package information:"
-              ls -lh TremoloViola-Installer.pkg
-              
-            else
-              echo "❌ Failed to create final installer package"
-              exit 1
-            fi
-          else
-            echo "❌ No plugins found to package into installer"
-            exit 1
-          fi
+
+      - name: Create MacOS installer package
+        run: |
+          productbuild \
+            --distribution installer_staging/Distribution.xml \
+            --package-path installer_staging \
+            --resources installer_staging/resources \
+            TremoloViola-Installer.pkg
 
       - name: Sign and Notarize Installer
         env:
