@@ -30,30 +30,56 @@ jobs:
           pwd
           ls
           
-      - name: Install the Apple certificate
+     - name: Install Apple certificates (both app and installer)
         env:
-          CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
-          CERTIFICATE_PASS: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          APPLICATION_CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
+          APPLICATION_CERTIFICATE_PASS: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          INSTALLER_CERTIFICATE_DATA: ${{ secrets.MACOS_INSTALLER_CERTIFICATE }}
+          INSTALLER_CERTIFICATE_PASS: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PWD }}
         run: |
-          # Create a temporary directory for the certificate
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          # Create a temporary directory for certificates
+          APP_CERTIFICATE_PATH=$RUNNER_TEMP/app_certificate.p12
+          INSTALLER_CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           
-          # Import certificate from secrets
-          echo $CERTIFICATE_DATA | base64 --decode > $CERTIFICATE_PATH
+          # Delete keychain if it already exists
+          security delete-keychain $KEYCHAIN_PATH 2>/dev/null || true
+          
+          # Import application certificate from secrets
+          echo $APPLICATION_CERTIFICATE_DATA | base64 --decode > $APP_CERTIFICATE_PATH
+          
+          # Import installer certificate from secrets (only if it exists)
+          if [ -n "$INSTALLER_CERTIFICATE_DATA" ]; then
+            echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
+          fi
           
           # Create temporary keychain
-          security create-keychain -p "$CERTIFICATE_PASS" $KEYCHAIN_PATH
+          security create-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$CERTIFICATE_PASS" $KEYCHAIN_PATH
+          security unlock-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
           
-          # Import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          # Import application certificate to keychain
+          security import $APP_CERTIFICATE_PATH -P "$APPLICATION_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          
+          # Import installer certificate to keychain (only if it exists)
+          if [ -n "$INSTALLER_CERTIFICATE_DATA" ] && [ -f "$INSTALLER_CERTIFICATE_PATH" ]; then
+            security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          fi
+          
           security list-keychain -d user -s $KEYCHAIN_PATH
           
-          # Make sure we see the certificate in the keychain
+          # Verify certificates are available
+          echo "Available signing identities:"
           security find-identity -v -p codesigning
           
+          echo ""
+          echo "Application certificates:"
+          security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Application certificates found"
+          
+          echo ""
+          echo "Installer certificates:"
+          security find-identity -v -p codesigning | grep "Developer ID Installer" || echo "No Installer certificates found"
+
       - name: Create entitlements file
         run: |
           cat > entitlements.plist << EOF
@@ -604,49 +630,6 @@ jobs:
             echo "❌ No component packages were created successfully"
             exit 1
           fi
-
-      - name: Install the Apple certificates
-        env:
-          APPLICATION_CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
-          APPLICATION_CERTIFICATE_PASS: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          INSTALLER_CERTIFICATE_DATA: ${{ secrets.MACOS_INSTALLER_CERTIFICATE }}
-          INSTALLER_CERTIFICATE_PASS: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PWD }}
-        run: |
-          # Create a temporary directory for certificates
-          APP_CERTIFICATE_PATH=$RUNNER_TEMP/app_certificate.p12
-          INSTALLER_CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          
-          # Import application certificate from secrets
-          echo $APPLICATION_CERTIFICATE_DATA | base64 --decode > $APP_CERTIFICATE_PATH
-          
-          # Import installer certificate from secrets
-          echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
-          
-          # Create temporary keychain
-          security create-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
-          
-          # Import application certificate to keychain
-          security import $APP_CERTIFICATE_PATH -P "$APPLICATION_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          
-          # Import installer certificate to keychain
-          security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          
-          security list-keychain -d user -s $KEYCHAIN_PATH
-          
-          # Verify both certificates are available
-          echo "Available signing identities:"
-          security find-identity -v -p codesigning
-          
-          echo ""
-          echo "Application certificates:"
-          security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Application certificates found"
-          
-          echo ""
-          echo "Installer certificates:"
-          security find-identity -v -p codesigning | grep "Developer ID Installer" || echo "No Installer certificates found"
 
       - name: Sign and Notarize Installer
         env:
