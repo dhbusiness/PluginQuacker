@@ -107,9 +107,24 @@ jobs:
        
       - name: Build Plugin
         run: |
-          echo "Building plugin with verbose output"
+          echo "Building plugin with explicit signing configuration"
           cd QuackerVST/Builds/MacOSX
-          xcodebuild -configuration Release -verbose
+          
+          # Get the actual certificate identity from the keychain
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Using signing identity: $IDENTITY"
+          
+          # Build with explicit signing settings that override project defaults
+          xcodebuild \
+            -configuration Release \
+            -verbose \
+            CODE_SIGN_IDENTITY="$IDENTITY" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="A9MQYZSRQK" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES
+          
           echo "Build exit code: $?"
       
       - name: Examine project structure
