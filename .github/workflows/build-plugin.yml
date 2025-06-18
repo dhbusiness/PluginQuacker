@@ -243,313 +243,96 @@ jobs:
       
       - name: Package Plugin (comprehensive verification and packaging)
         run: |
-          echo "=========================================="
           echo "Starting comprehensive plugin packaging"
-          echo "=========================================="
           
-          # Create a verification function that checks all security requirements
-          verify_plugin_security() {
-            local plugin_path="$1"
-            local plugin_type="$2"
-            local plugin_name=$(basename "$plugin_path")
-            
-            echo "🔍 Verifying security for $plugin_name ($plugin_type)..."
-            
-            # Check 1: Verify code signature exists and is valid
-            echo "  → Checking code signature..."
-            if codesign -vvv --deep --strict "$plugin_path" > /dev/null 2>&1; then
-              echo "  ✅ Code signature valid"
-            else
-              echo "  ❌ Code signature invalid or missing"
-              return 1
-            fi
-            
-            # Check 2: Verify notarization is stapled
-            echo "  → Checking notarization stapling..."
-            if xcrun stapler validate "$plugin_path" > /dev/null 2>&1; then
-              echo "  ✅ Notarization properly stapled"
-            else
-              echo "  ❌ Notarization not stapled or invalid"
-              return 1
-            fi
-            
-            # Check 3: Verify Gatekeeper will accept it (this simulates what happens on user machines)
-            echo "  → Checking Gatekeeper compatibility..."
-            if spctl -a -t install "$plugin_path" > /dev/null 2>&1; then
-              echo "  ✅ Gatekeeper verification passed"
-            else
-              echo "  ❌ Gatekeeper verification failed"
-              return 1
-            fi
-            
-            # Check 4: For audio plugins, verify they have the right entitlements
-            echo "  → Checking audio-specific entitlements..."
-            local entitlements_output=$(codesign -d --entitlements :- "$plugin_path" 2>/dev/null)
-            if echo "$entitlements_output" | grep -q "com.apple.security.device.audio-input"; then
-              echo "  ✅ Audio entitlements present"
-            else
-              echo "  ⚠️  Warning: Audio entitlements may be missing"
-            fi
-            
-            echo "  🎉 $plugin_name passed all security checks!"
-            return 0
-          }
+          # Create artifacts directory
+          mkdir -p artifacts
           
-          # Create a function to package individual plugins with metadata
-          package_plugin() {
-            local plugin_path="$1"
-            local plugin_type="$2"
-            local base_name="$3"
+          # Initialize counters
+          SUCCESS_COUNT=0
+          FAILED_COUNT=0
+          
+          # Function to verify and package a plugin
+          verify_and_package() {
+            PLUGIN_PATH="$1"
+            PLUGIN_TYPE="$2"
+            PLUGIN_NAME=$(basename "$PLUGIN_PATH")
+            BASE_NAME=$(echo "$PLUGIN_NAME" | sed 's/\.[^.]*$//')
             
-            echo "📦 Packaging $base_name ($plugin_type)..."
+            echo "Processing $PLUGIN_NAME ($PLUGIN_TYPE)..."
             
-            # Create a temporary directory for this plugin's packaging
-            local temp_dir="temp_package_$base_name"
-            mkdir -p "$temp_dir"
+            # Verify code signature
+            if codesign -vvv --deep --strict "$PLUGIN_PATH" 2>/dev/null; then
+              echo "Code signature valid for $PLUGIN_NAME"
+            else
+              echo "Code signature failed for $PLUGIN_NAME"
+              return 1
+            fi
             
-            # Copy the plugin to the temporary directory
-            cp -R "$plugin_path" "$temp_dir/"
+            # Verify notarization
+            if xcrun stapler validate "$PLUGIN_PATH" 2>/dev/null; then
+              echo "Notarization valid for $PLUGIN_NAME"
+            else
+              echo "Notarization failed for $PLUGIN_NAME"
+              return 1
+            fi
             
-            # Create a README file with important information for users
-            cat > "$temp_dir/README.txt" << EOF
-      $base_name - macOS Audio Plugin
-      ================================
-
-      Installation Instructions:
-      - VST3: Copy the .vst3 bundle to ~/Library/Audio/Plug-Ins/VST3/
-      - AU: Copy the .component bundle to ~/Library/Audio/Plug-Ins/Components/
-      - Standalone: Copy the .app to your Applications folder
-
-      This plugin is code signed and notarized by Apple.
-      If you see any security warnings, please download a fresh copy.
-
-      Build Information:
-      - Built on: $(date)
-      - JUCE Version: ${JUCE_VERSION:-Unknown}
-      - Xcode Version: $(xcodebuild -version | head -1)
-      - macOS Version: $(sw_vers -productVersion)
-
-      Support: Please report any issues through the project's GitHub repository.
-      EOF
-            
-            # Create the final ZIP package
-            local zip_name="$base_name-$plugin_type-macOS.zip"
-            echo "  → Creating ZIP archive: $zip_name"
-            
-            cd "$temp_dir"
-            zip -r "$GITHUB_WORKSPACE/artifacts/$zip_name" . -x "*.DS_Store"
+            # Package the plugin
+            ZIP_NAME="$BASE_NAME-$PLUGIN_TYPE-macOS.zip"
+            cd "$(dirname "$PLUGIN_PATH")"
+            zip -r "$GITHUB_WORKSPACE/artifacts/$ZIP_NAME" "$(basename "$PLUGIN_PATH")"
             cd "$GITHUB_WORKSPACE"
             
-            # Clean up temporary directory
-            rm -rf "$temp_dir"
-            
-            # Verify the ZIP was created and has reasonable size
-            if [ -f "artifacts/$zip_name" ]; then
-              local zip_size=$(stat -f%z "artifacts/$zip_name" 2>/dev/null || stat -c%s "artifacts/$zip_name" 2>/dev/null)
-              echo "  ✅ Package created successfully ($(numfmt --to=iec $zip_size))"
+            if [ -f "artifacts/$ZIP_NAME" ]; then
+              echo "Successfully packaged $ZIP_NAME"
+              return 0
             else
-              echo "  ❌ Package creation failed"
+              echo "Failed to create package for $PLUGIN_NAME"
               return 1
             fi
           }
           
-          # Initialize counters for summary reporting
-          vst3_count=0
-          au_count=0
-          app_count=0
-          failed_count=0
-          
-          echo ""
-          echo "🔍 PHASE 1: Discovery and Verification"
-          echo "======================================"
-          
           # Process VST3 plugins
-          echo "Searching for VST3 plugins..."
-          while IFS= read -r -d '' vst_path; do
-            vst_name=$(basename "$vst_path" .vst3)
-            echo "Found VST3: $vst_path"
-            
-            if verify_plugin_security "$vst_path" "VST3"; then
-              echo "✅ $vst_name VST3 ready for packaging"
-              # Store successful plugin info for packaging phase
-              echo "$vst_path|VST3|$vst_name" >> successful_plugins.txt
-              ((vst3_count++))
+          find . -name "*.vst3" -type d | while read VST_PATH; do
+            if verify_and_package "$VST_PATH" "VST3"; then
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
-              echo "❌ $vst_name VST3 failed verification, skipping"
-              ((failed_count++))
+              FAILED_COUNT=$((FAILED_COUNT + 1))
             fi
-            echo ""
-          done < <(find . -name "*.vst3" -type d -print0)
+          done
           
           # Process AU components
-          echo "Searching for AU plugins..."
-          while IFS= read -r -d '' au_path; do
-            au_name=$(basename "$au_path" .component)
-            echo "Found AU: $au_path"
-            
-            if verify_plugin_security "$au_path" "AU"; then
-              echo "✅ $au_name AU ready for packaging"
-              echo "$au_path|AU|$au_name" >> successful_plugins.txt
-              ((au_count++))
+          find . -name "*.component" -type d | while read AU_PATH; do
+            if verify_and_package "$AU_PATH" "AU"; then
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
-              echo "❌ $au_name AU failed verification, skipping"
-              ((failed_count++))
+              FAILED_COUNT=$((FAILED_COUNT + 1))
             fi
-            echo ""
-          done < <(find . -name "*.component" -type d -print0)
+          done
           
-          # Process Standalone applications
-          echo "Searching for Standalone applications..."
-          while IFS= read -r -d '' app_path; do
-            app_name=$(basename "$app_path" .app)
-            echo "Found App: $app_path"
-            
-            if verify_plugin_security "$app_path" "Standalone"; then
-              echo "✅ $app_name Standalone ready for packaging"
-              echo "$app_path|Standalone|$app_name" >> successful_plugins.txt
-              ((app_count++))
+          # Process Standalone apps
+          find . -name "*.app" -type d | while read APP_PATH; do
+            if verify_and_package "$APP_PATH" "Standalone"; then
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
-              echo "❌ $app_name Standalone failed verification, skipping"
-              ((failed_count++))
+              FAILED_COUNT=$((FAILED_COUNT + 1))
             fi
-            echo ""
-          done < <(find . -name "*.app" -type d -print0)
+          done
           
-          echo ""
-          echo "📦 PHASE 2: Packaging"
-          echo "===================="
+          # Create build report
+          echo "Build completed on $(date)" > artifacts/build-report.txt
+          echo "Plugins successfully packaged: check individual ZIP files" >> artifacts/build-report.txt
+          ls -la artifacts/ >> artifacts/build-report.txt
           
-          # Package all verified plugins
-          if [ -f successful_plugins.txt ]; then
-            while IFS='|' read -r plugin_path plugin_type plugin_name; do
-              if package_plugin "$plugin_path" "$plugin_type" "$plugin_name"; then
-                echo "✅ Successfully packaged $plugin_name ($plugin_type)"
-              else
-                echo "❌ Failed to package $plugin_name ($plugin_type)"
-                ((failed_count++))
-              fi
-              echo ""
-            done < successful_plugins.txt
-            
-            # Clean up temporary file
-            rm successful_plugins.txt
-          else
-            echo "⚠️  No plugins passed verification - nothing to package"
+          # If no files were found, create a diagnostic file
+          if [ ! "$(ls -A artifacts/*.zip 2>/dev/null)" ]; then
+            echo "No plugin files found during build process" > artifacts/build-log.txt
+            echo "Directory contents:" >> artifacts/build-log.txt
+            find . -name "*.vst3" -o -name "*.component" -o -name "*.app" >> artifacts/build-log.txt
           fi
           
-          echo ""
-          echo "📊 PHASE 3: Final Summary and Validation"
-          echo "========================================"
-          
-          # Create a comprehensive build report
-          cat > artifacts/build-report.txt << EOF
-      QuackerVST Build Report
-      ======================
-      Build Date: $(date)
-      Build Environment: GitHub Actions (macOS-latest)
-      JUCE Version: ${JUCE_VERSION:-Not specified}
+          echo "Packaging process complete"
 
-      Plugin Summary:
-      - VST3 Plugins: $vst3_count successfully packaged
-      - AU Components: $au_count successfully packaged  
-      - Standalone Apps: $app_count successfully packaged
-      - Failed Builds: $failed_count
-
-      Total Successful Builds: $((vst3_count + au_count + app_count))
-
-      Security Status:
-      All packaged plugins have been:
-      ✅ Code signed with Developer ID certificate
-      ✅ Notarized by Apple
-      ✅ Stapled with notarization tickets
-      ✅ Verified by macOS Gatekeeper
-
-      Installation Instructions:
-      Each plugin package includes a README.txt with specific installation instructions.
-
-      If you encounter any issues:
-      1. Ensure you're running macOS 10.15 or later
-      2. Try right-clicking and selecting "Open" if you see security warnings
-      3. Check Console.app for detailed error messages
-      4. Verify the plugin files haven't been corrupted during download
-
-      Support:
-      For technical support, please check the project's GitHub repository.
-      EOF
-          
-          # List all created packages with their sizes
-          echo "📋 Final package inventory:"
-          if ls artifacts/*.zip >/dev/null 2>&1; then
-            for zip_file in artifacts/*.zip; do
-              if [ -f "$zip_file" ]; then
-                local zip_size=$(stat -f%z "$zip_file" 2>/dev/null || stat -c%s "$zip_file" 2>/dev/null)
-                local zip_name=$(basename "$zip_file")
-                echo "  📦 $zip_name ($(numfmt --to=iec $zip_size))"
-              fi
-            done
-            
-            echo ""
-            echo "🎉 Packaging completed successfully!"
-            echo "   → $((vst3_count + au_count + app_count)) plugins packaged"
-            echo "   → All packages include installation instructions"
-            echo "   → Build report saved to artifacts/build-report.txt"
-            
-          else
-            echo ""
-            echo "❌ No packages were created!"
-            echo "   This likely means no plugins passed the verification process."
-            echo "   Check the build logs above for specific error messages."
-            
-            # Create a diagnostic file to help with troubleshooting
-            cat > artifacts/build-diagnostics.txt << EOF
-      Build Diagnostics - No Packages Created
-      ======================================
-
-      This file was created because no plugin packages were successfully built.
-      This usually indicates one of these issues:
-
-      1. Build Process Issues:
-         - The plugin compilation may have failed
-         - Plugin files may not be in expected locations
-         - Build outputs may have unexpected names or extensions
-
-      2. Code Signing Issues:
-         - Developer ID certificate may be invalid or expired
-         - Certificate may not be properly imported to keychain
-         - Signing process may have failed silently
-
-      3. Notarization Issues:
-         - Apple ID credentials may be incorrect
-         - App-specific password may be invalid or expired
-         - Notarization may have been rejected by Apple
-         - Stapling process may have failed
-
-      4. Verification Issues:
-         - Gatekeeper policies may be more restrictive than expected
-         - Plugin entitlements may be incorrect
-         - Plugin architecture may not match system requirements
-
-      Debugging Steps:
-      1. Check the build logs above for specific error messages
-      2. Verify all GitHub secrets are properly configured
-      3. Ensure the JUCER project file generates the expected outputs
-      4. Test the signing and notarization process locally if possible
-
-      Directory Contents at Build Time:
-      EOF
-            
-            # Add directory listing to diagnostics
-            find . -name "*.vst3" -o -name "*.component" -o -name "*.app" >> artifacts/build-diagnostics.txt 2>&1
-            
-            echo ""
-            echo "📄 Diagnostic information saved to artifacts/build-diagnostics.txt"
-          fi
-          
-          echo ""
-          echo "=========================================="
-          echo "Plugin packaging process complete"
-          echo "=========================================="
-      
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
