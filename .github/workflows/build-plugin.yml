@@ -1,4 +1,4 @@
-name: Build QuackerVST Plugin
+  name: Build QuackerVST Plugin
 
 on:
   # Manual trigger from Actions tab
@@ -143,55 +143,412 @@ jobs:
           find . -name "*.vst3" -type d -exec codesign -vvv --deep --strict {} \; || echo "VST3 verification failed"
           find . -name "*.component" -type d -exec codesign -vvv --deep --strict {} \; || echo "AU verification failed"
           find . -name "*.app" -type d -exec codesign -vvv --deep --strict {} \; || echo "App verification failed"
+
+      - name: Notarize plugins
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Starting notarization process..."
+          
+          # Create a temporary directory for notarization files
+          mkdir -p notarization_temp
+          
+          # Function to notarize a single plugin bundle
+          notarize_plugin() {
+            local plugin_path="$1"
+            local plugin_name=$(basename "$plugin_path")
+            local plugin_type="$2"  # VST3, AU, or APP
+            
+            echo "Preparing $plugin_name for notarization..."
+            
+            # Create a ZIP file for notarization (Apple requires ZIP format)
+            local zip_name="notarization_temp/${plugin_name}-${plugin_type}.zip"
+            cd "$(dirname "$plugin_path")"
+            zip -r "$GITHUB_WORKSPACE/$zip_name" "$(basename "$plugin_path")"
+            cd "$GITHUB_WORKSPACE"
+            
+            echo "Submitting $plugin_name to Apple's notarization service..."
+            
+            # Submit to notarization service and capture the submission ID
+            local submission_output=$(xcrun notarytool submit "$zip_name" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait \
+              --timeout 10m \
+              --output-format json)
+            
+            # Parse the submission ID from the output
+            local submission_id=$(echo "$submission_output" | grep -o '"id":"[^"]*' | cut -d'"' -f4)
+            
+            if [ -n "$submission_id" ]; then
+              echo "Notarization submitted with ID: $submission_id"
+              
+              # Check if notarization was successful
+              if echo "$submission_output" | grep -q '"status":"Accepted"'; then
+                echo "✅ Notarization successful for $plugin_name"
+                
+                # Staple the notarization ticket to the original plugin
+                echo "Stapling notarization ticket to $plugin_name..."
+                xcrun stapler staple "$plugin_path"
+                
+                # Verify the stapling worked
+                echo "Verifying stapled notarization for $plugin_name..."
+                xcrun stapler validate "$plugin_path" && echo "✅ Stapling verified" || echo "❌ Stapling verification failed"
+                
+              else
+                echo "❌ Notarization failed for $plugin_name"
+                # Get detailed error information
+                xcrun notarytool log "$submission_id" \
+                  --apple-id "$APPLE_ID" \
+                  --password "$APPLE_APP_PASSWORD" \
+                  --team-id "$APPLE_TEAM_ID"
+                return 1
+              fi
+            else
+              echo "❌ Failed to submit $plugin_name for notarization"
+              return 1
+            fi
+          }
+          
+          # Notarize all VST3 plugins
+          echo "Looking for VST3 plugins to notarize..."
+          for vst_path in $(find . -name "*.vst3" -type d); do
+            notarize_plugin "$vst_path" "VST3" || echo "VST3 notarization failed: $vst_path"
+          done
+          
+          # Notarize all AU components  
+          echo "Looking for AU plugins to notarize..."
+          for au_path in $(find . -name "*.component" -type d); do
+            notarize_plugin "$au_path" "AU" || echo "AU notarization failed: $au_path"
+          done
+          
+          # Notarize all standalone apps
+          echo "Looking for Standalone apps to notarize..."
+          for app_path in $(find . -name "*.app" -type d); do
+            notarize_plugin "$app_path" "APP" || echo "App notarization failed: $app_path"
+          done
+          
+          # Clean up temporary files
+          rm -rf notarization_temp
+          
+          echo "Notarization process complete!"
       
       - name: Create artifacts directory
         run: |
           echo "Creating artifacts directory"
           mkdir -p artifacts
       
-      - name: Package Plugin (search everywhere)
+      - name: Package Plugin (comprehensive verification and packaging)
         run: |
-          echo "Searching for plugin files throughout the project"
+          echo "=========================================="
+          echo "Starting comprehensive plugin packaging"
+          echo "=========================================="
           
-          # Find and package all VST3 plugins
-          echo "Finding VST3 plugins..."
-          for vst_path in $(find . -name "*.vst3" -type d); do
+          # Create a verification function that checks all security requirements
+          verify_plugin_security() {
+            local plugin_path="$1"
+            local plugin_type="$2"
+            local plugin_name=$(basename "$plugin_path")
+            
+            echo "🔍 Verifying security for $plugin_name ($plugin_type)..."
+            
+            # Check 1: Verify code signature exists and is valid
+            echo "  → Checking code signature..."
+            if codesign -vvv --deep --strict "$plugin_path" > /dev/null 2>&1; then
+              echo "  ✅ Code signature valid"
+            else
+              echo "  ❌ Code signature invalid or missing"
+              return 1
+            fi
+            
+            # Check 2: Verify notarization is stapled
+            echo "  → Checking notarization stapling..."
+            if xcrun stapler validate "$plugin_path" > /dev/null 2>&1; then
+              echo "  ✅ Notarization properly stapled"
+            else
+              echo "  ❌ Notarization not stapled or invalid"
+              return 1
+            fi
+            
+            # Check 3: Verify Gatekeeper will accept it (this simulates what happens on user machines)
+            echo "  → Checking Gatekeeper compatibility..."
+            if spctl -a -t install "$plugin_path" > /dev/null 2>&1; then
+              echo "  ✅ Gatekeeper verification passed"
+            else
+              echo "  ❌ Gatekeeper verification failed"
+              return 1
+            fi
+            
+            # Check 4: For audio plugins, verify they have the right entitlements
+            echo "  → Checking audio-specific entitlements..."
+            local entitlements_output=$(codesign -d --entitlements :- "$plugin_path" 2>/dev/null)
+            if echo "$entitlements_output" | grep -q "com.apple.security.device.audio-input"; then
+              echo "  ✅ Audio entitlements present"
+            else
+              echo "  ⚠️  Warning: Audio entitlements may be missing"
+            fi
+            
+            echo "  🎉 $plugin_name passed all security checks!"
+            return 0
+          }
+          
+          # Create a function to package individual plugins with metadata
+          package_plugin() {
+            local plugin_path="$1"
+            local plugin_type="$2"
+            local base_name="$3"
+            
+            echo "📦 Packaging $base_name ($plugin_type)..."
+            
+            # Create a temporary directory for this plugin's packaging
+            local temp_dir="temp_package_$base_name"
+            mkdir -p "$temp_dir"
+            
+            # Copy the plugin to the temporary directory
+            cp -R "$plugin_path" "$temp_dir/"
+            
+            # Create a README file with important information for users
+            cat > "$temp_dir/README.txt" << EOF
+      $base_name - macOS Audio Plugin
+      ================================
+
+      Installation Instructions:
+      - VST3: Copy the .vst3 bundle to ~/Library/Audio/Plug-Ins/VST3/
+      - AU: Copy the .component bundle to ~/Library/Audio/Plug-Ins/Components/
+      - Standalone: Copy the .app to your Applications folder
+
+      This plugin is code signed and notarized by Apple.
+      If you see any security warnings, please download a fresh copy.
+
+      Build Information:
+      - Built on: $(date)
+      - JUCE Version: ${JUCE_VERSION:-Unknown}
+      - Xcode Version: $(xcodebuild -version | head -1)
+      - macOS Version: $(sw_vers -productVersion)
+
+      Support: Please report any issues through the project's GitHub repository.
+      EOF
+            
+            # Create the final ZIP package
+            local zip_name="$base_name-$plugin_type-macOS.zip"
+            echo "  → Creating ZIP archive: $zip_name"
+            
+            cd "$temp_dir"
+            zip -r "$GITHUB_WORKSPACE/artifacts/$zip_name" . -x "*.DS_Store"
+            cd "$GITHUB_WORKSPACE"
+            
+            # Clean up temporary directory
+            rm -rf "$temp_dir"
+            
+            # Verify the ZIP was created and has reasonable size
+            if [ -f "artifacts/$zip_name" ]; then
+              local zip_size=$(stat -f%z "artifacts/$zip_name" 2>/dev/null || stat -c%s "artifacts/$zip_name" 2>/dev/null)
+              echo "  ✅ Package created successfully ($(numfmt --to=iec $zip_size))"
+            else
+              echo "  ❌ Package creation failed"
+              return 1
+            fi
+          }
+          
+          # Initialize counters for summary reporting
+          vst3_count=0
+          au_count=0
+          app_count=0
+          failed_count=0
+          
+          echo ""
+          echo "🔍 PHASE 1: Discovery and Verification"
+          echo "======================================"
+          
+          # Process VST3 plugins
+          echo "Searching for VST3 plugins..."
+          while IFS= read -r -d '' vst_path; do
             vst_name=$(basename "$vst_path" .vst3)
-            echo "Found VST3: $vst_path, packaging as $vst_name"
-            cd $(dirname "$vst_path")
-            zip -r "$GITHUB_WORKSPACE/artifacts/$vst_name-VST3-macOS.zip" "$(basename "$vst_path")"
-            cd "$GITHUB_WORKSPACE"
-          done
+            echo "Found VST3: $vst_path"
+            
+            if verify_plugin_security "$vst_path" "VST3"; then
+              echo "✅ $vst_name VST3 ready for packaging"
+              # Store successful plugin info for packaging phase
+              echo "$vst_path|VST3|$vst_name" >> successful_plugins.txt
+              ((vst3_count++))
+            else
+              echo "❌ $vst_name VST3 failed verification, skipping"
+              ((failed_count++))
+            fi
+            echo ""
+          done < <(find . -name "*.vst3" -type d -print0)
           
-          # Find and package all AU components
-          echo "Finding AU plugins..."
-          for au_path in $(find . -name "*.component" -type d); do
+          # Process AU components
+          echo "Searching for AU plugins..."
+          while IFS= read -r -d '' au_path; do
             au_name=$(basename "$au_path" .component)
-            echo "Found AU: $au_path, packaging as $au_name"
-            cd $(dirname "$au_path")
-            zip -r "$GITHUB_WORKSPACE/artifacts/$au_name-AU-macOS.zip" "$(basename "$au_path")"
-            cd "$GITHUB_WORKSPACE"
-          done
+            echo "Found AU: $au_path"
+            
+            if verify_plugin_security "$au_path" "AU"; then
+              echo "✅ $au_name AU ready for packaging"
+              echo "$au_path|AU|$au_name" >> successful_plugins.txt
+              ((au_count++))
+            else
+              echo "❌ $au_name AU failed verification, skipping"
+              ((failed_count++))
+            fi
+            echo ""
+          done < <(find . -name "*.component" -type d -print0)
           
-          # Find and package all standalone apps
-          echo "Finding Standalone apps..."
-          for app_path in $(find . -name "*.app" -type d); do
+          # Process Standalone applications
+          echo "Searching for Standalone applications..."
+          while IFS= read -r -d '' app_path; do
             app_name=$(basename "$app_path" .app)
-            echo "Found App: $app_path, packaging as $app_name"
-            cd $(dirname "$app_path")
-            zip -r "$GITHUB_WORKSPACE/artifacts/$app_name-Standalone-macOS.zip" "$(basename "$app_path")"
-            cd "$GITHUB_WORKSPACE"
-          done
+            echo "Found App: $app_path"
+            
+            if verify_plugin_security "$app_path" "Standalone"; then
+              echo "✅ $app_name Standalone ready for packaging"
+              echo "$app_path|Standalone|$app_name" >> successful_plugins.txt
+              ((app_count++))
+            else
+              echo "❌ $app_name Standalone failed verification, skipping"
+              ((failed_count++))
+            fi
+            echo ""
+          done < <(find . -name "*.app" -type d -print0)
           
-          # If no files were found, create a dummy file to prevent upload failure
-          if [ ! "$(ls -A artifacts)" ]; then
-            echo "No plugin files found. Creating a dummy file."
-            echo "No plugin files were found during the build process. Please check the build logs." > artifacts/build-log.txt
+          echo ""
+          echo "📦 PHASE 2: Packaging"
+          echo "===================="
+          
+          # Package all verified plugins
+          if [ -f successful_plugins.txt ]; then
+            while IFS='|' read -r plugin_path plugin_type plugin_name; do
+              if package_plugin "$plugin_path" "$plugin_type" "$plugin_name"; then
+                echo "✅ Successfully packaged $plugin_name ($plugin_type)"
+              else
+                echo "❌ Failed to package $plugin_name ($plugin_type)"
+                ((failed_count++))
+              fi
+              echo ""
+            done < successful_plugins.txt
+            
+            # Clean up temporary file
+            rm successful_plugins.txt
+          else
+            echo "⚠️  No plugins passed verification - nothing to package"
           fi
           
-          # List what's in the artifacts directory
-          echo "Contents of artifacts directory:"
-          ls -la artifacts/
+          echo ""
+          echo "📊 PHASE 3: Final Summary and Validation"
+          echo "========================================"
+          
+          # Create a comprehensive build report
+          cat > artifacts/build-report.txt << EOF
+      QuackerVST Build Report
+      ======================
+      Build Date: $(date)
+      Build Environment: GitHub Actions (macOS-latest)
+      JUCE Version: ${JUCE_VERSION:-Not specified}
+
+      Plugin Summary:
+      - VST3 Plugins: $vst3_count successfully packaged
+      - AU Components: $au_count successfully packaged  
+      - Standalone Apps: $app_count successfully packaged
+      - Failed Builds: $failed_count
+
+      Total Successful Builds: $((vst3_count + au_count + app_count))
+
+      Security Status:
+      All packaged plugins have been:
+      ✅ Code signed with Developer ID certificate
+      ✅ Notarized by Apple
+      ✅ Stapled with notarization tickets
+      ✅ Verified by macOS Gatekeeper
+
+      Installation Instructions:
+      Each plugin package includes a README.txt with specific installation instructions.
+
+      If you encounter any issues:
+      1. Ensure you're running macOS 10.15 or later
+      2. Try right-clicking and selecting "Open" if you see security warnings
+      3. Check Console.app for detailed error messages
+      4. Verify the plugin files haven't been corrupted during download
+
+      Support:
+      For technical support, please check the project's GitHub repository.
+      EOF
+          
+          # List all created packages with their sizes
+          echo "📋 Final package inventory:"
+          if ls artifacts/*.zip >/dev/null 2>&1; then
+            for zip_file in artifacts/*.zip; do
+              if [ -f "$zip_file" ]; then
+                local zip_size=$(stat -f%z "$zip_file" 2>/dev/null || stat -c%s "$zip_file" 2>/dev/null)
+                local zip_name=$(basename "$zip_file")
+                echo "  📦 $zip_name ($(numfmt --to=iec $zip_size))"
+              fi
+            done
+            
+            echo ""
+            echo "🎉 Packaging completed successfully!"
+            echo "   → $((vst3_count + au_count + app_count)) plugins packaged"
+            echo "   → All packages include installation instructions"
+            echo "   → Build report saved to artifacts/build-report.txt"
+            
+          else
+            echo ""
+            echo "❌ No packages were created!"
+            echo "   This likely means no plugins passed the verification process."
+            echo "   Check the build logs above for specific error messages."
+            
+            # Create a diagnostic file to help with troubleshooting
+            cat > artifacts/build-diagnostics.txt << EOF
+      Build Diagnostics - No Packages Created
+      ======================================
+
+      This file was created because no plugin packages were successfully built.
+      This usually indicates one of these issues:
+
+      1. Build Process Issues:
+         - The plugin compilation may have failed
+         - Plugin files may not be in expected locations
+         - Build outputs may have unexpected names or extensions
+
+      2. Code Signing Issues:
+         - Developer ID certificate may be invalid or expired
+         - Certificate may not be properly imported to keychain
+         - Signing process may have failed silently
+
+      3. Notarization Issues:
+         - Apple ID credentials may be incorrect
+         - App-specific password may be invalid or expired
+         - Notarization may have been rejected by Apple
+         - Stapling process may have failed
+
+      4. Verification Issues:
+         - Gatekeeper policies may be more restrictive than expected
+         - Plugin entitlements may be incorrect
+         - Plugin architecture may not match system requirements
+
+      Debugging Steps:
+      1. Check the build logs above for specific error messages
+      2. Verify all GitHub secrets are properly configured
+      3. Ensure the JUCER project file generates the expected outputs
+      4. Test the signing and notarization process locally if possible
+
+      Directory Contents at Build Time:
+      EOF
+            
+            # Add directory listing to diagnostics
+            find . -name "*.vst3" -o -name "*.component" -o -name "*.app" >> artifacts/build-diagnostics.txt 2>&1
+            
+            echo ""
+            echo "📄 Diagnostic information saved to artifacts/build-diagnostics.txt"
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "Plugin packaging process complete"
+          echo "=========================================="
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
