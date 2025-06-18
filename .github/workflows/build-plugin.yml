@@ -351,13 +351,23 @@ jobs:
       - name: Create installer staging directory
         run: mkdir -p installer_staging
 
+      - name: Dump build output
+        run: |
+          echo "Contents of workspace:"
+          ls -Rla .
+
+          echo "Contents of your build directory:"
+          ls -Rla build
+
+
       - name: Build component packages
         run: |
-          pkgbuild --component path/to/VST3.component \
+          pkgbuild --component build/Release/TremoloViola.vst3 \
                    --identifier com.deividshvostovs.tremoloviola.vst3 \
                    --version "${{ matrix.version }}" \
                    installer_staging/TremoloViola-VST3.pkg
-          pkgbuild --component path/to/AU.component \
+
+          pkgbuild --component build/Release/TremoloViola.component \
                    --identifier com.deividshvostovs.tremoloviola.au \
                    --version "${{ matrix.version }}" \
                    installer_staging/TremoloViola-AU.pkg
