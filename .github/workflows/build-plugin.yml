@@ -351,15 +351,6 @@ jobs:
       - name: Create installer staging directory
         run: mkdir -p installer_staging
 
-      - name: Dump build output
-        run: |
-          echo "Contents of workspace:"
-          ls -Rla .
-
-          echo "Contents of your build directory:"
-          ls -Rla build
-
-
       - name: Build component packages
         run: |
           pkgbuild --component build/Release/TremoloViola.vst3 \
