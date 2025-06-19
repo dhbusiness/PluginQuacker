@@ -639,17 +639,11 @@ jobs:
         run: |
           echo "Signing and notarizing installer package..."
           
-          # First try to find Developer ID Installer certificate
+          # Get the installer signing identity
           INSTALLER_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           
-          # If no Installer certificate found, fall back to Application certificate
-          if [ -z "$INSTALLER_IDENTITY" ]; then
-            echo "No Developer ID Installer certificate found, trying Developer ID Application certificate..."
-            INSTALLER_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-          fi
-          
           if [ -n "$INSTALLER_IDENTITY" ]; then
-            echo "✅ Found signing certificate: $INSTALLER_IDENTITY"
+            echo "✅ Found Developer ID Installer certificate: $INSTALLER_IDENTITY"
             
             # Sign the installer package
             echo "Signing installer package..."
@@ -719,7 +713,7 @@ jobs:
             fi
             
           else
-            echo "❌ No suitable signing certificate found"
+            echo "❌ No Developer ID Installer certificate found"
             echo "Available signing identities:"
             security find-identity -v -p codesigning
             echo "⚠️ Continuing with unsigned installer"
