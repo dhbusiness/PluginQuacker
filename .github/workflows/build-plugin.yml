@@ -103,10 +103,14 @@ jobs:
           # Clean up application cert file
           rm -f "$APP_P12"
           
-          # Verify identities are available
+          # Verify identities are available with detailed debugging
           echo ""
           echo "=== Available Code Signing Identities ==="
           security find-identity -v -p codesigning "$KC_NAME"
+          
+          echo ""
+          echo "=== ALL Identities (for debugging) ==="
+          security find-identity -v "$KC_NAME"
           
           echo ""
           echo "=== Application Certificates ==="
@@ -114,7 +118,11 @@ jobs:
           
           echo ""
           echo "=== Installer Certificates ==="
-          security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Installer" || echo "⚠️  No Installer certificates found (will use Application cert)"
+          security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Installer" || echo "⚠️  No Installer certificates found"
+          
+          echo ""
+          echo "=== Checking for any 'Installer' certificates ==="
+          security find-identity -v "$KC_NAME" | grep -i "installer" || echo "⚠️  No certificates with 'installer' in the name found"
           
           # Export identities for later use
           APP_IDENTITY=$(security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
