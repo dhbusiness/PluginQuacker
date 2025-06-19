@@ -73,10 +73,14 @@ jobs:
             -A
 
           # Verify both identities are available
-          echo "=== Application identities ==="
+          echo "=== Application identities (codesigning policy) ==="
           security find-identity -v -p codesigning "$KC_NAME"
-          echo "=== Installer identities ==="
-          security find-identity -v -p installer   "$KC_NAME"
+
+          echo "=== Developer ID Installer certificates ==="
+          # this will show only your Installer cert(s)
+          security find-identity -v "$KC_NAME" \
+            | grep "Developer ID Installer"
+
           
       - name: Create entitlements file
         run: |
