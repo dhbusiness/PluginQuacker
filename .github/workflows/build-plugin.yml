@@ -659,14 +659,14 @@ jobs:
           echo "=== Application Certificates ==="
           security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Application" || echo "❌ No Application certificates found"
           echo ""
-          echo "=== Installer Certificates ==="
-          security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Installer" || echo "⚠️ No Installer certificates found"
+          echo "=== All Certificates (including installer) ==="
+          security find-identity -v "$KC_NAME"
           echo ""
-          echo "=== Checking for any 'Installer' certificates ==="
-          security find-identity -v "$KC_NAME" | grep -i "installer" || echo "⚠️ No certificates with 'installer' in the name found"
+          echo "=== Installer Certificates ==="
+          security find-identity -v "$KC_NAME" | grep "Developer ID Installer" || echo "⚠️ No Installer certificates found"
           
-          # Try to find Developer ID Installer certificate first
-          INSTALLER_IDENTITY=$(security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          # Try to find Developer ID Installer certificate first (search without -p codesigning)
+          INSTALLER_IDENTITY=$(security find-identity -v "$KC_NAME" | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           
           # If no Installer certificate found, fall back to Application certificate
           if [ -z "$INSTALLER_IDENTITY" ]; then
