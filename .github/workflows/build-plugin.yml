@@ -203,25 +203,25 @@ jobs:
        
       - name: Build Plugin
         run: |
-          echo "Building plugin with explicit signing configuration"
+          echo "Building plugin with signing disabled during build"
           cd QuackerVST/Builds/MacOSX
           
-          # Get the actual certificate identity from the keychain
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "Using signing identity: $IDENTITY"
-          
-          # Build with explicit signing settings that override project defaults
+          # Build with signing completely disabled during the build phase
+          # We'll handle signing manually in the next step
           xcodebuild \
             -configuration Release \
             -verbose \
-            CODE_SIGN_IDENTITY="$IDENTITY" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="A9MQYZSRQK" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
           
-          echo "Build exit code: $?" 
+          echo "Build completed with exit code: $?"
+          
+          # Verify build outputs exist
+          echo "Checking for build outputs..."
+          find . -name "*.vst3" -o -name "*.component" -o -name "*.app" | head -10
          
       - name: Examine project structure
         run: |
