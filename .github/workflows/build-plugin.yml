@@ -53,19 +53,6 @@ jobs:
             echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
           fi
           
-          # Set proper trust and partition list for the installer certificate
-          echo "Setting certificate trust and partition list..."
-
-          # Allow the certificate to be used by codesigning tools
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$INSTALLER_CERTIFICATE_PASS" $KEYCHAIN_PATH
-
-          # Verify the certificate is now recognized for codesigning
-          echo "Certificates after trust setup:"
-          security find-identity -v -p codesigning -k $KEYCHAIN_PATH
-
-          echo "Installer certificates specifically:"
-          security find-identity -v -p codesigning -k $KEYCHAIN_PATH | grep -i installer || echo "Still no installer certificates found"
-          
           # Create temporary keychain
           security create-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
