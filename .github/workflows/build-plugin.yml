@@ -636,14 +636,57 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          INSTALLER_CERTIFICATE_DATA: ${{ secrets.MACOS_INSTALLER_CERTIFICATE }}
+          INSTALLER_CERTIFICATE_PASS: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PWD }}
         run: |
           echo "Signing and notarizing installer package..."
           
-          # Get the installer signing identity
+          # Import installer certificate if it exists and wasn't already imported
+          if [ -n "$INSTALLER_CERTIFICATE_DATA" ]; then
+            echo "Found installer certificate data, importing..."
+            
+            # Create installer certificate file
+            INSTALLER_CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
+            echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
+            
+            # Get the keychain path (should match the one from earlier step)
+            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+            
+            # Import installer certificate to existing keychain
+            if [ -f "$KEYCHAIN_PATH" ]; then
+              echo "Adding installer certificate to existing keychain..."
+              security unlock-keychain -p "$INSTALLER_CERTIFICATE_PASS" $KEYCHAIN_PATH
+              security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+            else
+              echo "Keychain not found, creating new one for installer certificate..."
+              security create-keychain -p "$INSTALLER_CERTIFICATE_PASS" $KEYCHAIN_PATH
+              security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+              security unlock-keychain -p "$INSTALLER_CERTIFICATE_PASS" $KEYCHAIN_PATH
+              security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+              security list-keychain -d user -s $KEYCHAIN_PATH
+            fi
+            
+            # Clean up certificate file
+            rm -f $INSTALLER_CERTIFICATE_PATH
+          else
+            echo "No installer certificate data found in secrets"
+          fi
+          
+          # Refresh available identities
+          echo "Available signing identities after import:"
+          security find-identity -v -p codesigning
+          
+          # Try to find Developer ID Installer certificate
           INSTALLER_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           
+          # If no Installer certificate found, fall back to Application certificate
+          if [ -z "$INSTALLER_IDENTITY" ]; then
+            echo "No Developer ID Installer certificate found, trying Developer ID Application certificate..."
+            INSTALLER_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          fi
+          
           if [ -n "$INSTALLER_IDENTITY" ]; then
-            echo "✅ Found Developer ID Installer certificate: $INSTALLER_IDENTITY"
+            echo "✅ Found signing certificate: $INSTALLER_IDENTITY"
             
             # Sign the installer package
             echo "Signing installer package..."
@@ -713,7 +756,7 @@ jobs:
             fi
             
           else
-            echo "❌ No Developer ID Installer certificate found"
+            echo "❌ No suitable signing certificate found"
             echo "Available signing identities:"
             security find-identity -v -p codesigning
             echo "⚠️ Continuing with unsigned installer"
