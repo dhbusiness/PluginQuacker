@@ -37,48 +37,46 @@ jobs:
           INSTALLER_CERTIFICATE_DATA: ${{ secrets.MACOS_INSTALLER_CERTIFICATE }}
           INSTALLER_CERTIFICATE_PASS: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PWD }}
         run: |
-          # Create a temporary directory for certificates
-          APP_CERTIFICATE_PATH=$RUNNER_TEMP/app_certificate.p12
-          INSTALLER_CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          
-          # Delete keychain if it already exists
-          security delete-keychain $KEYCHAIN_PATH 2>/dev/null || true
-          
-          # Import application certificate from secrets
-          echo $APPLICATION_CERTIFICATE_DATA | base64 --decode > $APP_CERTIFICATE_PATH
-          
-          # Import installer certificate from secrets (only if it exists)
-          if [ -n "$INSTALLER_CERTIFICATE_DATA" ]; then
-            echo $INSTALLER_CERTIFICATE_DATA | base64 --decode > $INSTALLER_CERTIFICATE_PATH
-          fi
-          
-          # Create temporary keychain
-          security create-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$APPLICATION_CERTIFICATE_PASS" $KEYCHAIN_PATH
-          
-          # Import application certificate to keychain
-          security import $APP_CERTIFICATE_PATH -P "$APPLICATION_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          
-          # Import installer certificate to keychain (only if it exists)
-          if [ -n "$INSTALLER_CERTIFICATE_DATA" ] && [ -f "$INSTALLER_CERTIFICATE_PATH" ]; then
-            security import $INSTALLER_CERTIFICATE_PATH -P "$INSTALLER_CERTIFICATE_PASS" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          fi
-          
-          security list-keychain -d user -s $KEYCHAIN_PATH
-          
-          # Verify certificates are available
-          echo "Available signing identities:"
-          security find-identity -v -p codesigning
-          
-          echo ""
-          echo "Application certificates:"
-          security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Application certificates found"
-          
-          echo ""
-          echo "Installer certificates:"
-          security find-identity -v -p codesigning | grep "Developer ID Installer" || echo "No Installer certificates found"
+          set -e
+
+          # Paths
+          APP_P12="$RUNNER_TEMP/app_certificate.p12"
+          INST_P12="$RUNNER_TEMP/installer_certificate.p12"
+          KC_NAME="build.keychain"
+          KC_PASS="$APPLICATION_CERTIFICATE_PASS"
+
+          # Clean up any previous keychain
+          security delete-keychain "$KC_NAME" 2>/dev/null || true
+
+          # Decode P12 blobs
+          echo "$APPLICATION_CERTIFICATE_DATA" | base64 --decode > "$APP_P12"
+          echo "$INSTALLER_CERTIFICATE_DATA"   | base64 --decode > "$INST_P12"
+
+          # Create & configure keychain
+          security create-keychain -p "$KC_PASS" "$KC_NAME"
+          security set-keychain-settings -lut 21600 "$KC_NAME"
+          security default-keychain -s "$KC_NAME"
+          security unlock-keychain -p "$KC_PASS" "$KC_NAME"
+
+          # Import Developer ID Application cert for codesign
+          security import "$APP_P12" \
+            -k "$KC_NAME" \
+            -P "$APPLICATION_CERTIFICATE_PASS" \
+            -T /usr/bin/codesign \
+            -A
+
+          # Import Developer ID Installer cert for productsign
+          security import "$INST_P12" \
+            -k "$KC_NAME" \
+            -P "$INSTALLER_CERTIFICATE_PASS" \
+            -T /usr/bin/productsign \
+            -A
+
+          # Verify both identities are available
+          echo "=== Application identities ==="
+          security find-identity -v -p codesigning "$KC_NAME"
+          echo "=== Installer identities ==="
+          security find-identity -v -p installer   "$KC_NAME"
           
       - name: Create entitlements file
         run: |
