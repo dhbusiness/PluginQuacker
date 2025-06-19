@@ -235,25 +235,91 @@ jobs:
           find QuackerVST/Builds -type f -name "*.plist" | head -20
           
       - name: Sign the plugin bundles
+        timeout-minutes: 10  # Prevent infinite hanging
         run: |
-          # Find the actual identity to use from the keychain
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          # Use the pre-determined signing identity from the certificate installation step
+          IDENTITY="$SIGNING_IDENTITY_APP"
           echo "Found signing identity: $IDENTITY"
           
+          # Function to sign a plugin with timeout and error handling
+          sign_plugin() {
+            local plugin_path="$1"
+            local plugin_type="$2"
+            local plugin_name=$(basename "$plugin_path")
+            
+            echo "🔐 Signing $plugin_type: $plugin_name"
+            
+            # Sign with timeout and detailed output
+            if timeout 120 codesign \
+              --force \
+              --options runtime \
+              --entitlements entitlements.plist \
+              --sign "$IDENTITY" \
+              --verbose=4 \
+              --timestamp \
+              "$plugin_path" 2>&1; then
+              
+              echo "✅ Successfully signed $plugin_name"
+              
+              # Verify the signature
+              if codesign --verify --deep --strict --verbose=2 "$plugin_path" 2>&1; then
+                echo "✅ Signature verified for $plugin_name"
+              else
+                echo "⚠️ Signature verification failed for $plugin_name"
+              fi
+              
+            else
+              echo "❌ Failed to sign $plugin_name (timeout or error)"
+              return 1
+            fi
+          }
+          
+          # Counter for success/failure tracking
+          SIGNED_COUNT=0
+          FAILED_COUNT=0
+          
+          echo "Starting plugin signing process..."
+          
           # Sign VST3 plugins
-          find . -name "*.vst3" -type d -exec codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" {} \;
+          while IFS= read -r -d '' vst_path; do
+            if sign_plugin "$vst_path" "VST3"; then
+              SIGNED_COUNT=$((SIGNED_COUNT + 1))
+            else
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+            fi
+          done < <(find . -name "*.vst3" -type d -print0)
           
           # Sign AU Components
-          find . -name "*.component" -type d -exec codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" {} \;
+          while IFS= read -r -d '' au_path; do
+            if sign_plugin "$au_path" "AU"; then
+              SIGNED_COUNT=$((SIGNED_COUNT + 1))
+            else
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+            fi
+          done < <(find . -name "*.component" -type d -print0)
           
           # Sign Standalone apps
-          find . -name "*.app" -type d -exec codesign --force --options runtime --entitlements entitlements.plist --sign "$IDENTITY" {} \;
+          while IFS= read -r -d '' app_path; do
+            if sign_plugin "$app_path" "Standalone"; then
+              SIGNED_COUNT=$((SIGNED_COUNT + 1))
+            else
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+            fi
+          done < <(find . -name "*.app" -type d -print0)
           
-          # Verify signatures
-          echo "Verifying signatures..."
-          find . -name "*.vst3" -type d -exec codesign -vvv --deep --strict {} \; || echo "VST3 verification failed"
-          find . -name "*.component" -type d -exec codesign -vvv --deep --strict {} \; || echo "AU verification failed"
-          find . -name "*.app" -type d -exec codesign -vvv --deep --strict {} \; || echo "App verification failed"
+          echo ""
+          echo "=== SIGNING SUMMARY ==="
+          echo "Successfully signed: $SIGNED_COUNT plugins"
+          echo "Failed to sign: $FAILED_COUNT plugins"
+          
+          if [ $SIGNED_COUNT -eq 0 ]; then
+            echo "❌ No plugins were signed successfully"
+            exit 1
+          elif [ $FAILED_COUNT -gt 0 ]; then
+            echo "⚠️ Some plugins failed to sign, but continuing..."
+          else
+            echo "✅ All plugins signed successfully"
+          fi
 
       - name: Notarize plugins
         env:
