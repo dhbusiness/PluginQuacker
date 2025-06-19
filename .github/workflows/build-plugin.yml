@@ -124,14 +124,21 @@ jobs:
           echo "=== Checking for any 'Installer' certificates ==="
           security find-identity -v "$KC_NAME" | grep -i "installer" || echo "⚠️  No certificates with 'installer' in the name found"
           
-          # Export identities for later use
-          APP_IDENTITY=$(security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
-          INST_IDENTITY=$(security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          # Export identities for later use (search in ALL identities, not just codesigning)
+          APP_IDENTITY=$(security find-identity -v "$KC_NAME" | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          INST_IDENTITY=$(security find-identity -v "$KC_NAME" | grep "Developer ID Installer" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
           
-          # Fall back to Application cert for installer signing if needed
-          if [ -z "$INST_IDENTITY" ] && [ -n "$APP_IDENTITY" ]; then
+          # Check if we found both identities
+          if [ -n "$APP_IDENTITY" ] && [ -n "$INST_IDENTITY" ]; then
+            echo "✅ Found both certificate types:"
+            echo "   Application: $APP_IDENTITY"
+            echo "   Installer: $INST_IDENTITY"
+          elif [ -n "$APP_IDENTITY" ] && [ -z "$INST_IDENTITY" ]; then
             INST_IDENTITY="$APP_IDENTITY"
             echo "🔄 Using Application certificate for installer signing: $INST_IDENTITY"
+          else
+            echo "❌ No valid certificates found"
+            exit 1
           fi
           
           # Export to environment for later steps
