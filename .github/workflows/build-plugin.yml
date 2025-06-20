@@ -503,7 +503,7 @@ jobs:
           • /Library/Audio/Plug-Ins/VST3/TremoloViola.vst3
           • /Library/Audio/Plug-Ins/Components/TremoloViola.component
           
-          For support, please visit: https://github.com/your-username/your-repo
+          For support, please visit: https://github.com/dhbusiness/PluginQuacker
           EOF
           
           # Bundle ID (this is fine - you don't need a real domain)
