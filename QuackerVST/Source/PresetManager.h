@@ -13,25 +13,49 @@
 class PresetManager
 {
 public:
+    // Error codes for preset operations
+    enum class ErrorCode {
+        None = 0,
+        DirectoryCreationFailed,
+        FileWriteFailed,
+        FileReadFailed,
+        InvalidPresetData,
+        PresetNotFound,
+        InvalidPresetName,
+        InvalidCategory,
+        ParameterError
+    };
+    
     PresetManager(juce::AudioProcessorValueTreeState& apvts);
     ~PresetManager();
 
-    // Basic preset data structure
+    // Basic preset data structure with validation
     struct Preset {
         juce::String name;
         juce::String category;
         juce::ValueTree state;
         juce::Time dateCreated;
         
-        // Constructor for easy preset creation
+        // Constructor with validation
         Preset(const juce::String& n, const juce::String& cat,
                const juce::ValueTree& s, juce::Time date = juce::Time::getCurrentTime())
-            : name(n), category(cat), state(s), dateCreated(date) {}
+            : name(sanitizeName(n)),
+              category(sanitizeCategory(cat)),
+              state(s),
+              dateCreated(date) {}
+        
+        // Validation helpers
+        static juce::String sanitizeName(const juce::String& name);
+        static juce::String sanitizeCategory(const juce::String& category);
+        bool isValid() const noexcept;
     };
 
-    // Core preset operations
+    // Core preset operations with error handling
     bool savePreset(const juce::String& name, const juce::String& category = "User");
     bool loadPreset(const juce::String& name);
+    ErrorCode getLastError() const noexcept { return lastError; }
+    juce::String getLastErrorMessage() const noexcept { return lastErrorMessage; }
+    void clearError() noexcept { lastError = ErrorCode::None; lastErrorMessage.clear(); }
     
     // Preset management
     void initializeDefaultPresets();
@@ -41,25 +65,20 @@ public:
     const juce::File& getCurrentPresetDirectory() const { return presetDirectory; }
     
     void scanForPresets();
-    
-    // Remove any presets with category "Factory"
     void clearFactoryPresets();
     
     // State management helpers
     juce::ValueTree getStateFromXml(const juce::XmlElement& xml);
     std::unique_ptr<juce::XmlElement> getXmlFromState(const juce::ValueTree& state);
-
     
     juce::StringArray getFactoryPresetNames() const;
     juce::StringArray getUserPresetNames() const;
     juce::String getCurrentPresetName() const { return currentPresetName; }
     
-    // New functions for modified preset display
-    bool isPresetModified() const;
+    // Modified preset display
+    bool isPresetModified() const noexcept;
     juce::String getDisplayedPresetName() const;
-    
     juce::String getModifiedDisplayName() const;
-    
     juce::String getPresetCategory(const juce::String& presetName) const;
     
     void applyParametersInCorrectOrder();
@@ -67,22 +86,27 @@ public:
     using PresetLoadedCallback = std::function<void()>;
     void setPresetLoadedCallback(PresetLoadedCallback callback) { onPresetLoaded = callback; }
     
-    // Add this inside the PresetManager class declaration
-
-    // Represents a folder in the preset hierarchy
+    // Folder hierarchy representation
     struct PresetFolder {
         juce::String name;
-        std::vector<juce::String> presets;  // Presets in this folder
-        std::map<juce::String, PresetFolder> subfolders;  // Nested folders
+        std::vector<juce::String> presets;
+        std::map<juce::String, PresetFolder> subfolders;
         
-        // Helper to add a preset to this folder
         void addPreset(const juce::String& presetName) {
-            presets.push_back(presetName);
+            if (presetName.isNotEmpty() && !contains(presetName)) {
+                presets.push_back(presetName);
+            }
         }
         
-        // Helper to get or create a subfolder
         PresetFolder& getOrCreateSubfolder(const juce::String& folderName) {
-            return subfolders[folderName];
+            if (folderName.isNotEmpty()) {
+                return subfolders[folderName];
+            }
+            return *this;
+        }
+        
+        bool contains(const juce::String& presetName) const {
+            return std::find(presets.begin(), presets.end(), presetName) != presets.end();
         }
     };
 
@@ -95,7 +119,7 @@ public:
     // Get all factory preset categories
     juce::StringArray getFactoryCategories() const;
 
-    // Get all presets in a specific folder path (e.g., "Factory/Vintage Amps")
+    // Get all presets in a specific folder path
     juce::StringArray getPresetsInFolder(const juce::String& folderPath) const;
 
     // Helper to split a path into components
@@ -114,23 +138,41 @@ private:
     juce::File presetDirectory;
     std::map<juce::String, std::unique_ptr<Preset>> presets;
     
-    // Private helper methods
-    void createPresetDirectory();
-    void loadPresetFromFile(const juce::File& file);
+    // Thread safety
+    mutable juce::ReadWriteLock presetsLock;
+    
+    // Error handling
+    mutable ErrorCode lastError = ErrorCode::None;
+    mutable juce::String lastErrorMessage;
+    
+    // Private helper methods with error handling
+    bool createPresetDirectory();
+    bool loadPresetFromFile(const juce::File& file);
     bool savePresetToFile(const Preset& preset);
+    bool savePresetToFile(const Preset& preset, const juce::File& presetFile);
     void scanDirectory(const juce::File& directory, const juce::String& categoryPrefix);
     juce::String determineCategory(const juce::File& file);
-    bool savePresetToFile(const Preset& preset, const juce::File& presetFile);
     juce::String generateSafeFileName(const juce::String& name);
-
+    
+    // Validation
+    bool validatePresetName(const juce::String& name) const noexcept;
+    bool validateCategory(const juce::String& category) const noexcept;
+    bool validatePresetFile(const juce::File& file) const noexcept;
+    
+    // Error reporting
+    void reportError(ErrorCode code, const juce::String& message) const noexcept;
     
     juce::String currentPresetName = "Default";
     
-    // Store a clean copy of the preset state when a preset is loaded.
-    // This is used to determine if the preset has been modified.
+    // Store a clean copy of the preset state when a preset is loaded
     juce::ValueTree cleanPresetState;
     
     PresetLoadedCallback onPresetLoaded;
+    
+    // Constants
+    static constexpr size_t MAX_PRESET_NAME_LENGTH = 128;
+    static constexpr size_t MAX_CATEGORY_LENGTH = 256;
+    static constexpr juce::int64 MAX_PRESET_FILE_SIZE = 1024 * 1024; // 1MB limit
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetManager)
 };
