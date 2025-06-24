@@ -43,7 +43,7 @@
 namespace ProjectInfo
 {
     const char* const  projectName    = "TremoloViolaVST";
-    const char* const  companyName    = "DeividsHvostovsDSP";
+    const char* const  companyName    = "Acedia Audio";
     const char* const  versionString  = "1.0.0";
     const int          versionNumber  = 0x10000;
 }

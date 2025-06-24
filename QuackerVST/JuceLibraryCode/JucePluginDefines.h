@@ -47,10 +47,10 @@
  #define JucePlugin_Desc                   "TremoloViolaVST"
 #endif
 #ifndef  JucePlugin_Manufacturer
- #define JucePlugin_Manufacturer           "DeividsHvostovsDSP"
+ #define JucePlugin_Manufacturer           "Acedia Audio"
 #endif
 #ifndef  JucePlugin_ManufacturerWebsite
- #define JucePlugin_ManufacturerWebsite    "www.DeividsHvostovsDSP.com"
+ #define JucePlugin_ManufacturerWebsite    "https://acediaaudio.com/"
 #endif
 #ifndef  JucePlugin_ManufacturerEmail
  #define JucePlugin_ManufacturerEmail      "deividshvostovsbusiness@gmail.com"
@@ -110,10 +110,10 @@
  #define JucePlugin_AUManufacturerCode     JucePlugin_ManufacturerCode
 #endif
 #ifndef  JucePlugin_CFBundleIdentifier
- #define JucePlugin_CFBundleIdentifier     com.DeividsHvostovsDSP.TremoloViolaVST
+ #define JucePlugin_CFBundleIdentifier     com.AcediaAudio.TremoloViolaVST
 #endif
 #ifndef  JucePlugin_AAXIdentifier
- #define JucePlugin_AAXIdentifier          com.DeividsHvostovsDSP.TremoloViolaVST
+ #define JucePlugin_AAXIdentifier          com.AcediaAudio.TremoloViolaVST
 #endif
 #ifndef  JucePlugin_AAXManufacturerCode
  #define JucePlugin_AAXManufacturerCode    JucePlugin_ManufacturerCode
@@ -137,7 +137,7 @@
  #define JucePlugin_IAASubType             JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_IAAName
- #define JucePlugin_IAAName                "DeividsHvostovsDSP: Tremolo Viola"
+ #define JucePlugin_IAAName                "Acedia Audio: Tremolo Viola"
 #endif
 #ifndef  JucePlugin_VSTNumMidiInputs
  #define JucePlugin_VSTNumMidiInputs       16
@@ -152,10 +152,10 @@
  #define JucePlugin_ARATransformationFlags  0
 #endif
 #ifndef  JucePlugin_ARAFactoryID
- #define JucePlugin_ARAFactoryID           "com.DeividsHvostovsDSP.TremoloViolaVST.factory"
+ #define JucePlugin_ARAFactoryID           "com.AcediaAudio.TremoloViolaVST.factory"
 #endif
 #ifndef  JucePlugin_ARADocumentArchiveID
- #define JucePlugin_ARADocumentArchiveID   "com.DeividsHvostovsDSP.TremoloViolaVST.aradocumentarchive.1.0.0"
+ #define JucePlugin_ARADocumentArchiveID   "com.AcediaAudio.TremoloViolaVST.aradocumentarchive.1.0.0"
 #endif
 #ifndef  JucePlugin_ARACompatibleArchiveIDs
  #define JucePlugin_ARACompatibleArchiveIDs  ""
