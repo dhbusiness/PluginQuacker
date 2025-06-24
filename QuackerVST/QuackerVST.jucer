@@ -2,8 +2,9 @@
 
 <JUCERPROJECT id="BWX4it" name="TremoloViolaVST" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginName="Tremolo Viola"
-              pluginManufacturer="DeividsHvostovsDSP" companyName="DeividsHvostovsDSP"
-              companyEmail="deividshvostovsbusiness@gmail.com" version="1.0.0">
+              pluginManufacturer="Acedia Audio" companyName="Acedia Audio"
+              companyEmail="deividshvostovsbusiness@gmail.com" version="1.0.0"
+              companyCopyright="&#169; Acedia Audio / Deivids Hvostovs" companyWebsite="https://acediaaudio.com/">
   <MAINGROUP id="rSG9EE" name="TremoloViolaVST">
     <GROUP id="{B40EF9DD-EEAB-0666-6194-7BCBDD2E2388}" name="Source">
       <FILE id="kiAKqr" name="Montserrat-Bold.ttf" compile="0" resource="1"
