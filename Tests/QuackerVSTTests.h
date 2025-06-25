@@ -248,7 +248,7 @@ protected:
         DIAG_LOG("ThreadSafety", "Starting " + testName + " with " + juce::String(numThreads) + " threads");
         
         for (int i = 0; i < numThreads; ++i) {
-            threads.emplace_back([&, i]() {
+            threads.emplace_back([&]() {  // Remove unused capture 'i'
                 try {
                     for (int j = 0; j < 100; ++j) {
                         operation();

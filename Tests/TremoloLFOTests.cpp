@@ -2,7 +2,7 @@
   ==============================================================================
 
     TremoloLFOTests.cpp
-    Unit tests for TremoloLFO class
+    Unit tests for TremoloLFO class (Fixed Version)
     
   ==============================================================================
 */
@@ -81,7 +81,10 @@ private:
             auto error = lfo.setRate(rate);
             expect(error == TremoloLFO::ErrorCode::None, 
                    "Rate " + juce::String(rate) + " should be valid");
-            expectWithinAbsoluteError(lfo.getCurrentEffectiveRate(), rate, 0.001f,
+            
+            // Fix type mismatch: cast double to float for comparison
+            float currentRate = static_cast<float>(lfo.getCurrentEffectiveRate());
+            expectWithinAbsoluteError(currentRate, rate, 0.001f,
                                     "Rate should be set correctly");
         }
         
@@ -204,6 +207,24 @@ private:
                     expect(hasLinearSegments(samples), "Triangle wave should have linear segments");
                     break;
                     
+                // Handle other waveforms if they exist
+                case TremoloLFO::SawtoothUp:
+                case TremoloLFO::SawtoothDown:
+                case TremoloLFO::SoftSquare:
+                case TremoloLFO::Chaos:
+                case TremoloLFO::PerlinNoise:
+                case TremoloLFO::WhiteNoise:
+                case TremoloLFO::PinkNoise:
+                case TremoloLFO::Pendulum:
+                case TremoloLFO::Spring:
+                case TremoloLFO::Elastic:
+                case TremoloLFO::Bounce:
+                case TremoloLFO::Bell:
+                case TremoloLFO::Steps4:
+                case TremoloLFO::Steps8:
+                case TremoloLFO::Steps16:
+                case TremoloLFO::Random:
+                case TremoloLFO::RandomWalk:
                 default:
                     // All waveforms should produce valid output
                     expect(true, "Waveform produces valid output");
@@ -256,8 +277,9 @@ private:
             lfo.setSyncMode(true, division);
             
             double expectedRate = TremoloLFO::bpmToFrequency(bpm, division);
-            expectWithinAbsoluteError(lfo.getCurrentEffectiveRate(), expectedRate, 0.01,
-                "Sync rate should match expected frequency");
+            expectWithinAbsoluteError(static_cast<float>(lfo.getCurrentEffectiveRate()), 
+                                    static_cast<float>(expectedRate), 0.01f,
+                                    "Sync rate should match expected frequency");
         }
         
         // Test manual rate preservation
@@ -277,8 +299,8 @@ private:
         auto lfo = std::make_shared<TremoloLFO>();
         lfo->setSampleRate(44100.0);
         
-        // Test concurrent parameter changes
-        testThreadSafety("Concurrent parameter changes", [lfo]() {
+        // Test concurrent parameter changes using the base class method
+        QuackerTestBase::testThreadSafety("Concurrent parameter changes", [lfo]() {
             lfo->setRate(juce::Random::getSystemRandom().nextFloat() * 20.0f);
             lfo->setDepth(juce::Random::getSystemRandom().nextFloat());
             lfo->setWaveform(static_cast<TremoloLFO::Waveform>(
@@ -286,10 +308,11 @@ private:
         });
         
         // Test concurrent sample generation
-        testThreadSafety("Concurrent sample generation", [lfo]() {
+        QuackerTestBase::testThreadSafety("Concurrent sample generation", [lfo]() {
             for (int i = 0; i < 100; ++i) {
                 float sample = lfo->getNextSample();
                 jassert(sample >= 0.0f && sample <= 1.0f);
+                (void)sample; // Suppress unused variable warning
             }
         });
         

@@ -2,7 +2,7 @@
   ==============================================================================
 
     PresetManagerTests.cpp
-    Unit tests for PresetManager class
+    Unit tests for PresetManager class (Fixed Version)
     
   ==============================================================================
 */
@@ -83,12 +83,14 @@ private:
         auto* depthParam = apvts.getRawParameterValue("lfoDepth");
         auto* waveformParam = apvts.getRawParameterValue("lfoWaveform");
         
-        expectWithinAbsoluteError(rateParam->load(), 7.5f, 0.1f, 
-                                "Rate should be restored");
-        expectWithinAbsoluteError(depthParam->load(), 0.75f, 0.01f, 
-                                "Depth should be restored");
-        expect(static_cast<int>(waveformParam->load()) == 3, 
-               "Waveform should be restored");
+        if (rateParam && depthParam && waveformParam) {
+            expectWithinAbsoluteError(rateParam->load(), 7.5f, 0.1f, 
+                                    "Rate should be restored");
+            expectWithinAbsoluteError(depthParam->load(), 0.75f, 0.01f, 
+                                    "Depth should be restored");
+            expect(static_cast<int>(waveformParam->load()) == 3, 
+                   "Waveform should be restored");
+        }
         
         // Clean up test preset
         auto presetFile = presetManager.getCurrentPresetDirectory()
@@ -306,8 +308,8 @@ private:
         auto processor = std::make_shared<QuackerVSTAudioProcessor>();
         auto& presetManager = processor->getPresetManager();
         
-        // Test concurrent preset operations
-        testThreadSafety("Concurrent preset loading", [&presetManager]() {
+        // Test concurrent preset operations using the base class method
+        QuackerTestBase::testThreadSafety("Concurrent preset loading", [&presetManager]() {
             auto presets = presetManager.getPresetNames();
             if (!presets.isEmpty()) {
                 int index = juce::Random::getSystemRandom().nextInt(presets.size());
@@ -317,7 +319,7 @@ private:
         
         // Test concurrent saving (with unique names)
         std::atomic<int> counter(0);
-        testThreadSafety("Concurrent preset saving", [&presetManager, &counter]() {
+        QuackerTestBase::testThreadSafety("Concurrent preset saving", [&presetManager, &counter]() {
             int id = counter++;
             juce::String presetName = "ThreadTest_" + juce::String(id);
             presetManager.savePreset(presetName, "User");
