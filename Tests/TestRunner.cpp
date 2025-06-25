@@ -7,13 +7,16 @@
   ==============================================================================
 */
 
+// Include JUCE header first
 #include <JuceHeader.h>
-#include "Tests/QuackerVSTTests.h"
 
-// Include all test files
-#include "Tests/TremoloLFOTests.cpp"
-#include "Tests/PresetManagerTests.cpp"
-#include "Tests/PluginProcessorTests.cpp"
+// Then include our test framework
+#include "QuackerVSTTests.h"
+
+// Include test implementations - these will register themselves
+#include "TremoloLFOTests.cpp"
+#include "PresetManagerTests.cpp"
+#include "PluginProcessorTests.cpp"
 
 //==============================================================================
 class TestRunnerApplication : public juce::JUCEApplication
@@ -49,8 +52,11 @@ public:
         // Create test runner
         juce::UnitTestRunner testRunner;
         
-        // Set up console logger
-        ConsoleLogger logger(verboseMode);
+        // Set up console logging
+        if (verboseMode) {
+            std::cout << "Running in verbose mode..." << std::endl;
+        }
+        
         testRunner.setAssertOnFailure(false);
         
         // Run all tests
@@ -80,8 +86,10 @@ public:
                          << result->failures << " failures)" << std::endl;
                 
                 // Print failure messages
-                for (const auto& message : result->messages) {
-                    std::cout << "  - " << message << std::endl;
+                if (verboseMode || result->failures > 0) {
+                    for (const auto& message : result->messages) {
+                        std::cout << "  - " << message << std::endl;
+                    }
                 }
             }
         }
@@ -112,22 +120,6 @@ public:
     }
 
 private:
-    class ConsoleLogger : public juce::Logger
-    {
-    public:
-        ConsoleLogger(bool verbose) : verboseMode(verbose) {}
-        
-        void logMessage(const juce::String& message) override
-        {
-            if (verboseMode || !message.startsWith("JUCE v")) {
-                std::cout << message << std::endl;
-            }
-        }
-        
-    private:
-        bool verboseMode;
-    };
-    
     void generateXMLReport(juce::UnitTestRunner& runner, const juce::String& filename)
     {
         juce::XmlElement xml("testsuites");
