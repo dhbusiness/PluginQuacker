@@ -24,8 +24,8 @@ jobs:
           
       - name: Run Smoke Test
         run: |
-          chmod +x smoke-test.sh
-          ./smoke-test.sh
+          chmod +x smoke-test-simple.sh
+          ./smoke-test-simple.sh
 
   test:
     name: Run Unit Tests
