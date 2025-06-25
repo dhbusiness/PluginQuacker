@@ -9,27 +9,21 @@
 
 #pragma once
 
-// Check if we're using JUCE's CMake (which defines JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED)
-// or Projucer (which creates JuceHeader.h)
-#if __has_include(<JuceHeader.h>)
-    #include <JuceHeader.h>
-#else
-    // Include JUCE modules directly when using CMake
-    #include <juce_audio_basics/juce_audio_basics.h>
-    #include <juce_audio_devices/juce_audio_devices.h>
-    #include <juce_audio_formats/juce_audio_formats.h>
-    #include <juce_audio_processors/juce_audio_processors.h>
-    #include <juce_audio_utils/juce_audio_utils.h>
-    #include <juce_core/juce_core.h>
-    #include <juce_data_structures/juce_data_structures.h>
-    #include <juce_dsp/juce_dsp.h>
-    #include <juce_events/juce_events.h>
-    #include <juce_graphics/juce_graphics.h>
-    #include <juce_gui_basics/juce_gui_basics.h>
-    #include <juce_gui_extra/juce_gui_extra.h>
-#endif
+// Include JUCE modules directly when using CMake
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_dsp/juce_dsp.h>
+#include <juce_events/juce_events.h>
+#include <juce_graphics/juce_graphics.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 
-// Plugin headers - adjust paths based on your setup
+// Plugin headers
 #include "../QuackerVST/Source/PluginProcessor.h"
 #include "../QuackerVST/Source/TremoloLFO.h"
 #include "../QuackerVST/Source/PresetManager.h"
@@ -37,6 +31,8 @@
 #include <chrono>
 #include <fstream>
 #include <sstream>
+#include <thread>
+#include <atomic>
 
 // Diagnostic logger for release builds
 class DiagnosticLogger {
@@ -248,7 +244,7 @@ protected:
         DIAG_LOG("ThreadSafety", "Starting " + testName + " with " + juce::String(numThreads) + " threads");
         
         for (int i = 0; i < numThreads; ++i) {
-            threads.emplace_back([&]() {  // Remove unused capture 'i'
+            threads.emplace_back([&]() {
                 try {
                     for (int j = 0; j < 100; ++j) {
                         operation();

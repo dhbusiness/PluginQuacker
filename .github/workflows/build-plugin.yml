@@ -71,7 +71,7 @@ jobs:
         run: |
           mkdir -p build-tests
           
-      - name: Configure CMake (Primary Attempt)
+      - name: Configure CMake
         working-directory: build-tests
         timeout-minutes: 10
         run: |
@@ -87,11 +87,8 @@ jobs:
               -DJUCE_MODULES_ONLY=OFF
           fi
         shell: bash
-        continue-on-error: true
-        id: cmake_configure
           
-      - name: Build Tests (Primary CMake)
-        if: steps.cmake_configure.outcome == 'success'
+      - name: Build Tests
         working-directory: build-tests
         timeout-minutes: 15
         run: |
@@ -101,87 +98,14 @@ jobs:
             cmake --build . --config Debug --verbose
           fi
         shell: bash
-        continue-on-error: true
-        id: cmake_build
         
-      - name: Try Alternative CMake Configuration
-        if: steps.cmake_configure.outcome == 'failure'
-        working-directory: build-tests
-        timeout-minutes: 10
-        run: |
-          rm -rf * || true
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug \
-              -DUSE_JUCE_CMAKE=OFF \
-              -DJUCE_BUILD_EXTRAS=OFF \
-              -DJUCE_BUILD_EXAMPLES=OFF
-          else
-            cmake .. -G "Visual Studio 17 2022" -A x64 \
-              -DUSE_JUCE_CMAKE=OFF \
-              -DJUCE_BUILD_EXTRAS=OFF \
-              -DJUCE_BUILD_EXAMPLES=OFF
-          fi
-        shell: bash
-        continue-on-error: true
-        id: cmake_configure_alt
-        
-      - name: Build Tests (Alternative CMake)
-        if: steps.cmake_configure_alt.outcome == 'success' && steps.cmake_build.outcome == 'failure'
-        working-directory: build-tests
-        timeout-minutes: 15
-        run: |
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            ninja -v
-          else
-            cmake --build . --config Debug --verbose
-          fi
-        shell: bash
-        continue-on-error: true
-        id: cmake_build_alt
-        
-      - name: Fallback Build (Simple Script)
-        if: |
-          (steps.cmake_configure.outcome == 'failure' || steps.cmake_build.outcome == 'failure') && 
-          (steps.cmake_configure_alt.outcome == 'failure' || steps.cmake_build_alt.outcome == 'failure')
-        run: |
-          echo "CMake builds failed, trying simple build script..."
-          chmod +x build-tests-simple.sh
-          ./build-tests-simple.sh
-        shell: bash
-        id: simple_build
-        
-      - name: Run Unit Tests (Primary CMake build)
-        if: steps.cmake_build.outcome == 'success'
+      - name: Run Unit Tests
         working-directory: build-tests
         run: |
           if [ "${{ runner.os }}" == "macOS" ]; then
             ./QuackerVSTTests --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
           else
             ./Debug/QuackerVSTTests.exe --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
-          fi
-        shell: bash
-        continue-on-error: true
-        
-      - name: Run Unit Tests (Alternative CMake build)
-        if: steps.cmake_build_alt.outcome == 'success' && steps.cmake_build.outcome != 'success'
-        working-directory: build-tests
-        run: |
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            ./QuackerVSTTests --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
-          else
-            ./Debug/QuackerVSTTests.exe --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
-          fi
-        shell: bash
-        continue-on-error: true
-        
-      - name: Run Unit Tests (Simple build)
-        if: steps.simple_build.outcome == 'success'
-        working-directory: build-simple
-        run: |
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            ./QuackerVSTTests --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
-          else
-            ./QuackerVSTTests.exe --verbose --report --output ../test_results.xml || echo "Tests completed with some failures"
           fi
         shell: bash
         continue-on-error: true
@@ -259,22 +183,42 @@ jobs:
           cd $GITHUB_WORKSPACE
           ln -s QuackerVST/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer projucer
       
+      - name: Clean old build artifacts
+        run: |
+          rm -rf QuackerVST/Builds/MacOSX/*.xcodeproj
+          rm -rf QuackerVST/Builds/MacOSX/build
+          
       - name: Resave JUCER file
         run: |
           ./projucer --resave QuackerVST/QuackerVST.jucer
+          
+      - name: List generated projects
+        run: |
+          echo "Contents of Builds/MacOSX:"
+          ls -la QuackerVST/Builds/MacOSX/
        
       - name: Build Plugin
         run: |
           cd QuackerVST/Builds/MacOSX
           
+          # Find the generated xcodeproj
+          PROJECT_FILE=$(find . -name "*.xcodeproj" -type d | head -1)
+          
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Error: No Xcode project found!"
+            exit 1
+          fi
+          
+          echo "Building project: $PROJECT_FILE"
+          
           # Try to get signing identity if available
           if security find-identity -v -p codesigning "$KC_NAME" 2>/dev/null | grep -q "Developer ID Application"; then
             IDENTITY=$(security find-identity -v -p codesigning "$KC_NAME" | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
             echo "Building with code signing: $IDENTITY"
-            xcodebuild -configuration Release CODE_SIGN_IDENTITY="$IDENTITY"
+            xcodebuild -project "$PROJECT_FILE" -configuration Release CODE_SIGN_IDENTITY="$IDENTITY"
           else
             echo "Building without code signing"
-            xcodebuild -configuration Release CODE_SIGN_IDENTITY=""
+            xcodebuild -project "$PROJECT_FILE" -configuration Release CODE_SIGN_IDENTITY=""
           fi
 
       - name: Create artifacts directory and package plugins
@@ -353,14 +297,35 @@ jobs:
           cd $env:GITHUB_WORKSPACE
           echo "PROJUCER_PATH=QuackerVST\JUCE\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe" >> $env:GITHUB_ENV
       
+      - name: Clean old build artifacts
+        run: |
+          Remove-Item -Path "QuackerVST\Builds\VisualStudio2022\*.sln" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "QuackerVST\Builds\VisualStudio2022\*.vcxproj" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "QuackerVST\Builds\VisualStudio2022\x64" -Recurse -Force -ErrorAction SilentlyContinue
+          
       - name: Resave JUCER file
         run: |
           & "$env:PROJUCER_PATH" --resave "QuackerVST\QuackerVST.jucer"
+          
+      - name: List generated projects
+        run: |
+          Write-Host "Contents of Builds\VisualStudio2022:"
+          Get-ChildItem "QuackerVST\Builds\VisualStudio2022\"
        
       - name: Build Plugin
         run: |
           cd "QuackerVST\Builds\VisualStudio2022"
-          msbuild "TremoloViolaVST.sln" /p:Configuration=Release /p:Platform=x64
+          
+          # Find the generated solution file
+          $solutionFile = Get-ChildItem -Filter "*.sln" | Select-Object -First 1
+          
+          if (-not $solutionFile) {
+            Write-Error "No solution file found!"
+            exit 1
+          }
+          
+          Write-Host "Building solution: $($solutionFile.Name)"
+          msbuild "$($solutionFile.Name)" /p:Configuration=Release /p:Platform=x64
       
       - name: Create artifacts directory and package plugins
         run: |
