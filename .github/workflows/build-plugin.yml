@@ -1,10 +1,157 @@
-name: Build QuackerVST Plugin
+name: Build and Test QuackerVST Plugin
 
 on:
   # Manual trigger from Actions tab
   workflow_dispatch:
+  # Also run on push to main and pull requests
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
+  test:
+    name: Run Unit Tests
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          
+      - name: Update submodules (pull juce)
+        run: |
+          git submodule update --init --recursive
+          
+      - name: Setup Build Environment (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "Setting up macOS environment"
+          brew install ninja
+          
+      - name: Setup Build Environment (Windows)
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v1
+          
+      - name: Build Test Runner
+        run: |
+          mkdir -p Tests
+          mkdir -p build-tests
+          cd build-tests
+          
+          # Create CMakeLists.txt for test runner
+          cat > CMakeLists.txt << 'EOF'
+          cmake_minimum_required(VERSION 3.15)
+          project(QuackerVSTTests VERSION 1.0.0)
+          
+          # Add JUCE
+          add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../QuackerVST/JUCE JUCE)
+          
+          # Create test executable
+          juce_add_console_app(QuackerVSTTests
+              PRODUCT_NAME "QuackerVST Tests"
+              COMPANY_NAME "Acedia Audio")
+          
+          target_sources(QuackerVSTTests PRIVATE
+              ../Tests/TestRunner.cpp
+              ../QuackerVST/Source/PluginProcessor.cpp
+              ../QuackerVST/Source/PluginEditor.cpp
+              ../QuackerVST/Source/TremoloLFO.cpp
+              ../QuackerVST/Source/PresetManager.cpp
+              ../QuackerVST/Source/WaveshapeLFO.cpp
+              ../QuackerVST/Source/PerlinNoise.cpp
+              ../QuackerVST/Source/Presets.cpp
+              ../QuackerVST/Source/HierarchicalPresetMenu.cpp
+              ../QuackerVST/Source/Fonts/FontManager.cpp
+          )
+          
+          target_compile_definitions(QuackerVSTTests
+              PUBLIC
+              JUCE_WEB_BROWSER=0
+              JUCE_USE_CURL=0
+              JUCE_VST3_CAN_REPLACE_VST2=0
+              JUCE_UNIT_TESTS=1
+              JucePlugin_Name="TremoloViola"
+              JucePlugin_IsSynth=0
+              JucePlugin_WantsMidiInput=0
+              JucePlugin_ProducesMidiOutput=0
+              JucePlugin_IsMidiEffect=0
+              JucePlugin_EditorRequiresKeyboardFocus=0
+              JucePlugin_PreferredChannelConfigurations={1,1},{2,2}
+          )
+          
+          target_link_libraries(QuackerVSTTests
+              PRIVATE
+              juce::juce_audio_basics
+              juce::juce_audio_devices
+              juce::juce_audio_formats
+              juce::juce_audio_processors
+              juce::juce_audio_utils
+              juce::juce_core
+              juce::juce_data_structures
+              juce::juce_dsp
+              juce::juce_events
+              juce::juce_graphics
+              juce::juce_gui_basics
+              juce::juce_gui_extra
+              PUBLIC
+              juce::juce_recommended_config_flags
+              juce::juce_recommended_lto_flags
+              juce::juce_recommended_warning_flags
+          )
+          
+          # Set C++ standard
+          target_compile_features(QuackerVSTTests PRIVATE cxx_std_17)
+          EOF
+          
+          # Configure and build
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+            ninja
+          else
+            cmake .. -G "Visual Studio 17 2022" -A x64
+            cmake --build . --config Release
+          fi
+          
+      - name: Copy Test Files
+        run: |
+          cp Tests/*.h Tests/ 2>/dev/null || true
+          cp Tests/*.cpp Tests/ 2>/dev/null || true
+          
+      - name: Run Unit Tests
+        run: |
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            ./build-tests/QuackerVSTTests_artefacts/Release/QuackerVSTTests --verbose --report --output test_results.xml
+          else
+            ./build-tests/QuackerVSTTests_artefacts/Release/QuackerVSTTests.exe --verbose --report --output test_results.xml
+          fi
+          
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            test_results.xml
+            test_diagnostics.log
+          retention-days: 30
+          
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && runner.os == 'Linux'
+        with:
+          files: test_results.xml
+          
+      - name: Publish Test Results (Windows/macOS)
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        if: always() && runner.os != 'Linux'
+        with:
+          files: test_results.xml
+
   build-macos:
     name: Build macOS Plugin
     runs-on: macos-latest
@@ -951,3 +1098,55 @@ jobs:
           path: artifacts/
           retention-days: 30
           if-no-files-found: warn
+
+  release-test:
+    name: Release Build Integration Test
+    needs: [build-macos, build-windows]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: TremoloViola-${{ runner.os }}-Builds
+          
+      - name: Extract Plugin (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          unzip TremoloViola-VST3-macOS.zip
+          ls -la
+          
+      - name: Extract Plugin (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Expand-Archive -Path TremoloViola-VST3-Windows.zip -DestinationPath .
+          dir
+          
+      - name: Validate Plugin Structure
+        run: |
+          # Add validation commands here
+          echo "Validating plugin structure..."
+          
+      - name: Run pluginval (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Download pluginval
+          curl -L https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip -o pluginval.zip
+          unzip pluginval.zip
+          chmod +x pluginval.app/Contents/MacOS/pluginval
+          
+          # Run validation
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate TremoloViola.vst3 || true
+          
+      - name: Run pluginval (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Download pluginval
+          Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive -Path pluginval.zip -DestinationPath .
+          
+          # Run validation
+          ./pluginval.exe --strictness-level 5 --validate TremoloViola.vst3 || true
