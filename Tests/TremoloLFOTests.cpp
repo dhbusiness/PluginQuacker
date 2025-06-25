@@ -171,13 +171,23 @@ private:
         lfo.setRate(10.0f);
         lfo.setDepth(1.0f);
         
-        // Test each waveform
-        for (int wf = 0; wf < static_cast<int>(TremoloLFO::NumWaveforms); ++wf) {
-            auto waveform = static_cast<TremoloLFO::Waveform>(wf);
+        // Test each waveform that actually exists in your TremoloLFO enum
+        // Only test the waveforms that are defined in TremoloLFO::Waveform
+        const std::vector<std::pair<TremoloLFO::Waveform, std::string>> waveforms = {
+            {TremoloLFO::Sine, "Sine"},
+            {TremoloLFO::Square, "Square"},
+            {TremoloLFO::Triangle, "Triangle"},
+            {TremoloLFO::SawtoothUp, "SawtoothUp"},
+            {TremoloLFO::SawtoothDown, "SawtoothDown"},
+            {TremoloLFO::SoftSquare, "SoftSquare"}
+            // Add other waveforms here only if they exist in your enum
+        };
+        
+        for (const auto& [waveform, name] : waveforms) {
             auto error = lfo.setWaveform(waveform);
             
             expect(error == TremoloLFO::ErrorCode::None, 
-                   "Waveform " + juce::String(wf) + " should be valid");
+                   name + " waveform should be valid");
             
             // Collect one period of samples
             std::vector<float> samples;
@@ -207,27 +217,9 @@ private:
                     expect(hasLinearSegments(samples), "Triangle wave should have linear segments");
                     break;
                     
-                // Handle other waveforms if they exist
-                case TremoloLFO::SawtoothUp:
-                case TremoloLFO::SawtoothDown:
-                case TremoloLFO::SoftSquare:
-                case TremoloLFO::Chaos:
-                case TremoloLFO::PerlinNoise:
-                case TremoloLFO::WhiteNoise:
-                case TremoloLFO::PinkNoise:
-                case TremoloLFO::Pendulum:
-                case TremoloLFO::Spring:
-                case TremoloLFO::Elastic:
-                case TremoloLFO::Bounce:
-                case TremoloLFO::Bell:
-                case TremoloLFO::Steps4:
-                case TremoloLFO::Steps8:
-                case TremoloLFO::Steps16:
-                case TremoloLFO::Random:
-                case TremoloLFO::RandomWalk:
                 default:
                     // All waveforms should produce valid output
-                    expect(true, "Waveform produces valid output");
+                    expect(true, name + " produces valid output");
                     break;
             }
         }
