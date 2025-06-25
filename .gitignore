@@ -1,1 +1,29 @@
-**/Builds
+# Build directories
+build/
+build-*/
+Builds/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.vcxproj*
+*.sln
+*.user
+
+# Test artifacts
+test_results.xml
+test_diagnostics.log
+*_test_log.txt
+
+# Platform specific
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# JUCE generated files
+JuceLibraryCode/
