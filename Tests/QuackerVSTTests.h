@@ -268,5 +268,3 @@ protected:
         expect(completedThreads == numThreads, testName + " - All threads completed");
     }
 };
-
-#endif // QUACKERVST_TESTS_H

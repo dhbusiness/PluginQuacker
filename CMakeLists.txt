@@ -10,7 +10,12 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/QuackerVST/JUCE/CMakeLists.txt")
     message(FATAL_ERROR "JUCE submodule not found. Please run 'git submodule update --init --recursive'")
 endif()
 
-# Add JUCE
+# Configure JUCE to only build what we need
+set(JUCE_BUILD_EXTRAS OFF CACHE BOOL "Don't build JUCE extras")
+set(JUCE_BUILD_EXAMPLES OFF CACHE BOOL "Don't build JUCE examples")
+set(JUCE_MODULES_ONLY OFF CACHE BOOL "We need more than just modules")
+
+# Add JUCE with minimal configuration
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/QuackerVST/JUCE juce_build)
 
 # Create a JUCE console app for tests
