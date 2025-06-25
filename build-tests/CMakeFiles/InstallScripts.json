@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/deividshvostovs/Desktop/Coding/PluginQuacker/build-tests/cmake_install.cmake",
+		"/Users/deividshvostovs/Desktop/Coding/PluginQuacker/build-tests/juce_build/cmake_install.cmake",
+		"/Users/deividshvostovs/Desktop/Coding/PluginQuacker/build-tests/juce_build/modules/cmake_install.cmake",
+		"/Users/deividshvostovs/Desktop/Coding/PluginQuacker/build-tests/juce_build/extras/Build/cmake_install.cmake",
+		"/Users/deividshvostovs/Desktop/Coding/PluginQuacker/build-tests/juce_build/extras/Build/juceaide/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
