@@ -16,7 +16,7 @@
 // Include test implementations - these will register themselves
 #include "TremoloLFOTests.cpp"
 #include "PresetManagerTests.cpp"
-#include "PluginProcessorTests.cpp"
+#include "PluginProcessorTests_Fixed.cpp"
 
 //==============================================================================
 class TestRunnerApplication : public juce::JUCEApplication

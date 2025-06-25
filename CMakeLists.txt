@@ -30,7 +30,13 @@ set(TEST_SOURCES
     Tests/TestRunner.cpp
     Tests/TremoloLFOTests.cpp
     Tests/PresetManagerTests.cpp
-    Tests/PluginProcessorTests.cpp
+    Tests/PluginProcessorTests_Fixed.cpp
+)
+
+# Test headers (for dependency tracking)
+set(TEST_HEADERS
+    Tests/QuackerVSTTests.h
+    Tests/TestProcessorWrapper.h
 )
 
 # Plugin source files (core functionality only, no UI for tests)
