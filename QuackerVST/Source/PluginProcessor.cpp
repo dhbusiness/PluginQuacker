@@ -446,9 +446,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "LFO Rate",
         juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f),
         1.0f,
-        "Hz",
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(value, 2) + " Hz"; },
+        [](float value, int) { return juce::String(value, 2) + " Hz"; }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(0.01f, 25.0f, text.getFloatValue());
         }
@@ -461,9 +461,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "LFO Depth",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
         0.5f,
-        "%",
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(int(value * 100)) + "%"; },
+        [](float value, int) { return juce::String(int(value * 100)) + "%"; }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(0.0f, 1.0f, text.getFloatValue() / 100.0f);
         }
@@ -508,9 +508,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "LFO Phase Offset",
         juce::NormalisableRange<float>(-180.0f, 180.0f, 1.0f),
         0.0f,
-        juce::String(juce::CharPointer_UTF8(" °")),
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(int(value)) + juce::String(juce::CharPointer_UTF8("°")); },
+        [](float value, int) { return juce::String(int(value)) + juce::String(juce::CharPointer_UTF8("°")); }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(-180.0f, 180.0f, text.getFloatValue());
         }
@@ -523,9 +523,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "Mix",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
         1.0f,
-        "%",
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(int(value * 100)) + "%"; },
+        [](float value, int) { return juce::String(int(value * 100)) + "%"; }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(0.0f, 1.0f, text.getFloatValue() / 100.0f);
         }
@@ -546,23 +546,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout QuackerVSTAudioProcessor::cr
         "Waveshape Rate",
         juce::NormalisableRange<float>(0.01f, 25.0f, 0.001f, 0.3f),
         1.0f,
-        "Hz",
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(value, 2) + " Hz"; },
+        [](float value, int) { return juce::String(value, 2) + " Hz"; }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(0.01f, 25.0f, text.getFloatValue());
         }
     );
     waveshapeGroup->addChild(std::move(waveshapeRateParam));
-
+    
     auto waveshapeDepthParam = std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID("waveshapeDepth", 1),
         "Waveshape Depth",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
         0.0f,
-        "%",
+        "",
         juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String(int(value * 100)) + "%"; },
+        [](float value, int) { return juce::String(int(value * 100)) + "%"; }, // Keep suffix here
         [](const juce::String& text) {
             return juce::jlimit(0.0f, 1.0f, text.getFloatValue() / 100.0f);
         }

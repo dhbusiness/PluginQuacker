@@ -58,20 +58,17 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     addAndMakeVisible(lfoRateSlider);
     
     // Add a lambda function to format the text display nicely
-    lfoRateSlider.setTextValueSuffix(" Hz");
+    //lfoRateSlider.setTextValueSuffix(" Hz");
     lfoRateSlider.onValueChange = [this]() {
         float value = lfoRateSlider.getValue();
         if (value < 0.1f) {
-            // Show more decimal places for very low frequencies
-            lfoRateSlider.setTextValueSuffix(" Hz");
             lfoRateSlider.setNumDecimalPlacesToDisplay(3);
         } else if (value < 1.0f) {
-            lfoRateSlider.setTextValueSuffix(" Hz");
             lfoRateSlider.setNumDecimalPlacesToDisplay(2);
         } else {
-            lfoRateSlider.setTextValueSuffix(" Hz");
             lfoRateSlider.setNumDecimalPlacesToDisplay(1);
         }
+        // Remove all the setTextValueSuffix(" Hz") calls from here - they're already handled by the parameter
     };
 
     lfoDepthSlider.setSliderStyle(juce::Slider::Rotary);
@@ -136,7 +133,7 @@ QuackerVSTAudioProcessorEditor::QuackerVSTAudioProcessorEditor (QuackerVSTAudioP
     lfoPhaseOffsetSlider.setSliderStyle(juce::Slider::Rotary);
     lfoPhaseOffsetSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 20);
     lfoPhaseOffsetSlider.setRange(-180.0, 180.0, 1.0);
-    lfoPhaseOffsetSlider.setTextValueSuffix(juce::CharPointer_UTF8(" °"));
+    //lfoPhaseOffsetSlider.setTextValueSuffix(juce::CharPointer_UTF8(" °"));
     addAndMakeVisible(lfoPhaseOffsetSlider);
     
     mixSlider.setSliderStyle(juce::Slider::Rotary);
