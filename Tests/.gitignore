@@ -1,0 +1,27 @@
+# Build directories
+Builds/*/
+!Builds/.gitkeep
+
+# Compiled binaries
+*.exe
+*.app
+*.dSYM/
+
+# IDE files
+.vs/
+.vscode/
+*.xcuserstate
+*.xcworkspace
+
+# Temporary files
+*.tmp
+*.log
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test results
+test_results.xml
+*.junit.xml
